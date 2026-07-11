@@ -1,0 +1,6 @@
+.antigravity/settings.local.json
+node_modules/
+.env
+dist/
+build/
+*.log

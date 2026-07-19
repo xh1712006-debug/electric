@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block header_title %}Bàn làm việc Điều phối (Dispatcher){% endblock %}
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-gradient-to-r from-amber-500 to-amber-600 rounded-2xl p-6 shadow text-white flex justify-between items-center hover:shadow-lg transition-all">
+        <div><p class="text-amber-100 mb-1">Phiếu từ A0 (Chờ Rà soát)</p><h3 class="text-4xl font-black">{{ issued_count }}</h3></div>
+        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-xl"><i class="fas fa-search"></i></div>
+    </div>
+    <div class="bg-white rounded-2xl p-6 shadow border flex justify-between items-center hover:shadow-md transition-all border-l-4 border-l-blue-500">
+        <div><p class="text-slate-500 mb-1">Đã Rà soát (Chờ Giao KTV)</p><h3 class="text-3xl font-black text-blue-600">{{ reviewed_count }}</h3></div>
+        <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center text-xl"><i class="fas fa-user-tag"></i></div>
+    </div>
+    <div class="bg-white rounded-2xl p-6 shadow border flex justify-between items-center hover:shadow-md transition-all border-l-4 border-l-emerald-500">
+        <div><p class="text-slate-500 mb-1">KTV Đang Thi Công</p><h3 class="text-3xl font-black text-emerald-600">{{ received_count }}</h3></div>
+        <div class="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center text-xl"><i class="fas fa-hard-hat"></i></div>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white rounded-2xl p-6 shadow border">
+        <h3 class="text-lg font-bold mb-4">Theo dõi Tiến trình Phiếu</h3>
+        <div class="space-y-3">
+            {% for sheet in tracking_sheets %}
+            <div class="p-3 border rounded-lg flex justify-between items-center bg-slate-50 hover:bg-white transition-colors">
+                <div>
+                    <span class="font-semibold text-blue-700">#{{ sheet.sheet_code }}</span>
+                    <span class="text-xs ml-2 px-2 py-0.5 rounded-full {% if sheet.status == 'ISSUED' %}bg-amber-100 text-amber-700{% elif sheet.status == 'REVIEWED' %}bg-blue-100 text-blue-700{% else %}bg-emerald-100 text-emerald-700{% endif %}">{{ sheet.get_status_display }}</span>
+                    {% if sheet.assigned_to %}
+                    <p class="text-sm mt-1 text-slate-600"><i class="fas fa-user-hard-hat w-5 text-slate-400"></i> KTV: {{ sheet.assigned_to.get_full_name|default:sheet.assigned_to.username }}</p>
+                    {% endif %}
+                </div>
+                <a href="{% url 'sheet_detail' sheet.id %}" class="text-slate-400 hover:text-blue-600 p-2"><i class="fas fa-chevron-right"></i></a>
+            </div>
+            {% empty %}
+            <p class="text-slate-500 italic">Không có phiếu nào đang xử lý.</p>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="bg-white rounded-2xl p-6 shadow border">
+        <h3 class="text-lg font-bold mb-4">Nhật ký Hệ thống</h3>
+        <div class="space-y-4">
+            {% for act in recent_activities %}
+            <div class="flex gap-3">
+                <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0"><i class="fas fa-history"></i></div>
+                <div>
+                    <p class="text-sm"><span class="font-semibold">{{ act.signer_name }}</span> đã thực hiện ký số phiếu <a href="{% url 'sheet_detail' act.sheet.id %}" class="text-blue-600 font-medium">#{{ act.sheet.sheet_code }}</a></p>
+                    <p class="text-xs text-slate-500">{{ act.signed_at|date:"d/m/Y H:i" }}</p>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-slate-500 italic">Chưa có hoạt động nào.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

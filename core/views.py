@@ -8,72 +8,28 @@ from sheets.models import SettingSheet
 
 @login_required
 def dashboard(request):
-    """Trang chủ hiển thị thống kê tổng quan."""
-    # Check if user is technician
-    is_technician = request.user.groups.filter(name='TECHNICIAN').exists()
+    """Trang chủ hiển thị thống kê tổng quan theo Role."""
+    from django.db.models import Count
+    from django.db.models.functions import TruncDate
+    from django.utils import timezone
+    import datetime
+    from sheets.models import SignatureRecord
+    from django.contrib.auth.models import User
+    from stations.models import Station
     
-    if is_technician:
-        # KTV Dashboard logic
-        assigned_sheets = SettingSheet.objects.filter(assigned_to=request.user)
-        new_sheets = assigned_sheets.filter(status='TRANSFERRED').count()
-        in_progress = assigned_sheets.filter(status='RECEIVED').count()
-        completed = assigned_sheets.filter(status__in=['COMPLETED', 'REVIEWED']).count() # Hoặc các trạng thái đã xong việc của KTV
-        
-        # Danh sách phiếu mới nhất cần xử lý
-        recent_sheets = assigned_sheets.exclude(status='COMPLETED').order_by('-created_at')[:5]
-        
-        from django.db.models import Count
-        from django.db.models.functions import TruncDate
-        from django.utils import timezone
-        import datetime
-        from sheets.models import SignatureRecord
-
-        # KTV Activities
-        recent_activities = SignatureRecord.objects.filter(signer_name=request.user.get_full_name() or request.user.username).select_related('sheet').order_by('-signed_at')[:5]
-        
-        # Doughnut Chart for KTV
-        status_counts = assigned_sheets.values('status').annotate(count=Count('id'))
-        status_dict = {item['status']: item['count'] for item in status_counts}
-        
-        doughnut_data = [
-            status_dict.get('TRANSFERRED', 0),
-            status_dict.get('RECEIVED', 0),
-            status_dict.get('PENDING_REVIEW', 0) + status_dict.get('COMPLETED', 0)
-        ]
-        
-        context = {
-            'new_sheets': new_sheets,
-            'in_progress': in_progress,
-            'completed': completed,
-            'recent_sheets': recent_sheets,
-            'doughnut_data': doughnut_data,
-            'recent_activities': recent_activities
-        }
-        return render(request, 'core/dashboard_technician.html', context)
-        
-    else:
-        # Admin / Dispatcher / A0 Dashboard logic
-        from django.db.models import Count
-        from django.db.models.functions import TruncDate
-        from django.utils import timezone
-        import datetime
-        from sheets.models import SignatureRecord
-
+    user = request.user
+    
+    # 1. ADMIN
+    if user.is_superuser or user.groups.filter(name='ADMIN').exists():
         total_sheets = SettingSheet.objects.count()
-        draft_sheets = SettingSheet.objects.filter(status='DRAFT').count()
-        completed_sheets = SettingSheet.objects.filter(status='COMPLETED').count()
+        total_users = User.objects.count()
+        total_stations = Station.objects.count()
         pending_review = SettingSheet.objects.filter(status='PENDING_REVIEW').count()
         
-        # Calculate chart data for last 7 days
+        # Chart Data
         today = timezone.now().date()
         week_ago = today - datetime.timedelta(days=6)
-        
-        daily_counts = SettingSheet.objects.filter(created_at__date__gte=week_ago) \
-            .annotate(date=TruncDate('created_at')) \
-            .values('date') \
-            .annotate(count=Count('id')) \
-            .order_by('date')
-            
+        daily_counts = SettingSheet.objects.filter(created_at__date__gte=week_ago).annotate(date=TruncDate('created_at')).values('date').annotate(count=Count('id')).order_by('date')
         count_dict = {str(item['date']): item['count'] for item in daily_counts}
         
         chart_labels = []
@@ -83,31 +39,92 @@ def dashboard(request):
             chart_labels.append(d.strftime('%d/%m'))
             chart_data.append(count_dict.get(str(d), 0))
             
-        # Status distribution for Doughnut Chart
-        status_counts = SettingSheet.objects.values('status').annotate(count=Count('id'))
-        status_dict = {item['status']: item['count'] for item in status_counts}
-        doughnut_data = [
-            status_dict.get('DRAFT', 0),
-            status_dict.get('ISSUED', 0) + status_dict.get('TRANSFERRED', 0),
-            status_dict.get('RECEIVED', 0),
-            status_dict.get('PENDING_REVIEW', 0),
-            status_dict.get('COMPLETED', 0)
-        ]
-        
-        # Recent Activities
         recent_activities = SignatureRecord.objects.select_related('sheet').order_by('-signed_at')[:5]
         
         context = {
-            'total_sheets': total_sheets,
-            'draft_sheets': draft_sheets,
-            'completed_sheets': completed_sheets,
-            'pending_review': pending_review,
-            'chart_labels': chart_labels,
-            'chart_data': chart_data,
-            'doughnut_data': doughnut_data,
-            'recent_activities': recent_activities
+            'total_sheets': total_sheets, 'total_users': total_users, 'total_stations': total_stations, 'pending_review': pending_review,
+            'chart_labels': chart_labels, 'chart_data': chart_data, 'recent_activities': recent_activities
         }
-        return render(request, 'core/dashboard.html', context)
+        return render(request, 'core/dashboard_admin.html', context)
+        
+    # 2. A0A1 (Người tạo phiếu)
+    elif user.groups.filter(name='A0A1').exists():
+        created_today = SettingSheet.objects.filter(created_at__date=timezone.now().date()).count()
+        total_active = SettingSheet.objects.exclude(status__in=['COMPLETED', 'DRAFT']).count()
+        
+        status_counts = SettingSheet.objects.values('status').annotate(count=Count('id'))
+        status_dict = {item['status']: item['count'] for item in status_counts}
+        doughnut_data = [
+            status_dict.get('ISSUED', 0),
+            status_dict.get('COMPLETED', 0),
+            status_dict.get('TRANSFERRED', 0) + status_dict.get('RECEIVED', 0)
+        ]
+        
+        recent_sheets = SettingSheet.objects.all().order_by('-created_at')[:5]
+        
+        context = {
+            'created_today': created_today, 'total_active': total_active,
+            'doughnut_data': doughnut_data, 'recent_sheets': recent_sheets
+        }
+        return render(request, 'core/dashboard_a0.html', context)
+
+    # 3. DISPATCHER (Rà soát & Giao việc)
+    elif user.groups.filter(name='DISPATCHER').exists():
+        issued_count = SettingSheet.objects.filter(status='ISSUED').count() # Chờ rà soát
+        reviewed_count = SettingSheet.objects.filter(status='REVIEWED').count() # Chờ giao KTV
+        received_count = SettingSheet.objects.filter(status='RECEIVED').count() # KTV đang làm
+        
+        tracking_sheets = SettingSheet.objects.filter(status__in=['ISSUED', 'REVIEWED', 'TRANSFERRED', 'RECEIVED']).order_by('-created_at')[:5]
+        recent_activities = SignatureRecord.objects.select_related('sheet').order_by('-signed_at')[:5]
+        
+        context = {
+            'issued_count': issued_count, 'reviewed_count': reviewed_count, 'received_count': received_count,
+            'tracking_sheets': tracking_sheets, 'recent_activities': recent_activities
+        }
+        return render(request, 'core/dashboard_dispatcher.html', context)
+
+    # 4. SUPERVISOR
+    elif user.groups.filter(name='SUPERVISOR').exists():
+        # Lọc các trạm mà supervisor quản lý (giả sử tất cả trạm tạm thời nếu chưa mapping)
+        stations_count = Station.objects.count()
+        active_techs = User.objects.filter(groups__name='TECHNICIAN').count()
+        pending_supervision = SettingSheet.objects.filter(status='RECEIVED').count()
+        
+        recent_sheets = SettingSheet.objects.filter(status__in=['RECEIVED', 'PENDING_REVIEW']).order_by('-created_at')[:5]
+        
+        context = {
+            'stations_count': stations_count, 'active_techs': active_techs, 'pending_supervision': pending_supervision,
+            'recent_sheets': recent_sheets
+        }
+        return render(request, 'core/dashboard_supervisor.html', context)
+
+    # 5. TECHNICIAN
+    elif user.groups.filter(name='TECHNICIAN').exists():
+        assigned_sheets = SettingSheet.objects.filter(assigned_to=request.user)
+        new_sheets = assigned_sheets.filter(status='TRANSFERRED').count()
+        in_progress = assigned_sheets.filter(status='RECEIVED').count()
+        completed = assigned_sheets.filter(status__in=['COMPLETED', 'REVIEWED']).count()
+        
+        recent_sheets = assigned_sheets.exclude(status='COMPLETED').order_by('-created_at')[:5]
+        recent_activities = SignatureRecord.objects.filter(signer_name=request.user.get_full_name() or request.user.username).select_related('sheet').order_by('-signed_at')[:5]
+        
+        status_counts = assigned_sheets.values('status').annotate(count=Count('id'))
+        status_dict = {item['status']: item['count'] for item in status_counts}
+        doughnut_data = [
+            status_dict.get('TRANSFERRED', 0),
+            status_dict.get('RECEIVED', 0),
+            status_dict.get('PENDING_REVIEW', 0) + status_dict.get('COMPLETED', 0)
+        ]
+        
+        context = {
+            'new_sheets': new_sheets, 'in_progress': in_progress, 'completed': completed,
+            'recent_sheets': recent_sheets, 'doughnut_data': doughnut_data, 'recent_activities': recent_activities
+        }
+        return render(request, 'core/dashboard_technician.html', context)
+        
+    else:
+        return render(request, 'core/dashboard.html', {})
+
 
 @login_required
 @permission_required('sheets.can_manage_users', raise_exception=True)

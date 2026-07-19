@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block header_title %}Không gian Khởi tạo & Quản lý Dữ liệu (A0/A1){% endblock %}
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-6 shadow text-white flex justify-between items-center">
+        <div><p class="text-blue-100 mb-1">Phiếu Đã Tạo Hôm Nay</p><h3 class="text-4xl font-black">{{ created_today }}</h3></div>
+        <i class="fas fa-plus-circle text-5xl opacity-50"></i>
+    </div>
+    <div class="bg-white rounded-2xl p-6 shadow border flex justify-between items-center">
+        <div><p class="text-slate-500 mb-1">Phiếu Đang Xử Lý Mạch</p><h3 class="text-4xl font-black text-amber-600">{{ total_active }}</h3></div>
+        <i class="fas fa-sync text-5xl text-amber-100"></i>
+    </div>
+    <div class="bg-white rounded-2xl p-6 shadow border flex justify-between items-center group cursor-pointer hover:border-blue-300" onclick="window.location.href='{% url 'station_list' %}'">
+        <div><p class="text-slate-500 mb-1">Quản lý CSDL Trạm</p><h3 class="text-xl font-bold text-slate-800">Truy cập ngay</h3></div>
+        <i class="fas fa-database text-4xl text-slate-200 group-hover:text-blue-500 transition-colors"></i>
+    </div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="bg-white rounded-2xl p-6 shadow border">
+        <h3 class="text-lg font-bold mb-4">Tỷ lệ Trạng thái Phiếu</h3>
+        <canvas id="doughnutChart"></canvas>
+    </div>
+    <div class="lg:col-span-2 bg-white rounded-2xl p-6 shadow border">
+        <h3 class="text-lg font-bold mb-4 text-blue-600"><i class="fas fa-list mr-2"></i>Phiếu Vừa Khởi Tạo</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead><tr class="border-b"><th class="py-2">Mã Phiếu</th><th>Trạm</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead>
+                <tbody>
+                    {% for sheet in recent_sheets %}
+                    <tr class="border-b hover:bg-slate-50">
+                        <td class="py-3 font-semibold text-blue-600">{{ sheet.sheet_code }}</td>
+                        <td>{{ sheet.station.name|default:"-" }}</td>
+                        <td class="text-slate-500">{{ sheet.created_at|date:"d/m/Y H:i" }}</td>
+                        <td><a href="{% url 'sheet_detail' sheet.id %}" class="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Chi tiết</a></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="py-4 text-center text-slate-500">Chưa có phiếu nào được tạo.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<script>
+    new Chart(document.getElementById('doughnutChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Mới tạo (Chờ Rà soát)', 'Đã Hoàn Thành', 'Đang Thi Công'],
+            datasets: [{ data: {{ doughnut_data|safe }}, backgroundColor: ['#f59e0b', '#10b981', '#3b82f6'] }]
+        }
+    });
+</script>
+{% endblock %}

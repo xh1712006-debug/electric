@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-
+{% load auth_extras %}
 {% block title %}Quản lý Trạm | RMS{% endblock %}
 {% block header_title %}Cơ sở Dữ liệu Trạm biến áp & Rơ-le{% endblock %}
 
@@ -11,12 +11,14 @@
             <p class="text-sm text-slate-500 mt-1">Quản lý phân cấp Trạm > Ngăn lộ > Rơ-le bảo vệ</p>
         </div>
         <div class="flex gap-2">
+            {% if request.user|has_group:'ADMIN' or request.user|has_group:'A0A1' %}
             <button @click="showGlobalBulkModal = true" class="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 transition-colors shadow-sm border border-amber-600">
                 <i class="fas fa-bolt mr-1"></i> Nhập Liệu Toàn Cục
             </button>
             <button @click="showStationModal = true" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
                 <i class="fas fa-plus mr-1"></i> Thêm Trạm mới
             </button>
+            {% endif %}
         </div>
     </div>
 
@@ -65,9 +67,11 @@
                         <p class="text-xs text-slate-500 mt-1">Mã trạm: {{ station.station_code }} | Vị trí: {{ station.location|default:"-" }}</p>
                     </div>
                 </div>
+                {% if request.user|has_group:'ADMIN' or request.user|has_group:'A0A1' %}
                 <button @click.stop="activeStationId = {{ station.pk }}; showBayModal = true" class="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 hover:text-blue-600 hover:border-blue-400 rounded text-xs font-semibold transition-colors shadow-sm">
                     <i class="fas fa-plus mr-1"></i> Thêm Ngăn lộ
                 </button>
+                {% endif %}
             </div>
             
             <div class="p-4 bg-white space-y-4" x-show="expandedStation" style="display: none;">

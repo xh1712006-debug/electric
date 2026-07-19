@@ -24,11 +24,12 @@ Dự án được xây dựng trên nền tảng **Django (Python)** kết hợp
 - **Trục tiến trình (Stepper):** Trực quan hóa tiến độ Ký số với các biểu tượng thay đổi theo trạng thái.
 
 ### 3. Phân quyền & Vai trò (Role-based Access Control - RBAC)
-Hệ thống chuẩn hóa 4 Vai trò chính:
+Hệ thống chuẩn hóa 5 Vai trò chính:
 - **Quản trị viên (Admin):** Toàn quyền kiểm soát hệ thống.
-- **Điều độ A0/A1 (Dispatcher):** Lập phiếu, ra soát và duyệt cuối cùng.
-- **Giám sát trạm (Supervisor):** Giám sát tại trạm và ký xác nhận mức độ 2.
-- **Kỹ thuật viên (Technician):** Thực hiện cấu hình Rơ-le dưới trạm.
+- **Điều độ A0/A1 (Người tạo phiếu):** Khởi tạo phiếu mới, chạy AI OCR và quản lý CSDL Trạm/Thiết bị.
+- **Điều phối viên (Gộp Rà soát & Điều độ):** Rà soát tính hợp lệ của phiếu từ A0/A1 và Phân công/Giao việc cho KTV.
+- **Giám sát trạm (Supervisor):** Giám sát tại trạm, rà soát thông số KTV vừa nhập và ký xác nhận nghiệm thu.
+- **Kỹ thuật viên (Technician):** Trực tiếp xuống trạm thực hiện cấu hình Rơ-le và ký số hoàn thành.
 
 ### 4. Giao diện (UI/UX) Chuẩn mực & Tối ưu
 - Ngôn ngữ: 100% Tiếng Việt.

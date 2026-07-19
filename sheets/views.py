@@ -23,17 +23,23 @@ def sheet_list(request):
         sheets = sheets.filter(sheet_code__icontains=search_query)
         
     if status_filter:
-        sheets = sheets.filter(status=status_filter)
+        sheets = sheets.filter(status__in=status_filter.split(','))
 
     paginator = Paginator(sheets, 40)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
+    list_title = 'Tất cả Phiếu Chỉnh định'
+    if status_filter == 'COMPLETED':
+        list_title = 'Hồ sơ Đã Ban hành'
+    elif status_filter == 'PENDING_REVIEW':
+        list_title = 'Phiếu Chờ Ký Duyệt'
+
     context = {
         'sheets': page_obj,
         'search_query': search_query,
         'status_filter': status_filter,
-        'list_title': 'Tất cả Phiếu Chỉnh định'
+        'list_title': list_title
     }
     return render(request, 'sheets/sheet_list.html', context)
 
@@ -43,7 +49,7 @@ def my_sheets(request):
     # Lấy các phiếu do mình tạo hoặc được assign cho mình
     from django.db.models import Q
     sheets = SettingSheet.objects.filter(
-        Q(created_by=request.user) | Q(assigned_to=request.user)
+        Q(created_by=request.user) | Q(assigned_to=request.user) | Q(supervisor_assigned=request.user)
     ).order_by('-created_at')
     
     search_query = request.GET.get('q', '')
@@ -55,7 +61,7 @@ def my_sheets(request):
         sheets = sheets.filter(sheet_code__icontains=search_query)
         
     if status_filter:
-        sheets = sheets.filter(status=status_filter)
+        sheets = sheets.filter(status__in=status_filter.split(','))
 
     paginator = Paginator(sheets, 40)
     page_number = request.GET.get('page', 1)
@@ -124,6 +130,7 @@ def sheet_detail(request, pk):
     reviewers = User.objects.filter(groups__name='REVIEWER')
     dispatchers = User.objects.filter(groups__name='DISPATCHER')
     technicians = User.objects.filter(groups__name='TECHNICIAN')
+    supervisors = User.objects.filter(groups__name='SUPERVISOR')
     
     tech_sig = sheet.signatures.filter(role='TECHNICIAN').first()
     sup_sig = sheet.signatures.filter(role='SUPERVISOR').first()
@@ -135,6 +142,7 @@ def sheet_detail(request, pk):
         'reviewers': reviewers,
         'dispatchers': dispatchers,
         'technicians': technicians,
+        'supervisors': supervisors,
         'tech_sig': tech_sig,
         'sup_sig': sup_sig,
         'a0_sig': a0_sig
@@ -143,25 +151,52 @@ def sheet_detail(request, pk):
 
 @login_required
 def sheet_assign(request, pk):
-    """View API dùng HTMX để giao phiếu cho người khác."""
+    """View để Dispatcher phân công phiếu cho KTV và Giám sát."""
     if request.method == 'POST':
         sheet = get_object_or_404(SettingSheet, pk=pk)
         assignee_id = request.POST.get('assignee_id')
+        supervisor_id = request.POST.get('supervisor_id')
         new_status = request.POST.get('status')
         
         from django.contrib.auth.models import User
         if assignee_id:
-            user = get_object_or_404(User, pk=assignee_id)
-            sheet.assigned_to = user
-        else:
-            sheet.assigned_to = None
+            sheet.assigned_to = User.objects.get(pk=assignee_id)
+        if supervisor_id:
+            sheet.supervisor_assigned = User.objects.get(pk=supervisor_id)
             
         valid_statuses = [s[0] for s in SettingSheet.STATUS_CHOICES]
         if new_status in valid_statuses:
             sheet.status = new_status
-            
         sheet.save()
-        messages.success(request, f"Đã giao phiếu cho {sheet.assigned_to.first_name or sheet.assigned_to.username if sheet.assigned_to else 'Không ai'}")
+        
+        # --- Send real-time notifications via Channels ---
+        try:
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                if assignee_id:
+                    async_to_sync(channel_layer.group_send)(
+                        f"user_{assignee_id}",
+                        {
+                            "type": "send_notification",
+                            "title": "Nhiệm vụ Mới",
+                            "message": f"Điều phối viên vừa phân công Phiếu {sheet.sheet_code} cho bạn."
+                        }
+                    )
+                if supervisor_id:
+                    async_to_sync(channel_layer.group_send)(
+                        f"user_{supervisor_id}",
+                        {
+                            "type": "send_notification",
+                            "title": "Nhiệm vụ Giám sát",
+                            "message": f"Bạn được chỉ định giám sát Phiếu {sheet.sheet_code}."
+                        }
+                    )
+        except Exception as e:
+            print("Channels error:", e)
+            
+        messages.success(request, f"Đã phân công phiếu {sheet.sheet_code} thành công!")
         return redirect('sheet_detail', pk=pk)
     return redirect('sheet_list')
 
@@ -296,5 +331,36 @@ def run_mock_ocr(request, pk):
         sheet = get_object_or_404(SettingSheet, pk=pk)
         time.sleep(1.5)
         perform_mock_ocr(sheet)
+        return redirect('sheet_detail', pk=pk)
+    return redirect('sheet_list')
+
+@login_required
+def sheet_save_actual_data(request, pk):
+    """View cho phép KTV lưu thông số thực tế vào extracted_data JSON"""
+    if request.method == 'POST':
+        sheet = get_object_or_404(SettingSheet, pk=pk)
+        
+        # Chỉ KTV đang được giao phiếu mới có quyền lưu (bảo mật)
+        if sheet.assigned_to == request.user and sheet.status in ['RECEIVED', 'TRANSFERRED']:
+            if sheet.extracted_data:
+                # Update actual_value for each item in the extracted_data list
+                updated_data = []
+                for index, item in enumerate(sheet.extracted_data):
+                    actual_val = request.POST.get(f'actual_value_{index}')
+                    if actual_val is not None and actual_val.strip() != '':
+                        try:
+                            item['actual_value'] = float(actual_val)
+                        except ValueError:
+                            pass # Bỏ qua nếu nhập không phải là số hợp lệ
+                    updated_data.append(item)
+                
+                sheet.extracted_data = updated_data
+                sheet.save()
+                messages.success(request, 'Đã cập nhật thông số thực tế thành công!')
+            else:
+                messages.error(request, 'Phiếu chưa có dữ liệu thiết kế để cập nhật.')
+        else:
+            messages.error(request, 'Bạn không có quyền cập nhật thông số cho phiếu này.')
+            
         return redirect('sheet_detail', pk=pk)
     return redirect('sheet_list')

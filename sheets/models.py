@@ -18,6 +18,7 @@ class SettingSheet(models.Model):
     
     created_by = models.ForeignKey('auth.User', related_name='created_sheets', on_delete=models.SET_NULL, null=True)
     assigned_to = models.ForeignKey('auth.User', related_name='assigned_sheets', on_delete=models.SET_NULL, null=True, blank=True)
+    supervisor_assigned = models.ForeignKey('auth.User', related_name='supervised_sheets', on_delete=models.SET_NULL, null=True, blank=True)
     
     relay = models.ForeignKey(Relay, on_delete=models.SET_NULL, null=True, blank=True)
     relay_text = models.CharField(max_length=255, null=True, blank=True)

@@ -15,8 +15,9 @@
 {% block content %}
 <div class="h-full flex flex-col md:flex-row gap-6">
     
+    {% if not request.user|has_group:'TECHNICIAN' and not request.user|has_group:'SUPERVISOR' %}
     <!-- Left Column: Document Viewer (Split View 60%) -->
-    <div class="w-full md:w-3/5 bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden flex flex-col h-[calc(100vh-8rem)]">
+    <div class="w-full md:w-3/5 bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden flex flex-col h-[calc(100vh-8rem)] shrink-0">
         <div class="h-12 bg-slate-900 flex items-center justify-between px-4 border-b border-slate-700">
             <span class="text-slate-300 text-sm font-medium"><i class="fas fa-file-pdf text-red-400 mr-2"></i> Bản scan gốc</span>
             <div class="flex gap-2">
@@ -39,9 +40,11 @@
             {% endif %}
         </div>
     </div>
+    {% endif %}
 
-    <!-- Right Column: Metadata & Form (Split View 40%) -->
-    <div class="w-full md:w-2/5 flex flex-col h-[calc(100vh-8rem)] overflow-hidden" x-data="{ activeTab: 'ocr' }">
+    <!-- Right Column: Metadata & Form -->
+    <div class="w-full {% if not request.user|has_group:'TECHNICIAN' and not request.user|has_group:'SUPERVISOR' %}md:w-2/5{% endif %} flex flex-col h-[calc(100vh-8rem)] overflow-hidden" x-data="{ activeTab: localStorage.getItem('activeTab_sheet_{{ sheet.pk }}') || 'ocr' }" x-init="$watch('activeTab', value => localStorage.setItem('activeTab_sheet_{{ sheet.pk }}', value))">
+
         
         <!-- Tabs Header -->
         <div class="flex space-x-1 bg-slate-200/50 p-1 rounded-lg mb-4 shrink-0">
@@ -71,56 +74,53 @@
             <div class="space-y-4">
                 
                 <!-- Hiển thị người đang được giao việc -->
-                <div class="flex items-center justify-between p-3 bg-slate-50 rounded border border-slate-100">
-                    <span class="text-xs text-slate-500 font-medium uppercase tracking-wider">Người Phụ Trách:</span>
-                    <span class="text-sm font-bold text-evn-blue">
-                        {% if sheet.assigned_to %}
-                            <i class="fas fa-user-circle mr-1"></i> {{ sheet.assigned_to.first_name|default:sheet.assigned_to.username }}
-                        {% else %}
-                            <span class="text-slate-400 italic">Chưa giao việc</span>
-                        {% endif %}
-                    </span>
+                <div class="flex flex-col gap-2 p-3 bg-slate-50 rounded border border-slate-100">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500 font-medium uppercase tracking-wider">KTV Thi Công:</span>
+                        <span class="text-sm font-bold text-evn-blue">
+                            {% if sheet.assigned_to %}
+                                <i class="fas fa-user-hard-hat mr-1"></i> {{ sheet.assigned_to.first_name|default:sheet.assigned_to.username }}
+                            {% else %}
+                                <span class="text-slate-400 italic">Chưa giao KTV</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-200">
+                        <span class="text-xs text-slate-500 font-medium uppercase tracking-wider">Giám sát Trạm:</span>
+                        <span class="text-sm font-bold text-amber-600">
+                            {% if sheet.supervisor_assigned %}
+                                <i class="fas fa-user-shield mr-1"></i> {{ sheet.supervisor_assigned.first_name|default:sheet.supervisor_assigned.username }}
+                            {% else %}
+                                <span class="text-slate-400 italic">Chưa giao Giám sát</span>
+                            {% endif %}
+                        </span>
+                    </div>
                 </div>
 
                 <!-- Nút thao tác theo Role -->
                 <div class="flex flex-col gap-3 mt-2">
 
-
-                    {% if sheet.status == 'ISSUED' and perms.sheets.can_create_sheet and sheet.created_by == request.user and not sheet.assigned_to %}
-                    <!-- A0/A1 giao việc cho Điều độ viên -->
-                    <div class="p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                        <p class="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide">1. Giao Phiếu cho Điều độ viên</p>
-                        <form method="POST" action="{% url 'sheet_assign' sheet.pk %}" class="flex gap-2">
-                            {% csrf_token %}
-                            <input type="hidden" name="status" value="ISSUED">
-                            <select name="assignee_id" class="flex-1 text-sm border-slate-300 rounded focus:ring-primary focus:border-primary px-3 py-2 bg-white" required>
-                                <option value="">-- Chọn Điều độ viên --</option>
-                                {% for user in dispatchers %}
-                                <option value="{{ user.id }}">{{ user.first_name|default:user.username }}</option>
-                                {% endfor %}
-                            </select>
-                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded shadow-sm hover:bg-blue-700 transition-colors whitespace-nowrap">
-                                <i class="fas fa-paper-plane mr-1"></i> Gửi đi
-                            </button>
-                        </form>
-                    </div>
-                    {% endif %}
-                    
-                    {% if sheet.status == 'ISSUED' and perms.sheets.can_dispatch_sheet and sheet.assigned_to == request.user %}
-                    <!-- Điều độ phân phối cho KTV -->
-                    <div class="p-3 bg-purple-50 border border-purple-100 rounded-lg">
-                        <p class="text-xs font-semibold text-purple-800 mb-2 uppercase tracking-wide">2. Phân công KTV Hiện trường</p>
-                        <form method="POST" action="{% url 'sheet_assign' sheet.pk %}" class="flex flex-col gap-2">
+                    {% if sheet.status == 'ISSUED' and request.user|has_group:'DISPATCHER' and not sheet.assigned_to %}
+                    <!-- Điều phối viên giao việc cho KTV -->
+                    <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl shadow-sm">
+                        <p class="text-xs font-bold text-blue-800 mb-3 uppercase tracking-wide"><i class="fas fa-truck mr-1"></i> Phân công KTV & Giám sát</p>
+                        <form method="POST" action="{% url 'sheet_assign' sheet.pk %}" class="flex flex-col gap-3">
                             {% csrf_token %}
                             <input type="hidden" name="status" value="TRANSFERRED">
-                            <select name="assignee_id" class="w-full text-sm border-slate-300 rounded focus:ring-primary focus:border-primary px-3 py-2 bg-white" required>
+                            <select name="assignee_id" class="w-full text-sm border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 px-3 py-2.5 bg-white shadow-sm" required>
                                 <option value="">-- Chọn KTV Chỉnh định --</option>
                                 {% for user in technicians %}
                                 <option value="{{ user.id }}">{{ user.first_name|default:user.username }}</option>
                                 {% endfor %}
                             </select>
-                            <button type="submit" class="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded shadow-sm hover:bg-purple-700 transition-colors w-full">
-                                <i class="fas fa-truck mr-1"></i> Phân phối cho KTV
+                            <select name="supervisor_id" class="w-full text-sm border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 px-3 py-2.5 bg-white shadow-sm" required>
+                                <option value="">-- Chọn Giám sát Trạm --</option>
+                                {% for user in supervisors %}
+                                <option value="{{ user.id }}">{{ user.first_name|default:user.username }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg shadow hover:bg-blue-700 transition-colors hover:shadow-md w-full flex justify-center items-center gap-2">
+                                Giao việc ngay <i class="fas fa-paper-plane"></i>
                             </button>
                         </form>
                     </div>
@@ -152,25 +152,76 @@
             <div class="p-4 overflow-y-auto space-y-4 h-full relative">
                 
                 {% if sheet.extracted_data %}
-                    <!-- Show extracted data -->
-                    {% for item in sheet.extracted_data %}
-                    <div class="bg-slate-50 rounded p-3 border border-slate-100 group hover:border-blue-200 transition-colors">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs font-bold text-slate-700">{{ item.parameter_code }}</span>
-                            <span class="text-[10px] {% if item.confidence > 95 %}bg-green-100 text-green-700{% elif item.confidence > 90 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %} px-1.5 py-0.5 rounded font-medium">
-                                {{ item.confidence }}% Confidence
-                            </span>
+                    <form method="POST" action="{% url 'sheet_save_actual_data' sheet.pk %}" class="h-full relative">
+                        {% csrf_token %}
+                        {% if sheet.assigned_to == request.user %}
+                        {% if sheet.status == 'RECEIVED' or sheet.status == 'TRANSFERRED' %}
+                        <div class="flex justify-end mb-4">
+                            <button type="button" onclick="document.querySelectorAll('.actual-value-input').forEach(i => i.value = i.dataset.ocrValue)" class="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-xs font-bold transition-colors flex items-center gap-2 shadow-sm">
+                                <i class="fas fa-bolt text-yellow-500"></i> Điền Nhanh Từ Thiết Kế
+                            </button>
                         </div>
-                        <p class="text-xs text-slate-500 mb-2">{{ item.parameter_name }}</p>
-                        <div class="flex gap-2">
-                            <div class="flex-1 relative">
-                                <input type="number" value="{{ item.value }}" step="0.01" class="w-full text-sm px-2 py-1.5 border border-slate-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none bg-white">
-                                <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">{{ item.unit }}</span>
+                        {% endif %}
+                        {% endif %}
+                        <div class="space-y-4 pb-20">
+                            {% for item in sheet.extracted_data %}
+                            <div class="bg-white rounded-lg p-4 border {% if item.actual_value and item.actual_value != item.value %}border-red-300 shadow-sm shadow-red-100{% else %}border-slate-200 shadow-sm{% endif %}">
+                                <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
+                                    <div>
+                                        <span class="text-sm font-bold text-slate-800">{{ item.parameter_code }}</span>
+                                        <p class="text-xs text-slate-500">{{ item.parameter_name }}</p>
+                                    </div>
+                                    <span class="text-[10px] {% if item.confidence > 95 %}bg-green-100 text-green-700{% elif item.confidence > 90 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %} px-2 py-1 rounded-full font-medium">
+                                        <i class="fas fa-robot mr-1"></i> {{ item.confidence }}% AI
+                                    </span>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-4">
+                                    <!-- Cột OCR Yêu cầu -->
+                                    <div class="bg-slate-50 p-2 rounded border border-slate-200">
+                                        <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">Thiết kế (OCR)</label>
+                                        <div class="flex items-center text-sm font-bold text-slate-700">
+                                            {{ item.value }} <span class="text-xs text-slate-400 ml-1 font-normal">{{ item.unit }}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Cột Thực tế -->
+                                    <div class="{% if item.actual_value and item.actual_value != item.value %}bg-red-50 border-red-200{% else %}bg-blue-50 border-blue-200{% endif %} p-2 rounded border">
+                                        <label class="text-[10px] font-semibold {% if item.actual_value and item.actual_value != item.value %}text-red-600{% else %}text-blue-600{% endif %} uppercase tracking-wide block mb-1">Thực tế (KTV)</label>
+                                        <div class="flex items-center">
+                                            {% if sheet.assigned_to == request.user %}
+                                                {% if sheet.status == 'RECEIVED' or sheet.status == 'TRANSFERRED' %}
+                                                    <input type="number" name="actual_value_{{ forloop.counter0 }}" data-ocr-value="{{ item.value }}" value="{{ item.actual_value|default:'' }}" step="0.01" class="w-full text-sm font-bold px-2 py-1 border border-slate-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white actual-value-input">
+                                                {% else %}
+                                                    <span class="text-sm font-bold {% if item.actual_value and item.actual_value != item.value %}text-red-700{% else %}text-blue-700{% endif %}">
+                                                        {{ item.actual_value|default:"-" }}
+                                                    </span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-sm font-bold {% if item.actual_value and item.actual_value != item.value %}text-red-700{% else %}text-blue-700{% endif %}">
+                                                    {{ item.actual_value|default:"-" }}
+                                                </span>
+                                            {% endif %}
+                                            <span class="text-xs text-slate-500 ml-2">{{ item.unit }}</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+                            {% endfor %}
+                            <div class="text-xs text-slate-400 text-center mt-4 pb-2 italic">* Đối chiếu giá trị thực tế cài đặt trên rơ-le với giá trị thiết kế.</div>
                         </div>
-                    </div>
-                    {% endfor %}
-                    <div class="text-xs text-slate-400 text-center mt-4 pb-2 italic">* Dữ liệu được bóc tách bằng Mock AI OCR.</div>
+
+                        {% if sheet.assigned_to == request.user %}
+                        {% if sheet.status == 'RECEIVED' or sheet.status == 'TRANSFERRED' %}
+                        <!-- Sticky Save Button -->
+                        <div class="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 p-3 flex justify-end shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+                            <button type="submit" class="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-blue-700 transition-colors flex items-center gap-2">
+                                <i class="fas fa-save"></i> Lưu Thông Số
+                            </button>
+                        </div>
+                        {% endif %}
+                        {% endif %}
+                    </form>
                 
                 {% else %}
                     <!-- Show mock OCR button -->

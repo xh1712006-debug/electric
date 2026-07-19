@@ -1,3 +1,4 @@
+{% load auth_extras %}
 <!-- TRẠNG THÁI CHỮ KÝ SỐ -->
 <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 mb-6" id="signature-panel">
     <h3 class="text-sm font-semibold text-slate-800 mb-6 uppercase tracking-wide">Quy trình Ký số & Phê duyệt</h3>
@@ -74,13 +75,21 @@
                 <div class="flex items-center justify-center w-8 h-8 rounded-full border-4 border-white bg-slate-200 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 {% if sup_sig %}bg-green-500 text-white{% endif %}">
                     <i class="fas fa-eye text-xs"></i>
                 </div>
-                <div class="w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border shadow-sm {% if sup_sig %}border-green-200 bg-green-50/50{% else %}border-slate-200 bg-white{% endif %}">
+                <div class="w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border shadow-sm {% if sup_sig %}border-green-200 bg-green-50/50{% else %}border-slate-200 bg-white{% endif %}" x-data="{ reviewedKtvData: false }">
                     <div class="flex items-center justify-between mb-1">
                         <h4 class="font-bold text-slate-800 text-sm">2. Giám sát trạm (Xác nhận)</h4>
-                        {% if sheet.status == 'RECEIVED' and tech_sig and not sup_sig and perms.sheets.can_supervise_sheet %}
-                        <button @click="initiateSign('SUPERVISOR')" class="px-3 py-1 text-xs font-semibold bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors shadow-sm">Ký số</button>
+                        {% if sheet.status == 'RECEIVED' and tech_sig and not sup_sig and request.user|has_group:'SUPERVISOR' %}
+                        <button @click="initiateSign('SUPERVISOR')" :disabled="!reviewedKtvData" :class="reviewedKtvData ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed'" class="px-3 py-1 text-xs font-semibold text-white rounded transition-colors shadow-sm">Ký số</button>
                         {% endif %}
                     </div>
+                    {% if sheet.status == 'RECEIVED' and tech_sig and not sup_sig and request.user|has_group:'SUPERVISOR' %}
+                    <div class="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <label class="flex items-start gap-2 cursor-pointer">
+                            <input type="checkbox" x-model="reviewedKtvData" class="mt-1 w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500">
+                            <span class="text-xs text-slate-700">Tôi đã rà soát lại thông số KTV vừa nhập trên màn hình "Dữ liệu OCR" và xác nhận đúng với thực tế thi công tại trạm.</span>
+                        </label>
+                    </div>
+                    {% endif %}
                     {% if sup_sig %}
                         <p class="text-xs text-green-700 mt-2 font-medium"><i class="fas fa-check-circle mr-1"></i>Đã ký: {{ sup_sig.signer_name }}</p>
                         <p class="text-xs text-slate-500 mt-1"><i class="far fa-clock mr-1"></i>{{ sup_sig.signed_at|date:"d/m/Y H:i" }}</p>
@@ -98,9 +107,9 @@
                 </div>
                 <div class="w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border shadow-sm {% if a0_sig %}border-blue-200 bg-blue-50/50{% else %}border-slate-200 bg-white{% endif %}">
                     <div class="flex items-center justify-between mb-1">
-                        <h4 class="font-bold text-slate-800 text-sm">3. A0/A1 (Phê chuẩn)</h4>
-                        {% if sheet.status == 'PENDING_REVIEW' and not a0_sig and perms.sheets.can_create_sheet %}
-                        <button @click="initiateSign('A0_A1')" class="px-3 py-1 text-xs font-semibold bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors shadow-sm">Ký Duyệt</button>
+                        <h4 class="font-bold text-slate-800 text-sm">3. Điều độ viên (Duyệt cuối)</h4>
+                        {% if sheet.status == 'PENDING_REVIEW' and not a0_sig and request.user|has_group:'A0A1' %}
+                        <button @click="initiateSign('A0_A1')" class="px-3 py-1 text-xs font-semibold bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors shadow-sm">Ký số</button>
                         {% endif %}
                     </div>
                     {% if a0_sig %}
@@ -108,7 +117,11 @@
                         <p class="text-xs text-slate-500 mt-1"><i class="far fa-clock mr-1"></i>{{ a0_sig.signed_at|date:"d/m/Y H:i" }}</p>
                         <p class="text-[10px] text-slate-400 font-mono mt-1 break-all bg-white px-2 py-1 rounded border border-slate-100">Hash: {{ a0_sig.signature_hash }}</p>
                     {% else %}
+                        {% if sup_sig %}
+                        <p class="text-xs text-slate-500 mt-2"><i class="fas fa-pen text-slate-400 mr-1"></i>Đang chờ Điều độ viên A0/A1 ký duyệt ban hành.</p>
+                        {% else %}
                         <p class="text-xs text-slate-500 mt-2"><i class="fas fa-lock text-slate-300 mr-1"></i>Chờ Giám sát trạm ký xác nhận trước.</p>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>

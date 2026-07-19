@@ -61,70 +61,151 @@
             <h1 class="text-2xl font-bold text-white tracking-wider"><i class="fas fa-bolt text-accent mr-2"></i>EVN RMS</h1>
         </div>
         <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-            {% url 'dashboard' as url_dashboard %}
-            <a href="{{ url_dashboard }}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if request.path == url_dashboard %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
-                <i class="fas fa-home w-6"></i>
-                <span class="font-medium">Trang chủ</span>
-            </a>
-            
-            {% if not request.user|has_group:'TECHNICIAN' %}
-            {% url 'sheet_list' as url_sheets %}
-            <a href="{{ url_sheets }}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if request.path == url_sheets and not request.GET.status %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
-                <i class="fas fa-layer-group w-6"></i>
-                <span class="font-medium">Tất cả Phiếu</span>
-            </a>
-            {% endif %}
-            
-            {% url 'my_sheets' as url_my_sheets %}
-            <a href="{{ url_my_sheets }}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if request.path == url_my_sheets and not request.GET.status %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
-                <i class="fas fa-file-signature w-6"></i>
-                <span class="font-medium">{% if request.user|has_group:'TECHNICIAN' %}Công việc của Tôi{% else %}Phiếu của Tôi{% endif %}</span>
-            </a>
+    {% url 'dashboard' as url_dashboard %}
+    {% url 'sheet_list' as url_sheets %}
+    {% url 'my_sheets' as url_my_sheets %}
+    {% url 'check_list' as url_checks %}
+    {% url 'relay_status' as url_relay_status %}
+    {% url 'station_list' as url_stations %}
+    {% url 'user_list' as url_users %}
+    {% url 'role_matrix' as url_roles %}
 
-            <!-- Menu Phiếu đã ký số -->
-            <a href="{% if request.user|has_group:'TECHNICIAN' %}{{ url_my_sheets }}?status=COMPLETED{% else %}{{ url_sheets }}?status=COMPLETED{% endif %}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if request.GET.status == 'COMPLETED' %}bg-emerald-600 text-white shadow-lg shadow-emerald-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
-                <i class="fas fa-check-circle w-6 text-emerald-400 {% if request.GET.status == 'COMPLETED' %}text-white{% endif %}"></i>
-                <span class="font-medium">Phiếu đã Ký số</span>
+    {% if request.user|has_group:'ADMIN' %}
+        <!-- ADMIN MENU -->
+        <a href="{{ url_dashboard }}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if request.path == url_dashboard %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+            <i class="fas fa-home w-6"></i><span class="font-medium">Tổng quan Hệ thống</span>
+        </a>
+        
+        <div class="pt-4 mt-2 border-t border-slate-700/50">
+            <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Kho Dữ Liệu Tổng</p>
+            <a href="{{ url_sheets }}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.path == url_sheets and not request.GET.status %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-layer-group w-6"></i><span class="font-medium text-sm">Lưu trữ Phiếu Chỉnh định</span>
             </a>
-            
-            {% if perms.sheets.can_view_checks %}
-            {% url 'check_list' as url_checks %}
-            <a href="{{ url_checks }}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if '/checks/' in request.path %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
-                <i class="fas fa-clipboard-check w-6"></i>
-                <span class="font-medium">Kiểm tra Định kỳ</span>
+            <a href="{{ url_stations }}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.path == url_stations %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-server w-6"></i><span class="font-medium text-sm">Quản lý CSDL Trạm</span>
             </a>
-            {% endif %}
-            
-            {% url 'relay_status' as url_relay_status %}
-            <a href="{{ url_relay_status }}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if '/stations/relay-status/' in request.path %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
-                <i class="fas fa-chart-pie w-6 text-amber-400 {% if '/stations/relay-status/' in request.path %}text-white{% endif %}"></i>
-                <span class="font-medium">Tiến độ Cấu hình</span>
+        </div>
+        
+        <div class="pt-4 mt-2 border-t border-slate-700/50">
+            <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Quản trị Người dùng</p>
+            <a href="{{ url_users }}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.path == url_users %}bg-amber-500/20 text-amber-400 font-semibold{% else %}text-slate-400 hover:bg-slate-800 hover:text-amber-400{% endif %}">
+                <i class="fas fa-users w-6"></i><span class="font-medium text-sm">Danh sách Tài khoản</span>
             </a>
-            
-            {% if perms.sheets.can_view_stations %}
-            {% url 'station_list' as url_stations %}
-            <a href="{{ url_stations }}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if request.path == url_stations %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
-                <i class="fas fa-server w-6"></i>
-                <span class="font-medium">Quản lý Trạm</span>
+            <a href="{{ url_roles }}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.path == url_roles %}bg-amber-500/20 text-amber-400 font-semibold{% else %}text-slate-400 hover:bg-slate-800 hover:text-amber-400{% endif %}">
+                <i class="fas fa-th w-6"></i><span class="font-medium text-sm">Ma trận Phân quyền</span>
             </a>
-            {% endif %}
+        </div>
 
-            {% if perms.sheets.can_manage_users %}
-            <div class="pt-4 mt-2 border-t border-slate-700/50">
-                <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Quản trị Hệ thống</p>
-                {% url 'user_list' as url_users %}
-                <a href="{{ url_users }}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors mt-1 {% if '/system/users/' in request.path %}bg-amber-500/20 text-amber-400 font-semibold{% else %}text-slate-400 hover:bg-slate-800 hover:text-amber-400{% endif %}">
-                    <i class="fas fa-users w-6"></i>
-                    <span class="font-medium text-sm">Tài khoản</span>
-                </a>
-                {% url 'role_matrix' as url_roles %}
-                <a href="{{ url_roles }}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors mt-1 {% if '/system/roles/' in request.path %}bg-amber-500/20 text-amber-400 font-semibold{% else %}text-slate-400 hover:bg-slate-800 hover:text-amber-400{% endif %}">
-                    <i class="fas fa-th w-6"></i>
-                    <span class="font-medium text-sm">Ma trận Phân quyền</span>
-                </a>
-            </div>
-            {% endif %}
-        </nav>
+    {% elif request.user|has_group:'A0A1' %}
+        <!-- A0A1 MENU -->
+        <a href="{{ url_dashboard }}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if request.path == url_dashboard %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+            <i class="fas fa-chart-line w-6"></i><span class="font-medium">Trung tâm Điều độ</span>
+        </a>
+        
+        <div class="pt-4 mt-2 border-t border-slate-700/50">
+            <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Nghiệp vụ Tạo Phiếu</p>
+            <a href="{% url 'sheet_create' %}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.path == '/sheets/create/' %}bg-amber-600 text-white shadow-lg shadow-amber-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-magic w-6 text-amber-400 {% if request.path == '/sheets/create/' %}text-white{% endif %}"></i><span class="font-medium text-sm">Khởi tạo Phiếu (OCR)</span>
+            </a>
+            <a href="{{ url_sheets }}?status=PENDING_REVIEW" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'PENDING_REVIEW' %}bg-purple-600 text-white shadow-lg shadow-purple-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-file-signature w-6 text-purple-400 {% if request.GET.status == 'PENDING_REVIEW' %}text-white{% endif %}"></i><span class="font-medium text-sm">Chờ Duyệt Ban hành</span>
+            </a>
+            <a href="{{ url_sheets }}?status=COMPLETED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'COMPLETED' %}bg-emerald-600 text-white shadow-lg shadow-emerald-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-check-double w-6 text-emerald-400 {% if request.GET.status == 'COMPLETED' %}text-white{% endif %}"></i><span class="font-medium text-sm">Hồ sơ Đã Ban hành</span>
+            </a>
+        </div>
+
+        <div class="pt-4 mt-2 border-t border-slate-700/50">
+            <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Quản lý Dữ liệu Nguồn</p>
+            <a href="{{ url_stations }}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.path == url_stations %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-server w-6"></i><span class="font-medium text-sm">CSDL Trạm & Rơ-le</span>
+            </a>
+            <a href="{{ url_relay_status }}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.path == url_relay_status %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-chart-pie w-6"></i><span class="font-medium text-sm">Tiến độ Cấu hình</span>
+            </a>
+        </div>
+
+    {% elif request.user|has_group:'DISPATCHER' %}
+        <!-- DISPATCHER MENU -->
+        <a href="{{ url_dashboard }}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if request.path == url_dashboard %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+            <i class="fas fa-laptop-house w-6"></i><span class="font-medium">Bàn làm việc Điều phối</span>
+        </a>
+        
+        <div class="pt-4 mt-2 border-t border-slate-700/50">
+            <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Rà soát & Giao việc</p>
+            <a href="{{ url_sheets }}?status=ISSUED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'ISSUED' %}bg-amber-600 text-white shadow-lg shadow-amber-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-search-plus w-6 text-amber-400 {% if request.GET.status == 'ISSUED' %}text-white{% endif %}"></i><span class="font-medium text-sm">Rà soát Phiếu A0</span>
+            </a>
+            <a href="{{ url_sheets }}?status=REVIEWED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'REVIEWED' %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-user-tag w-6 text-blue-400 {% if request.GET.status == 'REVIEWED' %}text-white{% endif %}"></i><span class="font-medium text-sm">Giao việc cho KTV</span>
+            </a>
+        </div>
+        
+        <div class="pt-4 mt-2 border-t border-slate-700/50">
+            <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Giám sát Thi công</p>
+            <a href="{{ url_sheets }}?status=TRANSFERRED,RECEIVED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'TRANSFERRED,RECEIVED' %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-hard-hat w-6"></i><span class="font-medium text-sm">Phiếu KTV Đang Làm</span>
+            </a>
+            <a href="{{ url_sheets }}?status=PENDING_REVIEW" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'PENDING_REVIEW' %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-tasks w-6"></i><span class="font-medium text-sm">Chờ Ký duyệt Cuối</span>
+            </a>
+        </div>
+
+    {% elif request.user|has_group:'SUPERVISOR' %}
+        <!-- SUPERVISOR MENU -->
+        <a href="{{ url_dashboard }}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if request.path == url_dashboard %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+            <i class="fas fa-hard-hat w-6"></i><span class="font-medium">Không gian Giám sát</span>
+        </a>
+        
+        <div class="pt-4 mt-2 border-t border-slate-700/50">
+            <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Quản lý Công việc tại Trạm</p>
+            <a href="{{ url_my_sheets }}?status=TRANSFERRED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'TRANSFERRED' %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-file-import w-6 text-blue-400 {% if request.GET.status == 'TRANSFERRED' %}text-white{% endif %}"></i><span class="font-medium text-sm">Phiếu Mới Giao</span>
+            </a>
+            <a href="{{ url_my_sheets }}?status=RECEIVED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'RECEIVED' %}bg-amber-500/20 text-amber-400 font-semibold{% else %}text-slate-400 hover:bg-slate-800 hover:text-amber-400{% endif %}">
+                <i class="fas fa-eye w-6 text-amber-400"></i><span class="font-medium text-sm">Rà soát Phiếu KTV</span>
+            </a>
+            <a href="{{ url_my_sheets }}?status=PENDING_REVIEW" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'PENDING_REVIEW' %}bg-purple-600 text-white shadow-lg shadow-purple-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-hourglass-half w-6 text-purple-400 {% if request.GET.status == 'PENDING_REVIEW' %}text-white{% endif %}"></i><span class="font-medium text-sm">Chờ A0 Phê Duyệt</span>
+            </a>
+            <a href="{{ url_my_sheets }}?status=COMPLETED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'COMPLETED' %}bg-emerald-600 text-white shadow-lg shadow-emerald-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-check-circle w-6 text-emerald-400 {% if request.GET.status == 'COMPLETED' %}text-white{% endif %}"></i><span class="font-medium text-sm">Lịch sử Nghiệm thu</span>
+            </a>
+        </div>
+
+    {% elif request.user|has_group:'TECHNICIAN' %}
+        <!-- TECHNICIAN MENU -->
+        <a href="{{ url_dashboard }}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if request.path == url_dashboard %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+            <i class="fas fa-clipboard-list w-6"></i><span class="font-medium">Bảng Công việc</span>
+        </a>
+        
+        <div class="pt-4 mt-2 border-t border-slate-700/50">
+            <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Phiếu Công tác</p>
+            <a href="{{ url_my_sheets }}?status=TRANSFERRED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'TRANSFERRED' %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-file-download w-6 text-blue-400 {% if request.GET.status == 'TRANSFERRED' %}text-white{% endif %}"></i><span class="font-medium text-sm">Việc Mới Được Giao</span>
+            </a>
+            <a href="{{ url_my_sheets }}?status=RECEIVED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'RECEIVED' %}bg-amber-600 text-white shadow-lg shadow-amber-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-tools w-6 text-amber-400 {% if request.GET.status == 'RECEIVED' %}text-white{% endif %}"></i><span class="font-medium text-sm">Việc Đang Xử Lý</span>
+            </a>
+            <a href="{{ url_my_sheets }}?status=COMPLETED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'COMPLETED' %}bg-emerald-600 text-white shadow-lg shadow-emerald-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-check-circle w-6 text-emerald-400 {% if request.GET.status == 'COMPLETED' %}text-white{% endif %}"></i><span class="font-medium text-sm">Đã Thi Công (Của tôi)</span>
+            </a>
+        </div>
+        
+        <div class="pt-4 mt-2 border-t border-slate-700/50">
+            <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Hỗ trợ</p>
+            <a href="{{ url_stations }}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.path == url_stations %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-search w-6"></i><span class="font-medium text-sm">Tra cứu Cấu hình Rơ-le</span>
+            </a>
+        </div>
+        
+    {% else %}
+        <!-- FALLBACK MENU FOR NO ROLE -->
+        <a href="{{ url_dashboard }}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if request.path == url_dashboard %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+            <i class="fas fa-home w-6"></i><span class="font-medium">Trang chủ</span>
+        </a>
+    {% endif %}
+</nav>
         
         <div class="p-4 border-t border-slate-700">
             {% if user.is_authenticated %}
@@ -187,6 +268,77 @@
         </div>
     </main>
 
+    <!-- Global Notifications (WebSocket) -->
+    <div x-data="notificationSystem()" 
+         x-init="initWebSocket()"
+         class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none">
+        <template x-for="note in notifications" :key="note.id">
+            <div class="bg-white border-l-4 border-blue-500 shadow-2xl rounded-xl p-4 w-80 transform transition-all duration-300 pointer-events-auto"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-x-full"
+                 x-transition:enter-end="opacity-100 translate-x-0"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-x-0"
+                 x-transition:leave-end="opacity-0 translate-x-full">
+                <div class="flex justify-between items-start">
+                    <div class="flex gap-3">
+                        <div class="mt-0.5 text-blue-500">
+                            <i class="fas fa-bell text-lg animate-bounce"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-sm" x-text="note.title"></h4>
+                            <p class="text-xs text-slate-600 mt-1 leading-relaxed" x-text="note.message"></p>
+                        </div>
+                    </div>
+                    <button @click="remove(note.id)" class="text-slate-400 hover:text-slate-600 ml-2">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <script>
+        function notificationSystem() {
+            return {
+                notifications: [],
+                initWebSocket() {
+                    {% if request.user.is_authenticated %}
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/notifications/`);
+                    
+                    ws.onmessage = (e) => {
+                        const data = JSON.parse(e.data);
+                        this.addNotification(data.title, data.message, data.type);
+                    };
+                    
+                    ws.onclose = (e) => {
+                        console.log('WebSocket connection closed');
+                    };
+                    {% endif %}
+                },
+                addNotification(title, message, type) {
+                    const id = Date.now();
+                    this.notifications.push({ id, title, message, type });
+                    
+                    // Simple beep sound
+                    try {
+                        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                        audio.volume = 0.5;
+                        audio.play().catch(e => {});
+                    } catch(e) {}
+                    
+                    setTimeout(() => {
+                        this.remove(id);
+                    }, 8000);
+                },
+                remove(id) {
+                    this.notifications = this.notifications.filter(n => n.id !== id);
+                }
+            }
+        }
+    </script>
+    
     <!-- CSRF Token for HTMX -->
     <script>
         document.body.addEventListener('htmx:configRequest', (event) => {

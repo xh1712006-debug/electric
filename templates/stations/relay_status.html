@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Tiến độ Cấu hình Thiết bị | RMS{% endblock %}
+{% block header_title %}Theo dõi Tiến độ Cấu hình Thiết bị{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-8 px-4 sm:px-6">
+    
+    <!-- Dashboard Header / Progress Bar -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 mb-8">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
+            <i class="fas fa-chart-pie text-blue-600 mr-3 text-3xl"></i> Tổng quan Tiến độ Cấu hình
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-slate-50 rounded-xl p-6 border border-slate-100 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Tổng số Rơ-le</p>
+                    <p class="text-3xl font-bold text-slate-800 mt-1">{{ total_relays }}</p>
+                </div>
+                <div class="w-12 h-12 bg-slate-200 rounded-full flex items-center justify-center text-slate-500">
+                    <i class="fas fa-microchip text-xl"></i>
+                </div>
+            </div>
+            
+            <div class="bg-emerald-50 rounded-xl p-6 border border-emerald-100 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold text-emerald-600 uppercase tracking-wider">Đã cấu hình</p>
+                    <p class="text-3xl font-bold text-emerald-700 mt-1">{{ configured_count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-emerald-200 rounded-full flex items-center justify-center text-emerald-600">
+                    <i class="fas fa-check text-xl"></i>
+                </div>
+            </div>
+            
+            <div class="bg-amber-50 rounded-xl p-6 border border-amber-100 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold text-amber-600 uppercase tracking-wider">Chưa cấu hình</p>
+                    <p class="text-3xl font-bold text-amber-700 mt-1">{{ unconfigured_count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-amber-200 rounded-full flex items-center justify-center text-amber-600">
+                    <i class="fas fa-exclamation text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-2">
+            <div class="flex justify-between text-sm font-semibold">
+                <span class="text-slate-600">Tỷ lệ hoàn thành</span>
+                <span class="text-blue-600">{{ progress_percent }}%</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-4 overflow-hidden border border-slate-200">
+                <div class="bg-gradient-to-r from-blue-500 to-blue-600 h-4 rounded-full transition-all duration-1000 ease-out" style="width: {{ progress_percent }}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Tabs (Alpine.js) -->
+    <div x-data="{ activeTab: '{{ active_tab }}', searchCode: '' }" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        
+        <!-- Tab Headers -->
+        <div class="flex border-b border-slate-200 bg-slate-50 px-4 pt-4 gap-2">
+            <button @click="activeTab = 'unconfigured'" 
+                    :class="activeTab === 'unconfigured' ? 'bg-white text-amber-600 border-t-2 border-amber-500 rounded-t-lg font-bold shadow-[0_4px_0_0_white]' : 'text-slate-500 hover:text-slate-700 font-medium pb-3'" 
+                    class="px-6 py-3 transition-all relative z-10 flex items-center gap-2">
+                <i class="fas fa-exclamation-circle"></i> Cần Cấu hình ({{ unconfigured_count }})
+            </button>
+            <button @click="activeTab = 'configured'" 
+                    :class="activeTab === 'configured' ? 'bg-white text-emerald-600 border-t-2 border-emerald-500 rounded-t-lg font-bold shadow-[0_4px_0_0_white]' : 'text-slate-500 hover:text-slate-700 font-medium pb-3'" 
+                    class="px-6 py-3 transition-all relative z-10 flex items-center gap-2">
+                <i class="fas fa-check-circle"></i> Đã Cấu hình ({{ configured_count }})
+            </button>
+            
+            <!-- Search Box within Tabs -->
+            <div class="ml-auto pb-2 relative flex items-center">
+                <i class="fas fa-search absolute left-3 text-slate-400"></i>
+                <input type="text" x-model="searchCode" placeholder="Tìm kiếm Rơ-le, Trạm..." class="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:border-blue-500 outline-none w-64 bg-white">
+            </div>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="p-0">
+            <!-- Unconfigured Tab -->
+            <div x-show="activeTab === 'unconfigured'" class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-600">
+                    <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                        <tr>
+                            <th class="px-6 py-4">Mã Rơ-le</th>
+                            <th class="px-6 py-4">Tên Rơ-le</th>
+                            <th class="px-6 py-4">Ngăn lộ</th>
+                            <th class="px-6 py-4">Trạm biến áp</th>
+                            <th class="px-6 py-4 text-right">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for relay in unconfigured_relays %}
+                        <tr class="hover:bg-amber-50/50 transition-colors" x-show="searchCode === '' || $el.innerText.toLowerCase().includes(searchCode.toLowerCase())">
+                            <td class="px-6 py-4 font-mono font-bold text-slate-800">{{ relay.relay_code }}</td>
+                            <td class="px-6 py-4">{{ relay.relay_name|default:"-" }}</td>
+                            <td class="px-6 py-4">{{ relay.bay.bay_code }} <span class="text-xs text-slate-400 block">{{ relay.bay.bay_name }}</span></td>
+                            <td class="px-6 py-4">{{ relay.bay.station.station_code }} <span class="text-xs text-slate-400 block">{{ relay.bay.station.station_name }}</span></td>
+                            <td class="px-6 py-4 text-right">
+                                <a href="{% url 'sheet_create' %}?relay_code={{ relay.relay_code }}" class="inline-flex items-center text-xs font-bold text-amber-700 bg-amber-100 hover:bg-amber-500 hover:text-white px-4 py-2 rounded-lg transition-colors shadow-sm">
+                                    <i class="fas fa-magic mr-2"></i> Tạo Phiếu Mới
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="px-6 py-12 text-center text-slate-500">
+                                <i class="fas fa-check-double text-4xl text-emerald-400 mb-3"></i>
+                                <p class="text-lg font-bold text-slate-700">Tuyệt vời!</p>
+                                <p>Toàn bộ thiết bị đã được cấu hình phiếu.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- Pagination -->
+                <div class="px-6 py-4 bg-white border-t border-slate-200 flex items-center justify-between">
+                    <span class="text-sm text-slate-500">
+                        Hiển thị trang {{ unconfigured_relays.number }} / {{ unconfigured_relays.paginator.num_pages }}
+                    </span>
+                    <div class="flex gap-1">
+                        {% if unconfigured_relays.has_previous %}
+                        <a href="?tab=unconfigured&page_unc={{ unconfigured_relays.previous_page_number }}&page_con={{ configured_relays.number }}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">&laquo; Trước</a>
+                        {% endif %}
+                        
+                        {% for i in unconfigured_relays.paginator.page_range %}
+                            {% if unconfigured_relays.number == i %}
+                            <span class="px-3 py-1 bg-blue-600 text-white rounded text-sm font-bold">{{ i }}</span>
+                            {% elif i > unconfigured_relays.number|add:'-3' and i < unconfigured_relays.number|add:'3' %}
+                            <a href="?tab=unconfigured&page_unc={{ i }}&page_con={{ configured_relays.number }}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">{{ i }}</a>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if unconfigured_relays.has_next %}
+                        <a href="?tab=unconfigured&page_unc={{ unconfigured_relays.next_page_number }}&page_con={{ configured_relays.number }}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">Sau &raquo;</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configured Tab -->
+            <div x-show="activeTab === 'configured'" class="overflow-x-auto" style="display: none;">
+                <table class="w-full text-left text-sm text-slate-600">
+                    <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                        <tr>
+                            <th class="px-6 py-4">Mã Rơ-le</th>
+                            <th class="px-6 py-4">Trạm / Ngăn lộ</th>
+                            <th class="px-6 py-4">Trạng thái Phiếu</th>
+                            <th class="px-6 py-4 text-right">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for relay in configured_relays %}
+                        <tr class="hover:bg-emerald-50/50 transition-colors" x-show="searchCode === '' || $el.innerText.toLowerCase().includes(searchCode.toLowerCase())">
+                            <td class="px-6 py-4 font-mono font-bold text-slate-800">{{ relay.relay_code }}</td>
+                            <td class="px-6 py-4">
+                                {{ relay.bay.station.station_code }} <i class="fas fa-angle-right text-slate-300 mx-1"></i> {{ relay.bay.bay_code }}
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Đã có Phiếu
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <!-- Lấy phiếu đầu tiên để link tới -->
+                                {% with sheet=relay.settingsheet_set.first %}
+                                <a href="{% url 'sheet_detail' sheet.pk %}" class="inline-flex items-center text-xs font-bold text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors border border-blue-100">
+                                    Xem Chi Tiết <i class="fas fa-arrow-right ml-2"></i>
+                                </a>
+                                {% endwith %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="px-6 py-12 text-center text-slate-500">
+                                <i class="fas fa-inbox text-4xl text-slate-300 mb-3"></i>
+                                <p>Chưa có thiết bị nào được cấu hình phiếu.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- Pagination -->
+                <div class="px-6 py-4 bg-white border-t border-slate-200 flex items-center justify-between">
+                    <span class="text-sm text-slate-500">
+                        Hiển thị trang {{ configured_relays.number }} / {{ configured_relays.paginator.num_pages }}
+                    </span>
+                    <div class="flex gap-1">
+                        {% if configured_relays.has_previous %}
+                        <a href="?tab=configured&page_con={{ configured_relays.previous_page_number }}&page_unc={{ unconfigured_relays.number }}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">&laquo; Trước</a>
+                        {% endif %}
+                        
+                        {% for i in configured_relays.paginator.page_range %}
+                            {% if configured_relays.number == i %}
+                            <span class="px-3 py-1 bg-blue-600 text-white rounded text-sm font-bold">{{ i }}</span>
+                            {% elif i > configured_relays.number|add:'-3' and i < configured_relays.number|add:'3' %}
+                            <a href="?tab=configured&page_con={{ i }}&page_unc={{ unconfigured_relays.number }}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">{{ i }}</a>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if configured_relays.has_next %}
+                        <a href="?tab=configured&page_con={{ configured_relays.next_page_number }}&page_unc={{ unconfigured_relays.number }}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">Sau &raquo;</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

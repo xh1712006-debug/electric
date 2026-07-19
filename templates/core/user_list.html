@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Quản trị Hệ thống | Danh sách Tài khoản{% endblock %}
+{% block header_title %}Danh sách Tài khoản Hệ thống{% endblock %}
+
+{% block content %}
+<div class="h-full flex flex-col" x-data="{ showModal: false }">
+    
+    <!-- Top Bar -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 mb-6 flex justify-between items-center">
+        <div>
+            <h2 class="text-lg font-bold text-slate-800">Quản lý Tài khoản (Users)</h2>
+            <p class="text-sm text-slate-500 mt-1">Danh sách tất cả các tài khoản truy cập vào hệ thống RMS.</p>
+        </div>
+        <div class="flex gap-3">
+            <!-- Search form -->
+            <form method="get" action="" class="relative flex items-center">
+                <input type="text" name="search" value="{{ request.GET.search }}" placeholder="Tìm kiếm tài khoản, email..." class="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-64 bg-white shadow-sm">
+                <i class="fas fa-search absolute left-3 text-slate-400"></i>
+                <!-- Thêm nút tìm kiếm rõ ràng -->
+                <button type="submit" class="absolute right-1 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-blue-600 bg-white rounded-md">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+            <button @click="showModal = true" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm inline-flex items-center gap-2">
+                <i class="fas fa-plus"></i> Tạo Tài khoản
+            </button>
+        </div>
+    </div>
+
+    <!-- User Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200">
+                        <th class="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase whitespace-nowrap">Tài khoản</th>
+                        <th class="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase whitespace-nowrap">Họ Tên</th>
+                        <th class="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase whitespace-nowrap">Nhóm / Vai trò</th>
+                        <th class="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase whitespace-nowrap">Ngày tạo</th>
+                        <th class="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase whitespace-nowrap">Trạng thái</th>
+                        <th class="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase text-right whitespace-nowrap w-32">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for u in users %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold uppercase text-xs">
+                                    {{ u.username|make_list|first }}
+                                </div>
+                                <div class="font-medium text-slate-800">{{ u.username }}</div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-slate-600">
+                            {{ u.first_name|default:"-" }}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex gap-1 flex-wrap">
+                                {% if u.is_superuser %}
+                                <span class="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded border border-red-200">Quản trị tối cao</span>
+                                {% endif %}
+                                {% for group in u.groups.all %}
+                                <span class="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded border border-blue-200">{{ group.vi_name }}</span>
+                                {% empty %}
+                                <span class="text-xs text-slate-400 italic">Chưa phân nhóm</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-slate-500">
+                            {{ u.date_joined|date:"d/m/Y" }}
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if u.is_active %}
+                            <span class="inline-flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded border border-green-200"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Hoạt động</span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-100 text-slate-500 text-xs font-medium rounded border border-slate-200"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Đã khóa</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-right whitespace-nowrap w-32">
+                            <div class="flex items-center justify-end gap-1">
+                                <button class="w-8 h-8 inline-flex items-center justify-center rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Chỉnh sửa"><i class="fas fa-edit"></i></button>
+                                <button class="w-8 h-8 inline-flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Khóa tài khoản"><i class="fas fa-ban"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+            <span class="text-sm text-slate-500">
+                Hiển thị trang {{ users.number }} / {{ users.paginator.num_pages }}
+            </span>
+            <div class="flex gap-1">
+                {% if users.has_previous %}
+                <a href="?page={{ users.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search|urlencode }}{% endif %}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">&laquo; Trước</a>
+                {% endif %}
+                
+                {% for i in users.paginator.page_range %}
+                    {% if users.number == i %}
+                    <span class="px-3 py-1 bg-blue-600 text-white rounded text-sm font-bold">{{ i }}</span>
+                    {% elif i > users.number|add:'-3' and i < users.number|add:'3' %}
+                    <a href="?page={{ i }}{% if request.GET.search %}&search={{ request.GET.search|urlencode }}{% endif %}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">{{ i }}</a>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if users.has_next %}
+                <a href="?page={{ users.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search|urlencode }}{% endif %}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">Sau &raquo;</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div x-show="showModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div x-show="showModal" class="fixed inset-0 transition-opacity" @click="showModal = false" aria-hidden="true">
+                <div class="absolute inset-0 bg-slate-900 opacity-75"></div>
+            </div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div x-show="showModal" class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle w-full max-w-lg">
+                <form method="post" action="{% url 'user_create' %}">
+                    {% csrf_token %}
+                    <div class="bg-white px-6 pt-6 pb-6">
+                        <div class="flex items-center justify-between mb-5">
+                            <h3 class="text-lg font-bold text-slate-800">Tạo Tài khoản mới</h3>
+                            <button type="button" @click="showModal = false" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Tên đăng nhập *</label>
+                                <input type="text" name="username" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Mật khẩu *</label>
+                                <input type="password" name="password" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Họ Tên</label>
+                                <input type="text" name="first_name" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                                <input type="email" name="email" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Phân quyền (Nhóm) *</label>
+                                <select name="group" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-white">
+                                    <option value="">-- Chọn Nhóm --</option>
+                                    {% for g in groups %}
+                                    <option value="{{ g.id }}">{{ g.vi_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-100">
+                        <button type="button" @click="showModal = false" class="px-4 py-2 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
+                            Hủy
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
+                            Tạo mới
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

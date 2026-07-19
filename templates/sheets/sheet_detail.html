@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% load auth_extras %}
+
+{% block title %}Chi tiết Phiếu {{ sheet.sheet_code }} | RMS{% endblock %}
+{% block header_title %}
+<div class="flex items-center gap-3">
+    <a href="javascript:history.back()" class="text-slate-400 hover:text-primary transition-colors" title="Quay lại"><i class="fas fa-arrow-left"></i></a>
+    <span>Phiếu: {{ sheet.sheet_code }}</span>
+    <div id="header-status-badge">
+        {% include "sheets/partials/_status_badge.html" with sheet=sheet %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="h-full flex flex-col md:flex-row gap-6">
+    
+    <!-- Left Column: Document Viewer (Split View 60%) -->
+    <div class="w-full md:w-3/5 bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden flex flex-col h-[calc(100vh-8rem)]">
+        <div class="h-12 bg-slate-900 flex items-center justify-between px-4 border-b border-slate-700">
+            <span class="text-slate-300 text-sm font-medium"><i class="fas fa-file-pdf text-red-400 mr-2"></i> Bản scan gốc</span>
+            <div class="flex gap-2">
+                <button class="w-8 h-8 rounded hover:bg-slate-700 text-slate-400 transition-colors"><i class="fas fa-search-minus"></i></button>
+                <button class="w-8 h-8 rounded hover:bg-slate-700 text-slate-400 transition-colors"><i class="fas fa-search-plus"></i></button>
+            </div>
+        </div>
+        <div class="flex-1 relative bg-slate-800 p-4">
+            {% if sheet.scan_file %}
+                {% if ".pdf" in sheet.scan_file.name|lower %}
+                    <iframe src="{{ sheet.scan_file.url }}" class="w-full h-full border-0 rounded bg-white"></iframe>
+                {% else %}
+                    <img src="{{ sheet.scan_file.url }}" class="max-w-full max-h-full object-contain mx-auto" alt="Scan">
+                {% endif %}
+            {% else %}
+                <div class="flex flex-col items-center justify-center h-full text-slate-500">
+                    <i class="fas fa-file-image text-4xl mb-3 opacity-50"></i>
+                    <p>Không có file đính kèm</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right Column: Metadata & Form (Split View 40%) -->
+    <div class="w-full md:w-2/5 flex flex-col h-[calc(100vh-8rem)] overflow-hidden" x-data="{ activeTab: 'ocr' }">
+        
+        <!-- Tabs Header -->
+        <div class="flex space-x-1 bg-slate-200/50 p-1 rounded-lg mb-4 shrink-0">
+            <button @click="activeTab = 'ocr'" :class="activeTab === 'ocr' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200">
+                <i class="fas fa-magic mr-1"></i> Dữ liệu OCR
+            </button>
+            <button @click="activeTab = 'process'" :class="activeTab === 'process' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200">
+                <i class="fas fa-tasks mr-1"></i> Xử lý & Ký số
+            </button>
+            <button @click="activeTab = 'info'" :class="activeTab === 'info' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200">
+                <i class="fas fa-info-circle mr-1"></i> Thông tin
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto pr-2 pb-6 relative h-full">
+
+            <!-- Tab Process (Signatures & Dispatch) -->
+            <div x-show="activeTab === 'process'" class="space-y-6" style="display: none;">
+                
+                <!-- Signature Panel -->
+        {% include "sheets/partials/_signature_panel.html" with sheet=sheet %}
+
+        <!-- Actions Panel (for transferring/receiving) -->
+        {% if sheet.status != 'DRAFT' and sheet.status != 'COMPLETED' %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+            <h3 class="text-sm font-semibold text-slate-800 mb-4 uppercase tracking-wide">Điều phối & Xử lý</h3>
+            <div class="space-y-4">
+                
+                <!-- Hiển thị người đang được giao việc -->
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded border border-slate-100">
+                    <span class="text-xs text-slate-500 font-medium uppercase tracking-wider">Người Phụ Trách:</span>
+                    <span class="text-sm font-bold text-evn-blue">
+                        {% if sheet.assigned_to %}
+                            <i class="fas fa-user-circle mr-1"></i> {{ sheet.assigned_to.first_name|default:sheet.assigned_to.username }}
+                        {% else %}
+                            <span class="text-slate-400 italic">Chưa giao việc</span>
+                        {% endif %}
+                    </span>
+                </div>
+
+                <!-- Nút thao tác theo Role -->
+                <div class="flex flex-col gap-3 mt-2">
+
+
+                    {% if sheet.status == 'ISSUED' and perms.sheets.can_create_sheet and sheet.created_by == request.user and not sheet.assigned_to %}
+                    <!-- A0/A1 giao việc cho Điều độ viên -->
+                    <div class="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                        <p class="text-xs font-semibold text-blue-800 mb-2 uppercase tracking-wide">1. Giao Phiếu cho Điều độ viên</p>
+                        <form method="POST" action="{% url 'sheet_assign' sheet.pk %}" class="flex gap-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="ISSUED">
+                            <select name="assignee_id" class="flex-1 text-sm border-slate-300 rounded focus:ring-primary focus:border-primary px-3 py-2 bg-white" required>
+                                <option value="">-- Chọn Điều độ viên --</option>
+                                {% for user in dispatchers %}
+                                <option value="{{ user.id }}">{{ user.first_name|default:user.username }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded shadow-sm hover:bg-blue-700 transition-colors whitespace-nowrap">
+                                <i class="fas fa-paper-plane mr-1"></i> Gửi đi
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                    
+                    {% if sheet.status == 'ISSUED' and perms.sheets.can_dispatch_sheet and sheet.assigned_to == request.user %}
+                    <!-- Điều độ phân phối cho KTV -->
+                    <div class="p-3 bg-purple-50 border border-purple-100 rounded-lg">
+                        <p class="text-xs font-semibold text-purple-800 mb-2 uppercase tracking-wide">2. Phân công KTV Hiện trường</p>
+                        <form method="POST" action="{% url 'sheet_assign' sheet.pk %}" class="flex flex-col gap-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="TRANSFERRED">
+                            <select name="assignee_id" class="w-full text-sm border-slate-300 rounded focus:ring-primary focus:border-primary px-3 py-2 bg-white" required>
+                                <option value="">-- Chọn KTV Chỉnh định --</option>
+                                {% for user in technicians %}
+                                <option value="{{ user.id }}">{{ user.first_name|default:user.username }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded shadow-sm hover:bg-purple-700 transition-colors w-full">
+                                <i class="fas fa-truck mr-1"></i> Phân phối cho KTV
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    {% if sheet.status == 'TRANSFERRED' and perms.sheets.can_execute_sheet and sheet.assigned_to == request.user %}
+                    <!-- KTV xác nhận tiếp nhận -->
+                    <div class="p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                        <p class="text-xs font-semibold text-amber-800 mb-2 uppercase tracking-wide">3. Tiếp nhận Công việc</p>
+                        <button hx-post="{% url 'sheet_update_status' sheet.pk %}" hx-vals='{"status": "RECEIVED"}' onclick="setTimeout(() => location.reload(), 200);" class="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded shadow-sm hover:bg-amber-600 transition-colors w-full">
+                            <i class="fas fa-hand-holding mr-1"></i> Xác nhận Tiếp nhận Phiếu
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+            </div>
+
+            <!-- Tab OCR -->
+            <div x-show="activeTab === 'ocr'" class="h-full flex flex-col">
+                <!-- Relay Parameters (Form) / AI OCR -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-0 flex-1 overflow-hidden flex flex-col min-h-[400px]">
+            <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <h3 class="text-sm font-semibold text-slate-800">Thông số Định mức</h3>
+                <span class="text-xs text-primary font-medium px-2 py-1 bg-blue-50 rounded">AI OCR <i class="fas fa-magic ml-1"></i></span>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-4 h-full relative">
+                
+                {% if sheet.extracted_data %}
+                    <!-- Show extracted data -->
+                    {% for item in sheet.extracted_data %}
+                    <div class="bg-slate-50 rounded p-3 border border-slate-100 group hover:border-blue-200 transition-colors">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-slate-700">{{ item.parameter_code }}</span>
+                            <span class="text-[10px] {% if item.confidence > 95 %}bg-green-100 text-green-700{% elif item.confidence > 90 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %} px-1.5 py-0.5 rounded font-medium">
+                                {{ item.confidence }}% Confidence
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-2">{{ item.parameter_name }}</p>
+                        <div class="flex gap-2">
+                            <div class="flex-1 relative">
+                                <input type="number" value="{{ item.value }}" step="0.01" class="w-full text-sm px-2 py-1.5 border border-slate-300 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none bg-white">
+                                <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">{{ item.unit }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="text-xs text-slate-400 text-center mt-4 pb-2 italic">* Dữ liệu được bóc tách bằng Mock AI OCR.</div>
+                
+                {% else %}
+                    <!-- Show mock OCR button -->
+                    <div class="flex flex-col items-center justify-center h-full pt-10 pb-10" x-data="{ loading: false }">
+                        <i class="fas fa-robot text-5xl text-slate-300 mb-4" :class="loading ? 'animate-bounce text-primary' : ''"></i>
+                        <p class="text-slate-500 text-sm mb-6 text-center" x-show="!loading">Phiếu chưa được chạy bóc tách dữ liệu.<br>Bấm nút bên dưới để giả lập AI OCR.</p>
+                        <p class="text-primary text-sm mb-6 text-center font-medium" x-show="loading" style="display: none;">Đang phân tích PDF bằng Tesseract...<br>Vui lòng đợi vài giây.</p>
+                        
+                        {% if perms.sheets.can_create_sheet %}
+                        <form method="POST" action="{% url 'run_mock_ocr' sheet.pk %}" @submit="loading = true">
+                            {% csrf_token %}
+                            <button type="submit" class="px-5 py-2.5 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition-colors shadow-sm inline-flex items-center gap-2" :disabled="loading" :class="loading ? 'opacity-50 cursor-not-allowed' : ''">
+                                <i class="fas fa-search" :class="loading ? 'fa-spin' : ''"></i> 
+                                <span x-text="loading ? 'Đang xử lý...' : 'Chạy Quét AI OCR (Mock)'"></span>
+                            </button>
+                        </form>
+                        {% else %}
+                        <p class="text-sm text-red-500 font-medium">Bạn không có quyền chạy AI OCR. Vui lòng liên hệ A0/A1.</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+            </div>
+            </div>
+
+            <!-- Tab Info (Metadata) -->
+            <div x-show="activeTab === 'info'" class="space-y-6" style="display: none;">
+                <!-- Metadata Panel -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-0 overflow-hidden shrink-0">
+            <div class="p-4 border-b border-slate-100 bg-slate-50">
+                <h3 class="text-sm font-semibold text-slate-800">Thông tin Chung</h3>
+            </div>
+            <div class="p-4 space-y-3">
+                <div class="flex justify-between border-b border-slate-50 pb-2">
+                    <span class="text-sm text-slate-500">Tiêu đề:</span>
+                    <span class="text-sm font-medium text-slate-800 text-right">{{ sheet.title }}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-50 pb-2">
+                    <span class="text-sm text-slate-500">Rơ-le:</span>
+                    <span class="text-sm font-medium text-slate-800 text-right">
+                        {% if sheet.relay %}
+                            {{ sheet.relay.relay_code }}
+                        {% elif sheet.relay_text %}
+                            {{ sheet.relay_text }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="flex justify-between border-b border-slate-50 pb-2">
+                    <span class="text-sm text-slate-500">Ngăn lộ:</span>
+                    <span class="text-sm font-medium text-slate-800 text-right">{{ sheet.relay.bay.bay_code|default:"-" }}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-50 pb-2">
+                    <span class="text-sm text-slate-500">Trạm:</span>
+                    <span class="text-sm font-medium text-slate-800 text-right">{{ sheet.relay.bay.station.station_name|default:"-" }}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-50 pb-2">
+                    <span class="text-sm text-slate-500">Người tạo:</span>
+                    <span class="text-sm font-medium text-slate-800 text-right">
+                        {% if sheet.created_by %}
+                            {{ sheet.created_by.first_name|default:sheet.created_by.username }}
+                        {% else %}
+                            <span class="text-slate-400 italic">System</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-slate-500">Ngày tạo:</span>
+                    <span class="text-sm font-medium text-slate-800 text-right">{{ sheet.created_at|date:"d/m/Y H:i" }}</span>
+                </div>
+            </div>
+        </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+{% endblock %}

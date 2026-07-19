@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Danh sách Phiếu Chỉnh định | RMS{% endblock %}
+{% block header_title %}Quản lý Phiếu Chỉnh định{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+    
+    <!-- Toolbar -->
+    <div class="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        
+        <div class="flex items-center gap-2 w-full md:w-auto">
+            <form method="GET" action="" class="flex items-center gap-3 w-full">
+                <div class="relative flex-1 md:w-64">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="Tìm kiếm mã phiếu..." 
+                           class="pl-10 pr-4 py-2 w-full border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-sm transition-shadow hover:shadow"
+                           onkeypress="if(event.keyCode==13) { this.form.submit(); return false; }">
+                </div>
+                
+                <select name="status" onchange="this.form.submit()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary shadow-sm hover:border-slate-300 transition-colors cursor-pointer">
+                    <option value="">Tất cả Trạng thái</option>
+                    <option value="DRAFT" {% if status_filter == 'DRAFT' %}selected{% endif %}>Draft</option>
+                    <option value="ISSUED" {% if status_filter == 'ISSUED' %}selected{% endif %}>Issued (Chờ Rà soát)</option>
+                    <option value="REVIEWED" {% if status_filter == 'REVIEWED' %}selected{% endif %}>Reviewed (Chờ Phân phối)</option>
+                    <option value="TRANSFERRED" {% if status_filter == 'TRANSFERRED' %}selected{% endif %}>Transferred (Đã giao KTV)</option>
+                    <option value="RECEIVED" {% if status_filter == 'RECEIVED' %}selected{% endif %}>Received (Đang thực hiện)</option>
+                    <option value="COMPLETED" {% if status_filter == 'COMPLETED' %}selected{% endif %}>Completed (Hoàn thành)</option>
+                </select>
+            </form>
+        </div>
+
+        <a href="{% url 'sheet_create' %}" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors inline-flex items-center gap-2">
+            <i class="fas fa-plus"></i> Tạo Phiếu Mới
+        </a>
+    </div>
+
+    <!-- Table -->
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                    <th class="px-6 py-4 font-medium">Mã Phiếu</th>
+                    <th class="px-6 py-4 font-medium">Tiêu đề</th>
+                    <th class="px-6 py-4 font-medium">Người tạo</th>
+                    <th class="px-6 py-4 font-medium">Rơ-le</th>
+                    <th class="px-6 py-4 font-medium">Ngày tạo</th>
+                    <th class="px-6 py-4 font-medium">Trạng thái</th>
+                    <th class="px-6 py-4 font-medium text-right">Hành động</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-sm">
+                {% for sheet in sheets %}
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4 font-medium text-slate-800">{{ sheet.sheet_code }}</td>
+                    <td class="px-6 py-4 text-slate-600">{{ sheet.title }}</td>
+                    <td class="px-6 py-4 text-slate-600 font-medium">
+                        <i class="fas fa-user-circle text-slate-400 mr-1"></i> 
+                        {% if sheet.created_by %}
+                            {{ sheet.created_by.first_name|default:sheet.created_by.username }}
+                        {% else %}
+                            <span class="text-slate-400 italic">System</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-slate-600">
+                        {% if sheet.relay %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-md bg-slate-100 text-xs font-medium">
+                                {{ sheet.relay.relay_code }}
+                            </span>
+                        {% elif sheet.relay_text %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium">
+                                {{ sheet.relay_text }}
+                            </span>
+                        {% else %}
+                            <span class="text-slate-400 italic">Chưa gắn</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-slate-500">{{ sheet.created_at|date:"d/m/Y H:i" }}</td>
+                    <td class="px-6 py-4" id="status-cell-{{ sheet.pk }}">
+                        <div class="transform hover:scale-105 transition-transform inline-block">
+                            {% include "sheets/partials/_status_badge.html" with sheet=sheet %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <a href="{% url 'sheet_detail' sheet.pk %}" class="inline-flex items-center justify-center px-3 py-1.5 bg-slate-50 text-slate-600 hover:bg-primary hover:text-white rounded text-xs font-medium transition-colors shadow-sm border border-slate-200 hover:border-primary">
+                            <i class="fas fa-eye mr-1"></i> Chi tiết
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-slate-500">
+                    <td colspan="7" class="px-6 py-8 text-center text-slate-500">
+                        <div class="flex flex-col items-center justify-center">
+                            <i class="fas fa-inbox text-4xl mb-3 text-slate-300"></i>
+                            <p>Chưa có phiếu chỉnh định nào.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    
+    <!-- Pagination -->
+    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+        <span class="text-sm text-slate-500">
+            Hiển thị trang {{ sheets.number }} / {{ sheets.paginator.num_pages }}
+        </span>
+        <div class="flex gap-1">
+            {% if sheets.has_previous %}
+            <a href="?page={{ sheets.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">&laquo; Trước</a>
+            {% endif %}
+            
+            {% for i in sheets.paginator.page_range %}
+                {% if sheets.number == i %}
+                <span class="px-3 py-1 bg-primary text-white rounded text-sm font-bold">{{ i }}</span>
+                {% elif i > sheets.number|add:'-3' and i < sheets.number|add:'3' %}
+                <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">{{ i }}</a>
+                {% endif %}
+            {% endfor %}
+            
+            {% if sheets.has_next %}
+            <a href="?page={{ sheets.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">Sau &raquo;</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

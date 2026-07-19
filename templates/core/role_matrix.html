@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Quản trị Hệ thống | Ma trận Phân quyền{% endblock %}
+{% block header_title %}Ma trận Phân quyền Động{% endblock %}
+
+{% block content %}
+<div class="h-full flex flex-col">
+    
+    <!-- Top Bar -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 mb-6 flex justify-between items-center">
+        <div>
+            <h2 class="text-lg font-bold text-slate-800">Cấu hình Vai trò & Quyền hạn (Role Matrix)</h2>
+            <p class="text-sm text-slate-500 mt-1">Check vào các ô để tự động cấp quyền tương ứng cho các nhóm vai trò. Hệ thống sẽ lưu tự động.</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'user_list' %}" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors shadow-sm inline-flex items-center gap-2">
+                <i class="fas fa-users"></i> Quản lý Tài khoản
+            </a>
+        </div>
+    </div>
+
+    <!-- Matrix Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col p-4 relative">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse border border-slate-200 shadow-sm rounded-lg overflow-hidden">
+                <thead>
+                    <tr class="bg-slate-100 border-b border-slate-300">
+                        <th class="px-4 py-4 text-xs font-bold tracking-wider text-slate-600 uppercase border-r border-slate-300 w-64">
+                            Quyền hạn \ Nhóm Vai trò
+                        </th>
+
+
+                        {% for group in groups %}
+                        <th class="px-3 py-4 text-xs font-bold tracking-wider text-slate-700 text-center uppercase border-r border-slate-200 hover:bg-slate-200 transition-colors align-top min-w-[140px]">
+                            <div class="flex flex-col items-center gap-2">
+                                <span class="px-3 py-1.5 rounded bg-white border border-slate-200 shadow-sm text-evn-blue whitespace-nowrap text-[13px]">
+                                    <i class="fas fa-user-shield mr-1 text-slate-400"></i> {{ group.vi_name }}
+                                </span>
+                            </div>
+                        </th>
+                        {% endfor %}
+
+
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                    {% for perm in permissions %}
+                    <tr class="hover:bg-slate-50 transition-colors group">
+                        <td class="px-4 py-3 font-semibold text-sm text-slate-800 border-r border-slate-200 bg-slate-50 group-hover:bg-slate-100 transition-colors">
+                            <i class="fas fa-key text-slate-400 mr-2 text-xs"></i> {{ perm.vi_name }}
+                        </td>
+                        {% for group in groups %}
+                        <td class="px-3 py-3 text-center border-r border-slate-200 relative group-hover:bg-blue-50/40 transition-colors">
+                            <div class="flex justify-center items-center relative">
+                                <input type="checkbox" 
+                                    hx-post="{% url 'role_matrix_update' %}"
+                                    hx-trigger="change"
+                                    hx-vals='js:{group_id: {{ group.id }}, perm_id: {{ perm.id }}, action: event.target.checked ? "add" : "remove"}'
+                                    hx-target="#indicator-{{ group.id }}-{{ perm.id }}"
+                                    class="w-5 h-5 text-evn-blue bg-white border-slate-300 rounded focus:ring-evn-blue focus:ring-2 cursor-pointer transition-all shadow-sm"
+                                    {% if perm.id in matrix|dictsort:group.id|default_if_none:"" %}checked{% endif %}
+                                    {% for g_id, p_ids in matrix.items %}{% if g_id == group.id %}{% if perm.id in p_ids %}checked{% endif %}{% endif %}{% endfor %}
+                                >
+                                <div id="indicator-{{ group.id }}-{{ perm.id }}" class="absolute -right-2 -top-2 opacity-100 transition-opacity duration-500 text-xs text-green-500 font-bold z-10">
+                                </div>
+                            </div>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

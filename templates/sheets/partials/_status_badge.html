@@ -1,0 +1,29 @@
+{% if sheet.status == 'DRAFT' %}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+    <i class="fas fa-edit mr-1.5 text-slate-400"></i> Nháp
+</span>
+{% elif sheet.status == 'ISSUED' %}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+    <i class="fas fa-paper-plane mr-1.5 text-blue-400"></i> Chờ Rà soát
+</span>
+{% elif sheet.status == 'REVIEWED' %}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+    <i class="fas fa-check-double mr-1.5 text-indigo-400"></i> Chờ Phân phối
+</span>
+{% elif sheet.status == 'TRANSFERRED' %}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+    <i class="fas fa-truck mr-1.5 text-purple-400"></i> Đã giao KTV
+</span>
+{% elif sheet.status == 'RECEIVED' %}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+    <i class="fas fa-tools mr-1.5 text-amber-400"></i> Đang thực hiện
+</span>
+{% elif sheet.status == 'COMPLETED' %}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+    <i class="fas fa-check-circle mr-1.5 text-emerald-400"></i> Hoàn thành
+</span>
+{% else %}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+    {{ sheet.get_status_display }}
+</span>
+{% endif %}

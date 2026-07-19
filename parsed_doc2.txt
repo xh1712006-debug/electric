@@ -1,0 +1,1523 @@
+Báo cáo Đặc tả Hệ thống
+TỔNG
+HỢP TÀI LIỆU ĐẶC TẢ VÀ THIẾT KẾ HỆ THỐNG
+Đặc
+Tả Yêu Cầu Phần Mềm (Software Requirements Specification - SRS)
+Dự án
+: Hệ thống Quản lý Phiếu Chỉnh
+định Rơ-le (RMS — Relay Management System)
+Phiên bản
+: 1.0.0 |
+Ngày
+: 2026-07-11
+1.
+Giới thiệu (Introduction)
+1.1
+Mục đích (Purpose)
+Tài liệu này đặc tả
+toàn bộ các yêu cầu nghiệp vụ, chức năng và phi chức năng cho
+Hệ thống Quản lý Phiếu Chỉnh định Rơ-le
+(RMS)
+. Hệ thống phục vụ quy trình lập phiếu, phê duyệt, chuyển
+giao và xác nhận hoàn thành việc chỉnh định thông số bảo vệ rơ-le tại các trạm
+biến áp trong mạng lưới truyền tải điện. Tài liệu này đóng vai trò làm cơ sở để
+định hướng phát triển, kiểm thử và bàn giao sản phẩm.
+1.2
+Phạm vi Sản phẩm (Product Scope)
+Trong
+     phạm vi (In-Scope)
+:
+Quản
+      lý danh mục: Trạm biến áp, Ngăn lộ, Rơ-le và thông số chỉnh định.
+Quy
+      trình phiếu chỉnh định: Import (upload bản scan) → Phát hành → Chuyển
+      giao → Tiếp nhận → Xác nhận hoàn thành.
+Ký
+      số điện tử tích hợp hệ thống ký số của EVN cho tất cả các bên liên quan.
+Kiểm
+      tra định kỳ và so sánh thông số rơ-le.
+Phân
+      quyền truy cập theo vai trò (RBAC).
+Xác
+      thực người dùng qua Email/Mật khẩu + JWT.
+Tích
+      hợp trực tiếp với hệ thống SCADA hoặc EMS.
+Ngoài
+     phạm vi (Out-of-Scope)
+:
+Tính
+      toán thông số chỉnh định tự động (hệ thống chỉ lưu trữ và quản lý thông
+      số do kỹ thuật viên nhập).
+1.3
+Thuật ngữ & Viết tắt (Definitions & Acronyms)
+SRS
+:
+     Software Requirements Specification.
+RMS
+:
+     Relay Management System — Hệ thống Quản lý Phiếu Chỉnh định Rơ-le.
+RBAC
+:
+     Role-Based Access Control — Kiểm soát truy cập theo vai trò.
+EVN
+:
+     Tập đoàn Điện lực Việt Nam.
+Trạm
+     biến áp
+: Trạm điện dùng để biến đổi điện
+     áp trong hệ thống truyền tải điện.
+Ngăn
+     lộ (Bay)
+: Một khoang thiết bị điện
+     trong trạm biến áp (ví dụ: ngăn máy biến áp, ngăn đường dây).
+Rơ-le
+     bảo vệ
+: Thiết bị tự động bảo vệ hệ
+     thống điện khi có sự cố, cần được chỉnh định (cài đặt thông số) định kỳ.
+Phiếu
+     chỉnh định
+: Tài liệu kỹ thuật ghi nhận
+     các thông số rơ-le cần được chỉnh định, do A0/A1 phát hành.
+A0/A1
+:
+     Cán bộ kỹ thuật cấp cao của Công ty Truyền tải, có thẩm quyền lập và phát
+     hành phiếu chỉnh định.
+Đơn
+     vị chỉnh định
+: Đơn vị kỹ thuật được giao
+     thực hiện công việc chỉnh định rơ-le tại trạm.
+Ký
+     số
+: Chữ ký điện tử được xác thực bởi hệ thống ký số của
+     EVN.
+2.
+Mô tả Tổng quan (Overall Description)
+2.1
+Bối cảnh Hệ thống (Product Perspective)
+RMS là một hệ thống
+web độc lập, giao tiếp với
+Hệ
+thống ký số của EVN
+thông qua REST API bên ngoài. Hệ thống được
+thiết kế để phục vụ quy trình nội bộ giữa Công ty Truyền tải và các Đơn vị chỉnh
+định.
+┌─────────────────────────────┐
+┌───────────────────────────┐
+│
+RMS (Web Application)
+│◄───────►│
+Hệ thống Ký số EVN
+│
+│
+React.js + Django + PgSQL
+│
+REST
+│
+(External - API tích hợp) │
+└─────────────────────────────┘
+└───────────────────────────┘
+2.2
+Tác nhân & Đối tượng Sử dụng (User Classes & Characteristics)
+A0/A1
+     (Người phát hành phiếu)
+: Cán bộ kỹ thuật Công ty
+     Truyền tải. Có quyền tạo, tải lên bản scan, ký số ban đầu và phát hành
+     phiếu chỉnh định.
+Bộ
+     phận rà soát (VTC, Vận hành, Đơn vị điều độ)
+:
+     Đảm nhiệm việc kiểm tra, rà soát nội dung phiếu chỉnh định do A0/A1 phát
+     hành. Nếu hợp lệ sẽ phê duyệt để chuyển xuống cho kỹ thuật viên.
+Công
+     ty Truyền tải (user chính)
+: Quản lý toàn bộ danh mục
+     (Trạm, Ngăn lộ, Rơ-le), tạo dự án mới, cấu hình hệ thống.
+Kỹ
+     thuật viên chỉnh định (Điều độ viên)
+:
+     Thuộc Đơn vị chỉnh định. Tiếp nhận phiếu, thực hiện công việc thực tế tại
+     trạm và ký số xác nhận hoàn thành.
+Người
+     quản lý tại trạm (Giám sát trạm)
+: Cùng xem
+     phiếu chỉnh định với kỹ thuật viên và thực hiện ký số chung xác nhận hoàn
+     thành công việc.
+Quản
+     trị viên (Admin)
+: Quản lý người dùng, phân
+     quyền và cấu hình hệ thống.
+2.3
+Ràng buộc & Phụ thuộc (Constraints & Dependencies)
+Ràng
+     buộc
+:
+Hệ
+      thống phải chạy ổn định trên trình duyệt Chrome/Firefox phiên bản mới
+      nhất.
+Toàn
+      bộ dữ liệu phiếu chỉnh định phải được lưu trữ và không được xóa vật lý
+      (soft delete).
+Chữ
+      ký số phải được xác thực bởi hệ thống EVN trước khi ghi nhận vào hệ
+      thống.
+Phụ
+     thuộc
+:
+Phụ
+      thuộc vào tính sẵn sàng của
+API
+      hệ thống ký số EVN
+để thực hiện ký số và xác thực chữ ký.
+3.
+Yêu cầu Giao diện Ngoại vi (External Interface Requirements)
+3.1
+Giao diện Người dùng (User Interface)
+Giao
+     diện Web Responsive, ưu tiên Desktop (màn hình ≥ 1280px).
+Hỗ
+     trợ Dark Mode / Light Mode.
+Font
+     chữ hỗ trợ đầy đủ tiếng Việt (Be Vietnam Pro hoặc Inter).
+Cấu
+     trúc trang chính: Sidebar điều hướng trái + Content area + Header thanh
+     trạng thái người dùng.
+3.2
+Giao diện Phần cứng / Thiết bị (Hardware/Device Interfaces)
+Không
+     yêu cầu kết nối phần cứng đặc biệt.
+File
+     phiếu chỉnh định được upload qua trình duyệt (PDF hoặc ảnh scan JPG/PNG).
+3.3
+Giao diện Phần mềm & API (Software & API Interfaces)
+Hệ
+     thống ký số EVN
+: REST API bên ngoài. Hệ thống
+     RMS gọi API này để:
+Khởi
+      tạo phiên ký số.
+Gửi
+      nội dung cần ký (hash của phiếu).
+Nhận
+      lại chữ ký số và xác thực tính hợp lệ.
+File
+     Storage
+: Lưu trữ file scan phiếu trên
+     server cục bộ hoặc S3-compatible storage.
+4.
+Yêu cầu Chức năng (Functional Requirements)
+4.1
+Phân hệ Xác thực & Tài khoản (Auth & Account)
+[US-AUTH-01]
+: Người dùng
+     có thể đăng nhập bằng Email và Mật khẩu.
+[US-AUTH-02]
+: Người dùng
+     có thể đặt lại mật khẩu khi quên qua mã OTP gửi đến Email.
+[US-AUTH-03]
+: Hệ thống
+     tự động đăng xuất khi AccessToken hết hạn và RefreshToken không hợp lệ.
+[US-AUTH-04]
+: Quản trị
+     viên có thể kích hoạt hoặc vô hiệu hóa tài khoản người dùng.
+4.2
+Phân hệ Phân quyền (Authorization & RBAC)
+[US-RBAC-01]
+: Quản trị
+     viên có thể tạo, sửa và gán vai trò cho người dùng.
+[US-RBAC-02]
+: Hệ thống
+     kiểm soát quyền truy cập theo từng vai trò (xem mục 4-security.md).
+[US-RBAC-03]
+: Người dùng
+     chỉ thấy các chức năng và dữ liệu phù hợp với vai trò của mình.
+4.3
+Phân hệ Quản lý Trạm Biến áp (Station Management)
+[US-STN-01]
+: Công ty
+     Truyền tải có thể tạo dự án (trạm biến áp) mới từ file cấu hình
+     (JSON/Excel).
+[US-STN-02]
+: Công ty Truyền
+     tải có thể xem danh sách và chi tiết từng trạm biến áp.
+[US-STN-03]
+: Công ty
+     Truyền tải có thể thêm, sửa, vô hiệu hóa thông tin trạm biến áp.
+[US-STN-04]
+: Công ty
+     Truyền tải có thể cấu hình danh sách ngăn lộ (Bay) cho từng trạm.
+[US-STN-05]
+: Công ty
+     Truyền tải có thể cấu hình danh sách rơ-le và thông số định mức cho từng
+     ngăn lộ.
+4.4
+Phân hệ Quản lý Phiếu Chỉnh định (Calibration Sheet)
+[US-SHEET-01]
+:
+     A0/A1 có thể import (tải lên) file bản scan phiếu chỉnh định (PDF/JPG) vào
+     hệ thống. (Ghi chú: Trong thời gian chờ module OCR, người dùng sẽ tự nhập
+     tay các thông số, hoặc sử dụng tính năng mock/giả lập dữ liệu sau khi
+     upload để có thể test luồng tiếp theo).
+[US-SHEET-02]
+:
+     A0/A1 có thể nhập metadata của phiếu: trạm, ngăn lộ, rơ-le liên quan, ngày
+     lập phiếu.
+[US-SHEET-03]
+:
+     A0/A1 có thể ký số ban đầu lên phiếu thông qua tích hợp hệ thống ký số
+     EVN.
+[US-SHEET-04]
+:
+     Công ty Truyền tải có thể phát hành phiếu. Trạng thái phiếu sẽ chuyển
+     thành "Chờ rà soát".
+[US-SHEET-04b]
+:
+     Bộ phận rà soát (VTC, Vận hành, Đơn vị điều độ) xem xét phiếu. Nếu hợp lệ,
+     thực hiện phê duyệt và chuyển giao xuống cho Kỹ thuật viên chỉnh định.
+[US-SHEET-05]
+:
+     Kỹ thuật viên chỉnh định có thể xem danh sách phiếu được giao và xem chi
+     tiết từng phiếu.
+[US-SHEET-06]
+:
+     Kỹ thuật viên chỉnh định có thể tiếp nhận phiếu (xác nhận đã nhận được
+     lệnh).
+[US-SHEET-07]
+:
+     Kỹ thuật viên chỉnh định có thể ký số xác nhận đã hoàn thành công việc
+     chỉnh định.
+[US-SHEET-08]
+:
+     Người quản lý tại trạm (Giám sát trạm) có thể xem cùng phiếu và ký số xác
+     nhận cùng kỹ thuật viên.
+[US-SHEET-09]
+:
+     Hệ thống lưu đầy đủ lịch sử trạng thái và thời gian của từng bước xử lý
+     phiếu.
+[US-SHEET-10]
+:
+     Người dùng có thể tìm kiếm và lọc phiếu theo: trạm, ngăn lộ, trạng thái,
+     khoảng thời gian.
+4.5
+Phân hệ Ký số (Digital Signature)
+[US-SIG-01]
+: Hệ thống
+     gọi API ký số EVN để tạo phiên ký số cho người dùng.
+[US-SIG-02]
+: Hệ thống
+     nhận kết quả ký số từ EVN và lưu thông tin chữ ký vào cơ sở dữ liệu.
+[US-SIG-03]
+: Hệ thống
+     có thể xác thực tính hợp lệ của chữ ký số đã lưu bằng cách gọi API xác
+     thực EVN.
+[US-SIG-04]
+: Giao diện
+     hiển thị trạng thái chữ ký (Đã ký / Chưa ký / Không hợp lệ) cho từng
+     phiếu.
+4.6
+Phân hệ Kiểm tra Định kỳ & So sánh Thông số (Periodic Check)
+[US-CHK-01]
+: Hệ thống
+     hỗ trợ lên lịch và ghi nhận kết quả kiểm tra định kỳ thông số rơ-le.
+[US-CHK-02]
+: Cán bộ kỹ
+     thuật có thể nhập thông số đo được thực tế và so sánh với thông số chuẩn
+     trong phiếu chỉnh định.
+[US-CHK-03]
+: Hệ thống
+     hiển thị trực quan sự sai lệch (deviation) giữa thông số thực tế và chuẩn
+     định mức.
+[US-CHK-04]
+: Hệ thống
+     cảnh báo khi thông số rơ-le vượt ngưỡng cho phép.
+[US-CHK-05]
+: Người dùng
+     có thể xem lịch sử kiểm tra và biểu đồ xu hướng thay đổi thông số theo
+     thời gian.
+5.
+Yêu cầu Phi chức năng (Non-functional Requirements)
+5.1
+Độ tin cậy & An toàn (Reliability & Safety)
+Hệ
+     thống tự động sao lưu cơ sở dữ liệu PostgreSQL mỗi 24 giờ.
+Dữ
+     liệu phiếu chỉnh định được lưu trữ theo cơ chế soft-delete, không bao giờ
+     bị xóa vật lý.
+Tất
+     cả hành động ký số phải được ghi log đầy đủ (audit trail).
+5.2
+Bảo mật (Security)
+Mã
+     hóa toàn bộ kết nối bằng HTTPS/TLS.
+Mật
+     khẩu người dùng phải được băm bằng
+bcrypt
+trước khi lưu vào database.
+Áp
+     dụng các biện pháp phòng chống OWASP Top 10 (SQL Injection, XSS, CSRF...).
+File
+     scan phiếu chỉnh định phải được kiểm tra định dạng và giới hạn dung lượng
+     trước khi lưu.
+5.3
+Hiệu năng (Performance)
+Thời
+     gian phản hồi API trung bình dưới
+1
+     giây
+trong điều kiện bình thường.
+Hệ
+     thống hỗ trợ tối thiểu
+200
+     người dùng đồng thời
+.
+Thời
+     gian upload file phiếu scan (≤ 10MB) không vượt quá
+5 giây
+trên đường
+     truyền 10Mbps.
+5.4
+Khả năng Bảo trì (Maintainability)
+Mã
+     nguồn tuân thủ quy tắc đặt tên và chú thích theo
+ANTIGRAVITY.md
+.
+Tài
+     liệu API được tự động sinh bằng drf-spectacular (Django REST Framework).
+Báo
+Cáo Thiết Kế Hệ Thống (System Design Report)
+Hệ
+thống Quản lý Phiếu Chỉnh định Rơ-le (Relay Management System - RMS)
+1.
+Tổng quan Hệ thống (System Overview)
+Hệ thống
+Quản lý Phiếu Chỉnh định Rơ-le (RMS)
+là một giải pháp chuyển đổi số toàn diện phục vụ quy trình lập phiếu, phê duyệt,
+chuyển giao, thực hiện và nghiệm thu công tác chỉnh định rơ-le bảo vệ tại các
+trạm biến áp trong mạng lưới điện truyền tải.
+1.1
+Các Tác nhân trong Hệ thống (Actors)
+Cán
+     bộ A0/A1 (Người phát hành phiếu)
+: Lập, nhập
+     thông tin cấu hình ban đầu, ký số và phát hành phiếu chỉnh định.
+Công
+     ty Truyền tải (User chính)
+: Quản lý hạ tầng (Trạm biến
+     áp, Ngăn lộ, Rơ-le), phân phối và chuyển giao phiếu cho các Đơn vị chỉnh
+     định.
+Kỹ
+     thuật viên Chỉnh định
+: Tiếp nhận phiếu, thực hiện đo
+     đạc và cài đặt rơ-le tại trạm, ký số xác nhận hoàn thành.
+Người
+     giám sát Trạm biến áp
+: Ký số xác nhận sự hiện diện
+     và giám sát công việc của kỹ thuật viên tại trạm.
+Hệ
+     thống Ký số EVN
+: Dịch vụ API bên ngoài để xác
+     thực danh tính và ký số pháp lý cho các bên.
+1.2
+Bản đồ Tài liệu Đặc tả (Specification Map)
+Tài liệu của hệ thống được
+phân chia một cách khoa học để dễ theo dõi và báo cáo: 1.
+Đặc tả Nghiệp vụ Tổng thể
+:
+PROJECT_REQUIREMENTS.md
+2.
+Đặc tả Cơ sở Dữ liệu
+:
+docs/cores/01-database.md
+3.
+Đặc tả API & Backend
+:
+docs/cores/02-backend.md
+4.
+Đặc tả Giao diện & Frontend
+:
+docs/cores/03-frontend.md
+5.
+Đặc tả Xác thực & Bảo
+mật
+:
+docs/cores/04-security.md
+6.
+Kế hoạch Kiểm thử &
+Triển khai
+:
+docs/cores/05-testing.md
+và
+docs/cores/06-deployment.md
+2.
+Kiến trúc Hệ thống (System Architecture)
+Hệ thống được thiết kế theo
+mô hình 3 lớp (3-tier Architecture) đảm bảo tính bảo mật, hiệu năng và khả năng
+mở rộng.
+2.1
+Sơ đồ Phân rã Chức năng (Functional Decomposition)
+graph TD
+RMS[Hệ thống Quản lý Phiếu RMS]
+%% Auth & User
+RMS --> AUTH[Xác thực & Người dùng]
+AUTH --> LG[Đăng nhập JWT]
+AUTH --> OTP[Quên mật khẩu OTP]
+AUTH --> RBAC[Phân quyền 5 vai trò]
+%% Station Management
+RMS --> STN[Quản lý Trạm & Thiết bị]
+STN --> STN_CRUD[Quản lý Trạm Biến áp]
+STN --> IMPORT[Import cấu hình JSON/Excel]
+STN --> RELAY[Cấu hình Ngăn lộ & Rơ-le]
+%% Calibration Sheet
+RMS --> SHEET[Quản lý Phiếu Chỉnh định]
+SHEET --> SHEET_IMP[Import & Tải lên bản scan]
+SHEET --> SHEET_STATE[Vòng đời trạng thái phiếu]
+SHEET --> TRANSFER[Chuyển giao cho Đơn vị]
+%% Digital Signature
+RMS --> SIG[Phân hệ Ký số]
+SIG --> EVN_INT[Tích hợp API Ký số EVN]
+SIG --> SIG_VER[Xác thực & Lưu trữ chữ ký]
+%% Periodic Check
+RMS --> CHK[Kiểm tra Định kỳ]
+CHK --> SCHED[Lên lịch đo thông số]
+CHK --> CALC[Tự động tính sai lệch %]
+CHK --> ALERT[Cảnh báo vượt ngưỡng]
+CHK --> CHART[Biểu đồ xu hướng thông số]
+2.2
+Sơ đồ Kiến trúc Triển khai (Deployment Topology)
+graph LR
+User([Người dùng / Web Browser]) -->|HTTPS: 443| Nginx[Nginx Reverse Proxy]
+Nginx -->|Serve Static| FE[React Frontend Static Files]
+Nginx -->|API Requests| Django[Django Backend / Gunicorn]
+Django -->|ORM| DB[(PostgreSQL 15)]
+Django -->|Celery Tasks| Redis[(Redis Broker)]
+Redis --> Worker[Celery Worker]
+Worker -->|Send Email| SMTP[SMTP Mail Server]
+Django -->|REST API| EVN[Hệ thống Ký số EVN]
+3.
+Quy trình & Luồng Nghiệp vụ Chi tiết (Core Workflows)
+Dưới đây là 5 luồng nghiệp vụ
+tương ứng với 5 hình vẽ (Figures) trong hồ sơ thiết kế:
+3.1
+Tạo Trạm Biến áp & Thiết bị từ File Cấu hình (Figure 1)
+Cho phép import nhanh chóng
+toàn bộ cấu trúc Trạm $\rightarrow$ Ngăn lộ $\rightarrow$ Rơ-le $\rightarrow$
+Thông số định mức từ file JSON hoặc Excel cấu hình mẫu.
+sequenceDiagram
+actor User as Công ty Truyền tải
+participant FE as React Frontend
+participant BE as Django Backend
+participant DB as PostgreSQL DB
+User->>FE: Tải lên file cấu hình (JSON/Excel)
+FE->>BE: POST /api/v1/stations/import/ {file}
+BE->>BE: Parse file, kiểm tra định dạng & ràng buộc
+alt Dữ liệu hợp lệ
+BE->>DB: Tạo Station, Bay, Relay, RelaySetting (Database Transaction)
+BE-->>FE: Trả về HTTP 200 {created_stations: 1, created_bays: 3, created_relays: 8}
+FE-->>User: Hiển thị thông báo thành công và cấu trúc trạm vừa tạo
+else Dữ liệu lỗi
+BE-->>FE: Trả về HTTP 400 {errors: [...]}
+FE-->>User: Hiển thị chi tiết lỗi dòng / trường để người dùng sửa
+end
+3.2
+Kiểm tra Định kỳ & So sánh Thông số Rơ-le (Figure 2)
+Quy trình đo đạc thực tế định
+kỳ nhằm đánh giá độ tin cậy của rơ-le so với thông số chuẩn trên phiếu chỉnh định.
+sequenceDiagram
+actor A01 as Cán bộ A0/A1
+actor Tech as Kỹ thuật viên
+participant BE as Django Backend
+participant DB as PostgreSQL DB
+A01->>BE: POST /api/v1/periodic-checks/ {relay_id, scheduled_date}
+BE->>DB: Truy vấn thông số chuẩn (standard_value) từ phiếu COMPLETED gần nhất
+BE->>DB: Tạo đợt kiểm tra PeriodicCheck & các item trống
+BE-->>A01: Xác nhận lên lịch kiểm tra thành công
+Note over Tech: Kỹ thuật viên đến trạm biến áp đo thực tế
+Tech->>BE: POST /api/v1/periodic-checks/{id}/items/ {item_id, measured_value}
+BE->>BE: Tính sai lệch: % = |đo - chuẩn| / chuẩn * 100
+BE->>BE: So sánh với ngưỡng: tolerance_min <= đo <= tolerance_max
+BE-->>Tech: Trả về kết quả so sánh tức thời (Đạt / Vượt ngưỡng)
+Tech->>BE: POST /api/v1/periodic-checks/{id}/complete/
+BE->>DB: Đóng đợt kiểm tra (status = COMPLETED)
+alt Có thông số vượt ngưỡng (is_within_tolerance = False)
+BE->>BE: Kích hoạt cảnh báo hệ thống
+end
+BE-->>Tech: Trả về báo cáo hoàn thành
+3.3
+Import & Phát hành Phiếu Chỉnh định ban đầu (Figure 3)
+Quy trình A0/A1 đưa phiếu
+scan vào hệ thống và thực hiện ký số phát hành lần đầu.
+sequenceDiagram
+actor A01 as Cán bộ A0/A1
+participant FE as React Frontend
+participant BE as Django Backend
+participant EVN as Hệ thống Ký số EVN
+A01->>FE: Tải lên scan phiếu (PDF/JPG) + metadata
+FE->>BE: POST /api/v1/calibration-sheets/ (Multipart)
+BE->>BE: Lưu file scan, tạo bản ghi phiếu (status = DRAFT)
+BE-->>FE: Trả về thông tin phiếu
+A01->>FE: Click "Ký số & Phát hành"
+FE->>BE: POST /api/v1/signatures/initiate/ {sheet_id, role = A0_A1_ISSUER}
+BE->>BE: Tạo mã băm (hash) nội dung phiếu
+BE->>EVN: POST /evn-sign/api/initiate {hash, user_cert}
+EVN-->>BE: Trả về {session_id, signing_url}
+BE-->>FE: Trả về {session_id, signing_url}
+FE-->>A01: Mở popup hiển thị trang ký số của EVN
+Note over A01,EVN: A0/A1 thực hiện ký số bằng OTP/USB Token tại EVN
+A01->>FE: Click "Xác nhận đã ký xong"
+FE->>BE: POST /api/v1/signatures/confirm/ {session_id}
+BE->>EVN: GET /evn-sign/api/result/{session_id}
+EVN-->>BE: Trả về {signature_data (Base64), status: SIGNED}
+BE->>BE: Lưu chữ ký vào DB, cập nhật trạng thái phiếu -> ISSUED
+BE-->>FE: Hiển thị trạng thái phiếu: ĐÃ PHÁT HÀNH (ISSUED)
+3.4
+Chuyển giao Phiếu Chỉnh định cho Đơn vị Vận hành (Figure 4)
+Quy trình giao việc từ Công
+ty Truyền tải tới Kỹ thuật viên chỉnh định.
+sequenceDiagram
+actor TC as Công ty Truyền tải
+participant BE as Django Backend
+actor Tech as Kỹ thuật viên
+TC->>BE: POST /api/v1/calibration-sheets/{id}/transfer/ {to_unit_user_id, note}
+BE->>BE: Kiểm tra phiếu đang ở trạng thái ISSUED
+BE->>BE: Kiểm tra người nhận có quyền CALIBRATION_TECHNICIAN
+BE->>BE: Tạo bản ghi chuyển giao (SheetTransfer), cập nhật trạng thái phiếu -> TRANSFERRED
+BE-->>TC: Chuyển giao thành công
+BE-->>Tech: Gửi thông báo/email về phiếu được phân công
+3.5
+Ký số Nghiệm thu & Xác nhận Hoàn thành (Figure 5)
+Bước nghiệm thu cuối cùng
+yêu cầu đủ chữ ký của Kỹ thuật viên và Giám sát trạm biến áp.
+sequenceDiagram
+actor Tech as Kỹ thuật viên
+actor Sup as Giám sát Trạm
+participant BE as Django Backend
+participant EVN as Hệ thống Ký số EVN
+Tech->>BE: POST /api/v1/calibration-sheets/{id}/receive/
+BE->>BE: Đổi trạng thái phiếu -> RECEIVED (Bắt đầu làm việc)
+Note over Tech: Kỹ thuật viên chỉnh định thông số rơ-le tại trạm
+Tech->>BE: POST /api/v1/signatures/initiate/ (ký xác nhận hoàn thành)
+BE->>EVN: Yêu cầu khởi tạo phiên ký cho Kỹ thuật viên
+EVN-->>Tech: Ký số hoàn tất
+BE->>BE: Lưu chữ ký số của Kỹ thuật viên (status = SIGNED)
+Sup->>BE: POST /api/v1/signatures/initiate/ (ký xác nhận giám sát)
+BE->>EVN: Yêu cầu khởi tạo phiên ký cho Giám sát trạm
+EVN-->>Sup: Ký số hoàn tất
+BE->>BE: Lưu chữ ký số của Giám sát trạm (status = SIGNED)
+BE->>BE: Kiểm tra: Đã đủ 3 chữ ký (A0/A1 + Kỹ thuật viên + Giám sát)?
+BE->>BE: Cập nhật trạng thái phiếu -> COMPLETED
+BE-->>Tech: Xác nhận hoàn thành phiếu thành công
+4.
+Thiết kế Cơ sở Dữ liệu (Database Schema)
+Dữ liệu được tổ chức chuẩn
+hóa bậc 3 (3NF) để tránh dư thừa và đảm bảo tính toàn vẹn dữ liệu.
+4.1
+Sơ đồ Thực thể Quan hệ (ERD Diagram)
+erDiagram
+USERS ||--o{ USER_ROLES : "has"
+USERS {
+bigint id PK
+varchar email UK
+varchar password_hash
+varchar full_name
+boolean is_active
+timestamp created_at
+}
+ROLES ||--o{ USER_ROLES : "assigned_to"
+ROLES {
+int id PK
+varchar role_code UK
+varchar role_name
+}
+USER_ROLES {
+bigint id PK
+bigint user_id FK
+int role_id FK
+}
+STATIONS ||--o{ BAYS : "contains"
+STATIONS {
+bigint id PK
+varchar station_code UK
+varchar station_name
+varchar location
+varchar voltage_level
+boolean is_active
+}
+BAYS ||--o{ RELAYS : "contains"
+BAYS {
+bigint id PK
+bigint station_id FK
+varchar bay_code
+varchar bay_name
+varchar bay_type
+}
+RELAYS ||--o{ RELAY_SETTINGS : "has"
+RELAYS ||--o{ CALIBRATION_SHEETS : "referenced"
+RELAYS {
+bigint id PK
+bigint bay_id FK
+varchar relay_code
+varchar relay_name
+varchar manufacturer
+varchar serial_number
+}
+RELAY_SETTINGS {
+bigint id PK
+bigint relay_id FK
+varchar parameter_name
+varchar parameter_code
+decimal standard_value
+varchar unit
+decimal tolerance_min
+decimal tolerance_max
+}
+CALIBRATION_SHEETS ||--o{ SHEET_TRANSFERS : "transferred_via"
+CALIBRATION_SHEETS ||--o{ DIGITAL_SIGNATURES : "signed_by"
+CALIBRATION_SHEETS {
+bigint id PK
+varchar sheet_code UK
+bigint relay_id FK
+varchar status
+varchar scan_file_path
+bigint issued_by FK
+timestamp created_at
+}
+SHEET_TRANSFERS {
+bigint id PK
+bigint sheet_id FK
+bigint to_unit_id FK
+varchar transfer_status
+timestamp transferred_at
+}
+DIGITAL_SIGNATURES {
+bigint id PK
+bigint sheet_id FK
+bigint signed_by FK
+varchar signer_role
+text signature_data
+timestamp signed_at
+}
+PERIODIC_CHECKS ||--o{ PERIODIC_CHECK_ITEMS : "contains"
+PERIODIC_CHECKS {
+bigint id PK
+bigint relay_id FK
+bigint sheet_id FK
+varchar check_status
+date scheduled_date
+date actual_check_date
+}
+PERIODIC_CHECK_ITEMS {
+bigint id PK
+bigint check_id FK
+bigint setting_id FK
+decimal measured_value
+decimal deviation_percent
+boolean is_within_tolerance
+}
+5.
+Thiết kế Giao diện Người dùng (UI Wireframes)
+Hệ thống sử dụng ngôn ngữ
+thiết kế tối giản, hiện đại (sleek dark mode kết hợp xanh dương EVN).
+5.1
+Giao diện Chi tiết Phiếu Chỉnh định (
+/calibration-sheets/:id
+)
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│
+[Logo EVN]
+Relay Management System | Xin chào, Nguyễn Văn A (A0/A1)
+[ Đăng xuất ]│
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│
+📂
+Danh mục
+|
+📄
+Phiếu Chỉnh Định |
+⏳
+Phiếu Chờ Ký |
+📊
+Kiểm Tra Định Kỳ |
+⚙️
+Cài đặt
+│
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ Trang chủ / Chi tiết phiếu / PHIEU-2026-07-001
+│
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│
+│
+│
+│ [KHU VỰC HIỂN THỊ FILE SCAN PHIẾU CHỈNH ĐỊNH]│ THÔNG TIN CHI TIẾT
+│
+│
+│ - Mã phiếu: PHIEU-2026-07-001
+│
+│ ┌───────────────────────────────────────┐ │ - Trạm: TBA 220kV Hòa Bình
+│
+│ │
+│ │ - Thiết bị: Rơ-le so lệch dòng AT1
+│
+│ │
+│ │ - Ngày phát hành: 11/07/2026
+│
+│ │
+[FILE.PDF]
+│ │ ────────────────────────────────────────── │
+│ │
+│ │ TRẠNG THÁI CHỮ KÝ SỐ
+│
+│ │
+│ │ [
+✅
+Đã
+k
+ý
+] C
+á
+n bộ phát hành (A0/A1)
+│
+│ │
+│ │
+Nguyễn Văn A - 11/07/2026
+│
+│ │
+│ │ [
+✅
+Đã
+k
+ý
+] Kỹ thuật viên chỉnh định
+│
+│ │
+│ │
+Trần Văn B - 12/07/2026
+│
+│ │
+│ │ [
+⏳
+Ch
+ư
+a k
+ý
+] Ng
+ư
+ời giám sát Trạm
+│
+│ │
+│ │
+(Chờ ký số xác nhận)
+│
+│ │
+│ │ ────────────────────────────────────────── │
+│ │
+│ │ [
+Xem lịch sử phiếu
+]
+[ KÝ SỐ XÁC NHẬN ]│
+│ └───────────────────────────────────────┘ │
+│
+│
+( Cột Trái 60% )
+│
+( Cột Phải 40% )
+│
+└────────────────────────────────────────────────────────────────────────────────────────┘
+5.2
+Giao diện Nhập Kết quả Kiểm tra Định kỳ (
+/periodic-checks/:id
+)
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ KẾT QUẢ KIỂM TRA ĐỊNH KỲ: RƠ-LE AT1-87T (Ngày đo: 12/07/2026)
+│
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ Bảng So Sánh Thông Số Đo Thực Tế Với Trị Số Cài Đặt Chuẩn:
+│
+│
+│
+│ ┌──────────────┬──────────────┬───────────────┬─────────────────┬───────────┬────────┐ │
+│ │ Ký hiệu
+│ Tên thông số │ Trị chuẩn (S) │ Dung sai cho phép│ Giá trị đo│Sai lệch│ │
+│ ├──────────────┼──────────────┼───────────────┼─────────────────┼───────────┼────────┤ │
+│ │ ID_MIN
+│ Dòng k.động
+│ 0.200 A
+│ [0.180 - 0.220] │ [ 0.195 ] │
+2.5%
+│ │
+│ │
+│ tối thiểu
+│
+│
+│
+│ [ĐẠT
+✅
+]
+│
+│
+│ ├──────────────┼──────────────┼───────────────┼─────────────────┼───────────┼────────┤ │
+│ │ TD_1
+│ T.gian cấp 1 │ 0.000 s
+│ [0.000 - 0.020] │ [ 0.035 ] │ 350.0% │ │
+│ │
+│
+│
+│
+│
+│[LỖI
+⚠️
+]│ │
+│ └──────────────┴──────────────┴───────────────┴─────────────────┴───────────┴────────┘ │
+│
+│
+│ [
+⚠️
+CẢNH BÁO: Phát hiện thông số thời gian tác động vượt ngưỡng cho phép! ]
+│
+│
+│
+│
+[ Quay lại ]
+[ Lưu kết quả ] [ Hoàn thành ]│
+└────────────────────────────────────────────────────────────────────────────────────────┘
+6.
+Ma trận Ánh xạ Nghiệp vụ & Kỹ thuật (Traceability Matrix)
+Ma trận này chứng minh mọi
+yêu cầu nghiệp vụ (User Stories) từ tài liệu SRS đều có thiết kế kỹ thuật tương
+ứng để triển khai:
+Mã Yêu cầu
+Tên Yêu cầu Nghiệp vụ
+API Endpoint tương
+   ứng
+Bảng CSDL lưu trữ
+Màn hình Frontend
+[US-AUTH-01]
+Đăng nhập tài khoản
+POST
+  /api/v1/auth/login/
+users
+,
+roles
+/login
+[US-AUTH-02]
+Đặt lại mật khẩu qua
+  OTP
+POST
+  /auth/forgot-password/
+users
+/forgot-password
+[US-STN-01]
+Tạo Trạm từ file cấu
+  hình
+POST
+  /stations/import/
+stations
+,
+bays
+,
+relays
+/stations/new
+[US-STN-04]
+Cấu hình ngăn lộ
+POST
+  /api/v1/bays/
+bays
+/stations/:id
+[US-SHEET-01]
+Import bản scan phiếu
+POST
+  /calibration-sheets/
+calibration_sheets
+/calibration-sheets/new
+[US-SHEET-04]
+Chuyển giao phiếu
+  chỉnh định
+POST
+  /.../sheets/{id}/transfer/
+sheet_transfers
+/calibration-sheets/:id
+[US-SHEET-07]
+Kỹ thuật viên ký số
+  hoàn thành
+POST
+  /api/v1/signatures/confirm/
+digital_signatures
+/signatures/:sheetId
+[US-CHK-02]
+Nhập số liệu đo thực
+  tế
+POST
+  /periodic-checks/{id}/items/
+periodic_check_items
+/periodic-checks/:id
+[US-CHK-03]
+So sánh sai lệch tự
+  động
+Tính toán logic tại
+  Service layer
+periodic_check_items
+/periodic-checks/:id
+[US-CHK-05]
+Biểu đồ xu hướng thông
+  số
+GET
+  /relays/{id}/check-history/
+periodic_checks
+/periodic-checks/:id/report
+Thiết
+kế Cơ sở Dữ liệu (Database Design)
+Hệ quản trị CSDL
+: PostgreSQL 15+
+Tài liệu này đặc tả thiết kế
+cơ sở dữ liệu của hệ thống
+RMS
+,
+tập trung vào vòng đời Phiếu chỉnh định, xử lý AI OCR, Phân công công việc và
+Ký số (theo đúng chuẩn của Báo cáo Đặc tả mới).
+1.
+Sơ đồ Thực thể Quan hệ (ERD) Tổng quát
+erDiagram
+ORGANIZATIONS ||--o{ USERS : "has"
+USERS ||--o{ ORGANIZATION_MEMBERSHIPS : "belongs_to"
+ROLES ||--o{ ORGANIZATION_MEMBERSHIPS : "assigned_via"
+SETTING_SHEETS ||--o{ SETTING_SHEET_VERSIONS : "has"
+FILE_OBJECTS ||--o{ SETTING_SHEET_VERSIONS : "linked_to"
+SETTING_SHEET_VERSIONS ||--o{ OCR_JOBS : "processed_by"
+OCR_JOBS ||--o{ OCR_RESULTS : "produces"
+OCR_RESULTS ||--o{ OCR_FIELDS : "contains"
+OCR_FIELDS ||--o{ OCR_FIELD_REVIEWS : "reviewed_in"
+SETTING_SHEET_VERSIONS ||--o{ OCR_REVIEW_SESSIONS : "has_sessions"
+SETTING_SHEETS ||--o{ HANDOVER_RECORDS : "transferred_via"
+SETTING_SHEETS ||--o{ WORK_ORDERS : "assigned_via"
+WORK_ORDERS ||--o{ ASSIGNMENTS : "has"
+SETTING_SHEET_VERSIONS ||--o{ SIGNATURE_REQUESTS : "signed_in"
+SIGNATURE_REQUESTS ||--o{ SIGNATURE_RECORDS : "contains"
+2.
+Đặc tả Chi tiết Các Nhóm Bảng
+2.1
+Nhóm Tổ chức & Phân quyền
+Bảng:
+organizations
+Cột
+Kiểu
+Mô tả
+id
+UUID
+Khóa chính
+code
+VARCHAR
+Mã đơn vị
+name
+VARCHAR
+Tên đơn vị
+organization_type
+VARCHAR
+EVN, A0, A1, TRANSMISSION_COMPANY,
+  SETTING_COMPANY...
+parent_id
+UUID
+FK → organizations (Tổ
+  chức cha)
+Bảng:
+users
+Cột
+Kiểu
+Mô tả
+id
+UUID
+Khóa chính
+username
+VARCHAR
+Tên đăng nhập
+full_name
+VARCHAR
+Họ tên đầy đủ
+email
+VARCHAR
+Email nội bộ
+status
+VARCHAR
+Trạng thái hoạt động
+Bảng:
+organization_memberships
+Cột
+Kiểu
+Mô tả
+user_id
+UUID
+FK → users
+organization_id
+UUID
+FK → organizations
+role_id
+INT
+FK → roles
+2.2
+Nhóm Phiếu Chỉnh định & File
+Bảng:
+setting_sheets
+(Master Record)
+Lưu thông tin metadata gốc của
+phiếu.
+Không liên kết khóa
+ngoại với rơ le vật lý trong MVP.
+Cột
+Kiểu
+Mô tả
+id
+UUID
+Khóa chính
+sheet_code
+VARCHAR
+Mã phiếu
+title
+VARCHAR
+Tên phiếu
+issuing_organization_id
+UUID
+FK → organizations
+  (Đơn vị phát hành)
+technical_scope_text
+TEXT
+Phạm vi kỹ thuật (dạng
+  văn bản tạm thời)
+asset_reference_text
+TEXT
+Thông tin thiết bị
+  (dạng văn bản tạm thời)
+overall_status
+VARCHAR
+Trạng thái tổng thể
+Bảng:
+setting_sheet_versions
+Quản lý phiên bản tài liệu.
+Mỗi khi tài liệu thay đổi, tạo version mới.
+Cột
+Kiểu
+Mô tả
+setting_sheet_id
+UUID
+FK → setting_sheets
+version_number
+INT
+Số phiên bản
+file_object_id
+UUID
+FK → file_objects
+file_hash_sha256
+VARCHAR
+Mã băm của file (dùng
+  để ký số)
+is_current
+BOOLEAN
+Xác định phiên bản
+  đang hiệu lực
+locked_at
+TIMESTAMP
+Thời điểm khóa nội
+  dung
+2.3
+Nhóm AI (OCR)
+Bảng:
+ocr_jobs
+Theo dõi tiến trình AI bóc
+tách dữ liệu từ Worker.
+Cột
+Kiểu
+Mô tả
+sheet_version_id
+UUID
+FK →
+  setting_sheet_versions
+status
+VARCHAR
+QUEUED, PROCESSING, REVIEW_REQUIRED,
+  CONFIRMED, FAILED
+engine_name
+VARCHAR
+VD: Tesseract,
+  PaddleOCR
+completed_at
+TIMESTAMP
+Thời điểm AI xử lý
+  xong
+Bảng:
+ocr_fields
+Lưu kết quả bóc tách từng
+trường dữ liệu.
+Cột
+Kiểu
+Mô tả
+ocr_result_id
+UUID
+FK → ocr_results
+field_code
+VARCHAR
+Mã trường (VD:
+I>
+)
+raw_value
+VARCHAR
+Giá trị thô AI đọc
+  được
+normalized_value
+VARCHAR
+Giá trị sau khi chuẩn
+  hóa
+confidence
+DECIMAL
+Độ tin cậy (0 - 100%)
+bounding_box_json
+JSONB
+Tọa độ trên ảnh PDF
+  phục vụ Split-view
+Bảng:
+ocr_field_reviews
+Lưu vết con người kiểm tra
+và sửa đổi dữ liệu do AI xuất ra.
+Cột
+Kiểu
+Mô tả
+ocr_field_id
+UUID
+FK → ocr_fields
+original_value
+VARCHAR
+Giá trị cũ (do OCR)
+confirmed_value
+VARCHAR
+Giá trị mới (do KTV
+  sửa)
+change_reason
+TEXT
+Lý do sửa
+reviewed_by
+UUID
+Người đối chiếu
+2.4
+Nhóm Phân công & Thực hiện
+Bảng:
+handover_records
+Lưu lịch sử chuyển giao phiếu
+(VD: Truyền tải → Chỉnh định).
+Cột
+Kiểu
+Mô tả
+setting_sheet_id
+UUID
+FK → setting_sheets
+from_organization_id
+UUID
+Đơn vị chuyển
+to_organization_id
+UUID
+Đơn vị nhận
+status
+VARCHAR
+SENT, ACCEPTED,
+  REJECTED, RECALLED
+Bảng:
+assignments
+Phân công chi tiết cho Kỹ
+thuật viên và Giám sát.
+Cột
+Kiểu
+Mô tả
+work_order_id
+UUID
+FK → work_orders
+user_id
+UUID
+FK → users (Người được
+  giao)
+assignment_role
+VARCHAR
+TECHNICIAN, SUPERVISOR
+status
+VARCHAR
+ASSIGNED, ACCEPTED,
+  IN_PROGRESS, COMPLETED
+2.5
+Nhóm Chữ ký số (EVN Integration)
+Bảng:
+signature_records
+Cột
+Kiểu
+Mô tả
+signature_request_id
+UUID
+Yêu cầu ký liên kết
+signer_name
+VARCHAR
+Tên người ký (Trích từ
+  chứng thư)
+certificate_serial_number
+VARCHAR
+Serial của chứng thư
+  số
+signed_document_hash
+VARCHAR
+Hash đã được ký
+verification_status
+VARCHAR
+VALID, INVALID,
+  EXPIRED
+2.6
+Nhóm Audit & Truy vết
+Bảng:
+audit_events
+(Append-Only)
+Bảng ghi nhận mọi thay đổi,
+không bao giờ UPDATE hoặc DELETE.
+Cột
+Kiểu
+Mô tả
+event_time
+TIMESTAMP
+Thời điểm xảy ra
+actor_user_id
+UUID
+Người thực hiện
+action
+VARCHAR
+Hành động (CREATE,
+  UPDATE, DELETE, SIGN...)
+before_data_json
+JSONB
+Dữ liệu trước khi sửa
+after_data_json
+JSONB
+Dữ liệu sau khi sửa
+previous_event_hash
+VARCHAR
+Hash của dòng event trước
+  đó (Chống giả mạo)
+event_hash
+VARCHAR
+Hash của dòng hiện tại
+3.
+Quy tắc Quản lý Migrations
+Các
+     bảng sử dụng
+UUID
+cho khóa chính thay vì số nguyên tăng dần để tăng tính phân tán và bảo
+     mật.
+Hạn
+     chế sử dụng
+JSONB
+cho các dữ liệu có quan hệ phức tạp, chỉ dùng cho toạ độ Bounding Box hoặc
+     Audit Log.
+Soft
+     delete (
+is_deleted
+)
+     cho các bảng cấu hình; với Dữ liệu Giao dịch/Phiếu thì tuyệt đối không
+     được xóa mà chỉ chuyển trạng thái sang
+ARCHIVED
+hoặc
+CANCELLED
+.
+ĐẶC
+TẢ NGHIỆP VỤ: QUY TRÌNH RÀ SOÁT VÀ XỬ LÝ PHIẾU CHỈNH ĐỊNH
+Dự án
+: Hệ thống Quản lý Phiếu Chỉnh
+định Rơ-le (RMS)
+Phiên bản
+:
+1.1.0 (Cập nhật Luồng Rà Soát)
+Trạng
+thái
+: Bản thảo (Draft) phục vụ Báo cáo
+1.
+MỤC ĐÍCH (PURPOSE)
+Tài liệu này đặc tả chi tiết
+quy trình nghiệp vụ mới dành cho việc phát hành, rà soát và thực thi Phiếu Chỉnh
+định Rơ-le. Quy trình này bổ sung thêm các bước kiểm duyệt trung gian bởi các
+đơn vị chuyên trách (VTC, Vận hành, Điều độ) trước khi phiếu được giao cho kỹ
+thuật viên tại trạm. Đồng thời, tài liệu cũng trình bày phương án kỹ thuật thay
+thế tạm thời trong giai đoạn module OCR (Nhận diện ký tự quang học) chưa hoàn
+thiện.
+2.
+CÁC VAI TRÒ THAM GIA (ROLES)
+Hệ thống bổ sung và làm rõ
+các vai trò sau trong quy trình: 1.
+A0/A1
+(Người phát hành)
+: Khởi tạo phiếu, tải lên bản scan, ký số và
+phát hành. 2.
+Bộ phận Rà
+soát (Reviewers)
+: Bao gồm các đơn vị chuyên môn (VTC, Đơn vị Vận
+hành, Đơn vị Điều độ). Chịu trách nhiệm kiểm tra tính hợp lệ của thông số trên
+phiếu trước khi cấp phép thực thi. 3.
+Kỹ
+thuật viên (Điều độ viên)
+: Người trực tiếp cầm phiếu xuống trạm
+để thực hiện chỉnh định. 4.
+Giám
+sát trạm (Người quản lý tại trạm)
+: Người có mặt tại hiện trường,
+giám sát kỹ thuật viên và cùng ký số xác nhận hoàn thành công việc.
+3.
+LƯU ĐỒ NGHIỆP VỤ (BUSINESS WORKFLOW)
+Quy trình xử lý một Phiếu Chỉnh
+định (Setting Sheet) trải qua các giai đoạn sau:
+Giai
+đoạn 1: Khởi tạo và Phát hành
+Bước
+     1.1
+: Cán bộ A0/A1 tạo phiếu trên hệ thống.
+Bước
+     1.2
+: Upload file bản scan (PDF/JPG) của phiếu chỉnh định
+     gốc.
+Bước
+     1.3
+: Hệ thống lưu lại dữ liệu. A0/A1 thực hiện
+Ký số ban đầu
+.
+Bước
+     1.4
+: A0/A1 nhấn nút "Phát hành". Trạng thái
+     phiếu chuyển thành
+Chờ rà soát
+(PENDING_REVIEW).
+Giai
+đoạn 2: Rà soát Đa lớp
+Bước
+     2.1
+: Hệ thống thông báo đến các Đơn vị Rà soát (VTC, Vận
+     hành, Điều độ).
+Bước
+     2.2
+: Các chuyên viên thuộc bộ phận rà soát xem xét nội
+     dung phiếu (đối chiếu bản scan và thông số).
+Bước
+     2.3
+: Nếu phát hiện sai sót, bộ phận rà soát có thể từ chối
+     (
+REJECTED
+)
+     kèm theo ghi chú (comments). Phiếu quay lại cho A0/A1.
+Bước
+     2.4
+: Nếu hợp lệ, bộ phận rà soát bấm phê duyệt (
+APPROVED
+).
+Bước
+     2.5
+: Khi hoàn tất thủ tục rà soát, phiếu chính thức được
+     chuyển trạng thái sang
+Đã giao
+     cho Đơn vị chỉnh định
+(ASSIGNED_TO_SC).
+Giai
+đoạn 3: Thực thi tại hiện trường
+Bước
+     3.1
+: Kỹ thuật viên (Điều độ viên) nhận được lệnh và xác
+     nhận tiếp nhận.
+Bước
+     3.2
+: Kỹ thuật viên thực hiện chỉnh định thiết bị rơ-le tại
+     trạm theo thông số của phiếu.
+Bước
+     3.3
+: Sau khi hoàn thành, Kỹ thuật viên thực hiện
+Ký số xác nhận hoàn thành
+.
+Bước
+     3.4
+: Giám sát trạm (Quản lý tại trạm) mở phiếu trên thiết
+     bị/tài khoản của mình, xem xét và thực hiện
+Ký số chung
+với kỹ
+     thuật viên. Trạng thái phiếu chuyển thành
+Hoàn thành
+(COMPLETED).
+4.
+GIẢI PHÁP TẠM THỜI CHO MODULE OCR
+Do hệ thống nhận diện quang
+học (OCR) đang được phát triển song song, quá trình trích xuất tự động thông số
+từ file scan chưa khả dụng. Để không gián đoạn việc phát triển và kiểm thử toàn
+bộ luồng nghiệp vụ trên, giải pháp áp dụng như sau:
+Nhập
+     liệu thủ công (Manual Input)
+:
+Trên
+     giao diện khởi tạo phiếu, bên cạnh khung hiển thị file scan, hệ thống sẽ
+     mở các trường nhập liệu tự do. Cán bộ A0/A1 có thể nhập tay các thông số
+     quan trọng từ file bản cứng vào.
+Dữ
+     liệu giả lập (Mock Data)
+:
+Hỗ
+     trợ nút
+Tự động điền dữ liệu
+     (Mock)
+dành cho môi trường Test. Khi
+     bấm, các thông số sẽ tự động được điền ngẫu nhiên hợp lệ để cán bộ có thể
+     bỏ qua bước gõ tay và test ngay tiến trình Ký số & Rà soát.
+Cấu
+     trúc lưu trữ Mở rộng (JSON)
+:
+Dữ
+     liệu thông số này sẽ được lưu vào một trường
+JSONField
+tên là
+extracted_data
+trong cơ sở dữ liệu. Khi module OCR hoàn tất, nó sẽ trả về cục JSON với
+     định dạng y hệt, nên Frontend và Backend sẽ không cần phải sửa đổi code
+     thêm một lần nào nữa.
+5.
+THIẾT KẾ CƠ SỞ DỮ LIỆU (DATABASE DESIGN)
+Để đáp ứng được quy trình
+trên, hệ thống Back-end (Django) sẽ được cập nhật như sau:
+5.1.
+Bảng Tổ chức (accounts_organization)
+Bổ
+     sung hằng số loại hình đơn vị (
+ORG_TYPES
+):
+VTC
+: Công ty Viễn thông/CNTT Điện
+     lực.
+OPERATION
+: Đơn vị Vận
+     hành.
+(Ghi
+     chú: Đơn vị điều độ đã được map với A0, A1, A2, A3).
+5.2.
+Bảng Phiếu chỉnh định (sheets_settingsheet)
+Bổ
+     sung trạng thái
+PENDING_REVIEW
+vào
+STATUS_CHOICES
+.
+Bổ
+     sung cột
+extracted_data
+(Kiểu JSON, cho phép Null) để chứa dữ liệu thông số chỉnh định (cho tính
+     năng Mock / OCR sau này).
+5.3.
+Bảng Lịch sử Rà soát (sheets_sheetreview) - MỚI
+Khởi tạo bảng mới nhằm theo
+dõi lịch sử rà soát minh bạch: *
+setting_sheet_id
+: (Khoá ngoại) Trỏ về Phiếu chỉnh định. *
+reviewing_org_id
+: (Khoá ngoại) Đơn vị thực
+hiện rà soát (VTC, Điều độ...). *
+reviewer_id
+: (Khoá ngoại) Người thực hiện rà soát. *
+status
+: Trạng thái (PENDING,
+APPROVED, REJECTED). *
+comments
+: Ý kiến, ghi chú. *
+created_at
+/
+updated_at
+: Thời gian thực hiện.
+Tài liệu này đóng vai trò cơ
+sở để đội ngũ Phát triển (Dev) triển khai code, đồng thời là bản báo cáo để Cấp
+quản lý/Ban giám đốc thông qua trước khi lập trình thực tế.

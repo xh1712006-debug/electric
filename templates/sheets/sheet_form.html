@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Tạo Phiếu Mới | RMS{% endblock %}
+{% block header_title %}Tạo Phiếu Chỉnh định Mới{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8 px-4 sm:px-6">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-8 py-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fas fa-file-invoice text-primary"></i> Khởi tạo Phiếu Chỉnh định
+                </h2>
+                <p class="text-sm text-slate-500 mt-1">Vui lòng điền thông tin mã phiếu, Rơ-le và tải lên bản scan (PDF).</p>
+            </div>
+        </div>
+
+        <form method="POST" action="{% url 'sheet_create' %}" enctype="multipart/form-data" class="p-8 space-y-8">
+            {% csrf_token %}
+            
+            {% if messages %}
+            <div class="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl text-sm flex items-start gap-3">
+                <i class="fas fa-exclamation-circle mt-0.5"></i>
+                <div class="space-y-1">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Cột trái: Thông tin cơ bản -->
+                <div class="space-y-6">
+                    <div class="group">
+                        <label class="block text-sm font-semibold text-slate-700 mb-2 group-focus-within:text-primary transition-colors">
+                            Mã Phiếu <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <i class="fas fa-barcode absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"></i>
+                            <input type="text" name="sheet_code" required placeholder="VD: PHIEU-2026-001"
+                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm">
+                        </div>
+                    </div>
+                    
+                    <div class="group">
+                        <label class="block text-sm font-semibold text-slate-700 mb-2 group-focus-within:text-primary transition-colors">
+                            Mã Rơ-le áp dụng <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <i class="fas fa-microchip absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"></i>
+                            <input type="text" name="relay_text" required list="relay_list" placeholder="Nhập mã rơ-le hoặc chọn..." autocomplete="off" value="{{ initial_relay }}"
+                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm">
+                            <datalist id="relay_list">
+                                {% for relay in relays %}
+                                    <option value="{{ relay.relay_code }}">{{ relay.relay_name }}</option>
+                                {% endfor %}
+                            </datalist>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1.5 ml-1">Bạn có thể tự nhập mã rơ-le mới nếu chưa có trong hệ thống.</p>
+                    </div>
+
+                    <div class="group">
+                        <label class="block text-sm font-semibold text-slate-700 mb-2 group-focus-within:text-primary transition-colors">
+                            Tiêu đề Phiếu <span class="text-slate-400 font-normal">(Không bắt buộc)</span>
+                        </label>
+                        <div class="relative">
+                            <i class="fas fa-heading absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"></i>
+                            <input type="text" name="title" placeholder="Nhập tiêu đề ngắn gọn..."
+                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cột phải: File Scan -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">
+                        Bản Scan Kèm Theo <span class="text-red-500">*</span>
+                    </label>
+                    <div class="h-[240px] flex justify-center items-center px-6 pt-5 pb-6 border-2 border-dashed rounded-2xl transition-all relative overflow-hidden cursor-pointer group"
+                         x-data="{ isDragging: false, fileName: '' }" 
+                         @dragover.prevent="isDragging = true" 
+                         @dragleave.prevent="isDragging = false" 
+                         @drop.prevent="isDragging = false; fileName = $event.dataTransfer.files[0].name; $refs.fileInput.files = $event.dataTransfer.files"
+                         :class="isDragging ? 'border-primary bg-blue-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-primary/50'">
+                        
+                        <div class="space-y-3 text-center transition-transform group-hover:scale-105" x-show="!fileName">
+                            <div class="w-16 h-16 mx-auto bg-white rounded-full shadow-sm flex items-center justify-center transition-transform" :class="isDragging ? 'scale-110' : ''">
+                                <i class="fas fa-cloud-upload-alt text-2xl text-primary"></i>
+                            </div>
+                            <div class="flex text-sm text-slate-600 justify-center">
+                                <span class="font-bold text-primary">Tải file lên</span>
+                                <p class="pl-1">hoặc kéo thả vào đây</p>
+                            </div>
+                            <p class="text-xs text-slate-400 font-medium">Hỗ trợ PDF, PNG, JPG (Max 20MB)</p>
+                        </div>
+
+                        <div class="space-y-3 text-center" x-show="fileName" style="display: none;">
+                            <div class="w-16 h-16 mx-auto bg-green-100 rounded-full shadow-sm flex items-center justify-center">
+                                <i class="fas fa-check text-2xl text-green-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-green-700 mb-1">Đã sẵn sàng tải lên:</h4>
+                                <p class="text-xs text-slate-700 font-mono bg-white inline-block px-3 py-1 border border-slate-200 rounded shadow-sm max-w-[250px] truncate" x-text="fileName"></p>
+                            </div>
+                            <span class="text-xs text-primary font-medium mt-1 inline-block">Nhấp hoặc kéo thả để đổi file</span>
+                        </div>
+
+                        <input x-ref="fileInput" @change="fileName = $event.target.files[0].name" type="file" name="scan_file" required accept=".pdf,image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-6 border-t border-slate-100 mt-8">
+                <a href="{% url 'sheet_list' %}" class="px-6 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-sm">
+                    Trở về
+                </a>
+                <button type="submit" class="px-6 py-2.5 text-sm font-semibold text-white bg-primary rounded-xl hover:bg-blue-700 transition-all shadow-sm flex items-center gap-2 hover:shadow-md transform hover:-translate-y-0.5">
+                    <i class="fas fa-magic"></i> Tạo Phiếu Ngay
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

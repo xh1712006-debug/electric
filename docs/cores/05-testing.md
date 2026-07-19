@@ -1,3 +1,4 @@
+
 # Đặc tả Kiểm thử Dự án (Project Testing Specification)
 
 Tài liệu này quy định chiến lược kiểm thử, cấu hình môi trường, và các quy tắc viết mã kiểm thử (testing) dành riêng cho dự án hiện tại.

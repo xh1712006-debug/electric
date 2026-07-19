@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Kiểm tra Định kỳ | RMS{% endblock %}
+{% block header_title %}Lịch Kiểm tra Định kỳ Rơ-le{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+    
+    <div class="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <h2 class="text-lg font-semibold text-slate-800">Danh sách Đợt Kiểm tra</h2>
+        <a href="{% url 'check_create' %}" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors inline-flex items-center gap-2">
+            <i class="fas fa-calendar-plus"></i> Lên lịch mới
+        </a>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                    <th class="px-6 py-4 font-medium">ID</th>
+                    <th class="px-6 py-4 font-medium">Rơ-le</th>
+                    <th class="px-6 py-4 font-medium">Ngày dự kiến</th>
+                    <th class="px-6 py-4 font-medium">Ngày thực hiện</th>
+                    <th class="px-6 py-4 font-medium">Trạng thái</th>
+                    <th class="px-6 py-4 font-medium text-right">Hành động</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-sm">
+                {% for check in checks %}
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4 font-medium text-slate-800">CHK-{{ check.id|stringformat:"04d" }}</td>
+                    <td class="px-6 py-4 font-medium text-primary">{{ check.relay.relay_code }}</td>
+                    <td class="px-6 py-4 text-slate-600">{{ check.scheduled_date|date:"d/m/Y" }}</td>
+                    <td class="px-6 py-4 text-slate-600">{{ check.actual_check_date|date:"d/m/Y"|default:"-" }}</td>
+                    <td class="px-6 py-4">
+                        {% if check.check_status == 'SCHEDULED' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Đã lên lịch</span>
+                        {% elif check.check_status == 'COMPLETED' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">Đã hoàn thành</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <a href="{% url 'check_detail' check.pk %}" class="text-primary hover:text-blue-800 font-medium hover:underline">Chi tiết</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-slate-500">Chưa có lịch kiểm tra nào.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

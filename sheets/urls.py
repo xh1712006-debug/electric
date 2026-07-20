@@ -12,4 +12,5 @@ urlpatterns = [
     path('<int:pk>/sign/confirm/', views.confirm_signature, name='confirm_signature'),
     path('<int:pk>/run-mock-ocr/', views.run_mock_ocr, name='run_mock_ocr'),
     path('<int:pk>/save-actual-data/', views.sheet_save_actual_data, name='sheet_save_actual_data'),
+    path('updated/', views.updated_sheets, name='updated_sheets'),
 ]

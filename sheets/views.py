@@ -76,6 +76,64 @@ def my_sheets(request):
     return render(request, 'sheets/sheet_list.html', context)
 
 @login_required
+def updated_sheets(request):
+    """View danh sách các phiếu có thay đổi thông số so với bản cũ."""
+    all_sheets = SettingSheet.objects.select_related('relay').all().order_by('-created_at')
+    
+    updated_sheets_list = []
+    
+    for sheet in all_sheets:
+        if sheet.relay and sheet.extracted_data:
+            previous_sheet = SettingSheet.objects.filter(
+                relay=sheet.relay,
+                created_at__lt=sheet.created_at
+            ).order_by('-created_at').first()
+            
+            if previous_sheet:
+                old_data = previous_sheet.extracted_data or []
+                new_data = sheet.extracted_data or []
+                
+                old_dict = {item.get('parameter_code'): item for item in old_data if item.get('parameter_code')}
+                new_dict = {item.get('parameter_code'): item for item in new_data if item.get('parameter_code')}
+                
+                has_diff = False
+                for code, new_item in new_dict.items():
+                    if code not in old_dict:
+                        has_diff = True
+                        break
+                    else:
+                        try:
+                            old_val = float(old_dict[code].get('value', 0))
+                            new_val = float(new_item.get('value', 0))
+                            if old_val != new_val:
+                                has_diff = True
+                                break
+                        except (ValueError, TypeError):
+                            if str(old_dict[code].get('value')) != str(new_item.get('value')):
+                                has_diff = True
+                                break
+                
+                if not has_diff:
+                    for code in old_dict:
+                        if code not in new_dict:
+                            has_diff = True
+                            break
+                            
+                if has_diff:
+                    updated_sheets_list.append(sheet)
+
+    from django.core.paginator import Paginator
+    paginator = Paginator(updated_sheets_list, 40)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'sheets': page_obj,
+        'list_title': 'Phiếu Có Thay Đổi Thông Số (Cần Lưu Ý)'
+    }
+    return render(request, 'sheets/sheet_list.html', context)
+
+@login_required
 def sheet_create(request):
     """View upload PDF và tạo phiếu."""
     if request.method == 'POST':
@@ -136,6 +194,82 @@ def sheet_detail(request, pk):
     sup_sig = sheet.signatures.filter(role='SUPERVISOR').first()
     a0_sig = sheet.signatures.filter(role='A0_A1').first()
     
+    # Logic: So sánh với phiếu cũ gần nhất
+    previous_sheet = None
+    differences = []
+    has_previous = False
+    
+    if sheet.relay and sheet.extracted_data:
+        previous_sheet = SettingSheet.objects.filter(
+            relay=sheet.relay,
+            created_at__lt=sheet.created_at
+        ).order_by('-created_at').first()
+        
+        if previous_sheet:
+            has_previous = True
+            old_data = previous_sheet.extracted_data or []
+            new_data = sheet.extracted_data or []
+            
+            # Convert to dict for easier comparison by parameter_code
+            old_dict = {item.get('parameter_code'): item for item in old_data if item.get('parameter_code')}
+            new_dict = {item.get('parameter_code'): item for item in new_data if item.get('parameter_code')}
+            
+            # Compare
+            # 1. Added and Changed
+            for code, new_item in new_dict.items():
+                if code not in old_dict:
+                    differences.append({
+                        'code': code,
+                        'name': new_item.get('parameter_name', ''),
+                        'unit': new_item.get('unit', ''),
+                        'type': 'ADDED',
+                        'old_value': None,
+                        'new_value': new_item.get('value')
+                    })
+                else:
+                    old_item = old_dict[code]
+                    try:
+                        old_val = float(old_item.get('value', 0))
+                        new_val = float(new_item.get('value', 0))
+                        if old_val != new_val:
+                            differences.append({
+                                'code': code,
+                                'name': new_item.get('parameter_name', ''),
+                                'unit': new_item.get('unit', ''),
+                                'type': 'CHANGED',
+                                'old_value': old_val,
+                                'new_value': new_val
+                            })
+                    except (ValueError, TypeError):
+                        # In case values are not convertible to float
+                        if str(old_item.get('value')) != str(new_item.get('value')):
+                            differences.append({
+                                'code': code,
+                                'name': new_item.get('parameter_name', ''),
+                                'unit': new_item.get('unit', ''),
+                                'type': 'CHANGED',
+                                'old_value': old_item.get('value'),
+                                'new_value': new_item.get('value')
+                            })
+            
+            # 2. Removed
+            for code, old_item in old_dict.items():
+                if code not in new_dict:
+                    differences.append({
+                        'code': code,
+                        'name': old_item.get('parameter_name', ''),
+                        'unit': old_item.get('unit', ''),
+                        'type': 'REMOVED',
+                        'old_value': old_item.get('value'),
+                        'new_value': None
+                    })
+    
+    # Calculate counts
+    added_count = sum(1 for d in differences if d['type'] == 'ADDED')
+    removed_count = sum(1 for d in differences if d['type'] == 'REMOVED')
+    changed_count = sum(1 for d in differences if d['type'] == 'CHANGED')
+    total_diff_count = len(differences)
+    
     context = {
         'sheet': sheet,
         'settings': settings,
@@ -145,7 +279,14 @@ def sheet_detail(request, pk):
         'supervisors': supervisors,
         'tech_sig': tech_sig,
         'sup_sig': sup_sig,
-        'a0_sig': a0_sig
+        'a0_sig': a0_sig,
+        'previous_sheet': previous_sheet,
+        'differences': differences,
+        'has_previous': has_previous,
+        'added_count': added_count,
+        'removed_count': removed_count,
+        'changed_count': changed_count,
+        'total_diff_count': total_diff_count
     }
     return render(request, 'sheets/sheet_detail.html', context)
 
@@ -167,6 +308,33 @@ def sheet_assign(request, pk):
         valid_statuses = [s[0] for s in SettingSheet.STATUS_CHOICES]
         if new_status in valid_statuses:
             sheet.status = new_status
+            
+        # Handle Temporary Setting
+        is_temporary = request.POST.get('is_temporary') == 'on'
+        valid_until_str = request.POST.get('valid_until_datetime')
+        
+        if is_temporary and valid_until_str:
+            try:
+                from django.utils.dateparse import parse_datetime
+                from django.utils import timezone
+                dt = parse_datetime(valid_until_str)
+                if dt:
+                    if timezone.is_naive(dt):
+                        dt = timezone.make_aware(dt)
+                    sheet.is_temporary = True
+                    sheet.valid_until = dt
+                    
+                    # Find previous sheet to revert to
+                    if sheet.relay:
+                        previous_sheet = SettingSheet.objects.filter(
+                            relay=sheet.relay,
+                            status='COMPLETED',
+                            created_at__lt=sheet.created_at
+                        ).order_by('-created_at').first()
+                        sheet.revert_to_sheet = previous_sheet
+            except Exception as e:
+                print("Date parse error:", e)
+        
         sheet.save()
         
         # --- Send real-time notifications via Channels ---
@@ -336,27 +504,67 @@ def run_mock_ocr(request, pk):
 
 @login_required
 def sheet_save_actual_data(request, pk):
-    """View cho phép KTV lưu thông số thực tế vào extracted_data JSON"""
+    """View cho phép KTV lưu thông số thực tế và Điều phối/A0A1 sửa lỗi OCR."""
     if request.method == 'POST':
         sheet = get_object_or_404(SettingSheet, pk=pk)
         
-        # Chỉ KTV đang được giao phiếu mới có quyền lưu (bảo mật)
-        if sheet.assigned_to == request.user and sheet.status in ['RECEIVED', 'TRANSFERRED']:
+        is_technician = (sheet.assigned_to == request.user and sheet.status in ['RECEIVED', 'TRANSFERRED'])
+        is_dispatcher_or_a0 = request.user.groups.filter(name__in=['DISPATCHER', 'A0A1']).exists()
+        
+        if is_technician or is_dispatcher_or_a0:
             if sheet.extracted_data:
-                # Update actual_value for each item in the extracted_data list
                 updated_data = []
+                changes = []
                 for index, item in enumerate(sheet.extracted_data):
-                    actual_val = request.POST.get(f'actual_value_{index}')
-                    if actual_val is not None and actual_val.strip() != '':
-                        try:
-                            item['actual_value'] = float(actual_val)
-                        except ValueError:
-                            pass # Bỏ qua nếu nhập không phải là số hợp lệ
+                    # Dispatcher/A0A1 saves OCR value
+                    if is_dispatcher_or_a0:
+                        ocr_val = request.POST.get(f'ocr_value_{index}')
+                        if ocr_val is not None and ocr_val.strip() != '':
+                            try:
+                                new_val = float(ocr_val)
+                                old_val = float(item.get('value', 0)) if item.get('value') is not None else None
+                                if old_val != new_val:
+                                    changes.append(f"{item.get('parameter_code')}: {old_val} ➡️ {new_val}")
+                                item['value'] = new_val
+                            except ValueError:
+                                pass
+                                
+                    # Technician saves actual value
+                    if is_technician:
+                        actual_val = request.POST.get(f'actual_value_{index}')
+                        if actual_val is not None and actual_val.strip() != '':
+                            try:
+                                item['actual_value'] = float(actual_val)
+                            except ValueError:
+                                pass
+                                
                     updated_data.append(item)
                 
                 sheet.extracted_data = updated_data
                 sheet.save()
-                messages.success(request, 'Đã cập nhật thông số thực tế thành công!')
+                
+                if changes and is_dispatcher_or_a0:
+                    msg = "Đã cập nhật sửa lỗi OCR: " + " | ".join(changes)
+                    messages.success(request, msg)
+                    
+                    try:
+                        from asgiref.sync import async_to_sync
+                        from channels.layers import get_channel_layer
+                        channel_layer = get_channel_layer()
+                        if channel_layer and sheet.created_by:
+                            # Gửi thông báo cho người tạo phiếu (A0A1) và người dùng khác liên quan
+                            async_to_sync(channel_layer.group_send)(
+                                f"user_{sheet.created_by.id}",
+                                {
+                                    "type": "send_notification",
+                                    "title": "Cập nhật dữ liệu OCR",
+                                    "message": f"Điều phối viên đã sửa thông số thiết kế trên Phiếu {sheet.sheet_code}: " + " | ".join(changes)
+                                }
+                            )
+                    except Exception as e:
+                        print("WebSocket Error:", e)
+                else:
+                    messages.success(request, 'Đã lưu thông số thành công!')
             else:
                 messages.error(request, 'Phiếu chưa có dữ liệu thiết kế để cập nhật.')
         else:

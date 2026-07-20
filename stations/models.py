@@ -24,6 +24,12 @@ class Relay(models.Model):
 
     def __str__(self):
         return f"{self.relay_code} - {self.relay_name}"
+        
+    @property
+    def active_sheet(self):
+        # Lấy phiếu hoàn thành (đang có hiệu lực) mới nhất
+        completed = self.settingsheet_set.filter(status='COMPLETED').order_by('-created_at').first()
+        return completed if completed else self.settingsheet_set.first()
 
 class RelaySetting(models.Model):
     relay = models.ForeignKey(Relay, related_name='settings', on_delete=models.CASCADE)

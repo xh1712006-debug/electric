@@ -15,11 +15,15 @@
             <td class="px-4 py-2 text-slate-600 font-medium">{{ relay.relay_name|default:"-" }}</td>
             <td class="px-4 py-2"><span class="bg-slate-100 px-2 py-0.5 rounded text-xs">{{ relay.manufacturer|default:"-" }}</span></td>
             <td class="px-4 py-2">
-                {% with sheet=relay.settingsheet_set.first %}
+                {% with sheet=relay.active_sheet %}
                     {% if sheet %}
-                        <div class="flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                            <span class="text-xs font-semibold text-emerald-600">Đã cấu hình</span>
+                        <div class="flex items-center gap-2">
+                            <div class="scale-90 origin-left">
+                                {% include "sheets/partials/_status_badge.html" with sheet=sheet %}
+                            </div>
+                            {% if sheet.is_temporary and not sheet.reverted %}
+                            <span class="bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded animate-pulse" title="Hết hạn: {{ sheet.valid_until|date:'d/m/Y H:i' }}">TẠM THỜI</span>
+                            {% endif %}
                         </div>
                     {% else %}
                         <span class="text-[10px] text-slate-400 italic">Chưa có phiếu</span>
@@ -27,7 +31,7 @@
                 {% endwith %}
             </td>
             <td class="px-4 py-2 text-right">
-                {% with sheet=relay.settingsheet_set.first %}
+                {% with sheet=relay.active_sheet %}
                     {% if sheet %}
                         <a href="{% url 'sheet_detail' sheet.pk %}" class="inline-flex items-center text-[11px] font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors border border-blue-100">
                             Chi tiết <i class="fas fa-arrow-right ml-1"></i>

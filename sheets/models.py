@@ -26,12 +26,18 @@ class SettingSheet(models.Model):
     # OCR Data / Mock Data using JSONField of PostgreSQL
     extracted_data = models.JSONField(null=True, blank=True) 
 
+    is_temporary = models.BooleanField(default=False)
+    valid_until = models.DateTimeField(null=True, blank=True)
+    revert_to_sheet = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='revert_from_sheets')
+    reverted = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.sheet_code} - {self.title}"
 
     class Meta:
+        ordering = ['-created_at']
         permissions = [
             ("can_view_stations", "Can view stations"),
             ("can_view_checks", "Can view periodic checks"),

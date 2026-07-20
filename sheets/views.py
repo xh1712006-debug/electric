@@ -199,7 +199,12 @@ def sheet_detail(request, pk):
     differences = []
     has_previous = False
     
-    if sheet.relay and sheet.extracted_data:
+    if sheet.is_temporary and sheet.reverted and sheet.revert_to_sheet:
+        display_data = sheet.revert_to_sheet.extracted_data
+    else:
+        display_data = sheet.extracted_data
+
+    if sheet.relay and display_data:
         previous_sheet = SettingSheet.objects.filter(
             relay=sheet.relay,
             created_at__lt=sheet.created_at
@@ -208,7 +213,7 @@ def sheet_detail(request, pk):
         if previous_sheet:
             has_previous = True
             old_data = previous_sheet.extracted_data or []
-            new_data = sheet.extracted_data or []
+            new_data = display_data or []
             
             # Convert to dict for easier comparison by parameter_code
             old_dict = {item.get('parameter_code'): item for item in old_data if item.get('parameter_code')}
@@ -270,6 +275,8 @@ def sheet_detail(request, pk):
     changed_count = sum(1 for d in differences if d['type'] == 'CHANGED')
     total_diff_count = len(differences)
     
+    
+    
     context = {
         'sheet': sheet,
         'settings': settings,
@@ -286,7 +293,8 @@ def sheet_detail(request, pk):
         'added_count': added_count,
         'removed_count': removed_count,
         'changed_count': changed_count,
-        'total_diff_count': total_diff_count
+        'total_diff_count': total_diff_count,
+        'display_data': display_data
     }
     return render(request, 'sheets/sheet_detail.html', context)
 

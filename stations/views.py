@@ -1,11 +1,14 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 import csv
 import io
 import openpyxl
 from .models import Station, Bay, Relay
 from django.db.models import Q
+
+def is_admin(user):
+    return user.is_superuser or user.groups.filter(name='ADMIN').exists()
 
 @login_required
 def station_list(request):
@@ -32,6 +35,7 @@ def station_list(request):
     })
 
 @login_required
+@user_passes_test(is_admin)
 def station_create(request):
     if request.method == 'POST':
         station_code = request.POST.get('station_code')
@@ -45,6 +49,7 @@ def station_create(request):
     return redirect('station_list')
 
 @login_required
+@user_passes_test(is_admin)
 def bay_create(request, station_id):
     if request.method == 'POST':
         station = get_object_or_404(Station, pk=station_id)
@@ -58,6 +63,7 @@ def bay_create(request, station_id):
     return redirect('station_list')
 
 @login_required
+@user_passes_test(is_admin)
 def relay_create(request, bay_id):
     if request.method == 'POST':
         bay = get_object_or_404(Bay, pk=bay_id)
@@ -73,6 +79,7 @@ def relay_create(request, bay_id):
 
 
 @login_required
+@user_passes_test(is_admin)
 def relay_bulk_create(request, bay_id):
     if request.method == 'POST':
         bay = get_object_or_404(Bay, pk=bay_id)
@@ -125,6 +132,7 @@ def relay_bulk_create(request, bay_id):
     return redirect('station_list')
 
 @login_required
+@user_passes_test(is_admin)
 def global_bulk_create(request):
     if request.method == 'POST' and 'excel_file' in request.FILES:
         excel_file = request.FILES['excel_file']

@@ -22,7 +22,12 @@
                                 {% include "sheets/partials/_status_badge.html" with sheet=sheet %}
                             </div>
                             {% if sheet.is_temporary and not sheet.reverted %}
-                            <span class="bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded animate-pulse" title="Hết hạn: {{ sheet.valid_until|date:'d/m/Y H:i' }}">TẠM THỜI</span>
+                            <div class="flex flex-col items-start gap-1">
+                                <span class="bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded animate-pulse w-max">TẠM THỜI</span>
+                                {% if sheet.valid_until %}
+                                <span class="text-[9px] text-orange-600 font-semibold bg-orange-50 px-1 py-0.5 rounded border border-orange-200 whitespace-nowrap" title="Thời gian thông số này hết hiệu lực"><i class="far fa-clock mr-0.5"></i> Hết hạn: {{ sheet.valid_until|date:'d/m/Y H:i' }}</span>
+                                {% endif %}
+                            </div>
                             {% endif %}
                         </div>
                     {% else %}

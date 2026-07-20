@@ -9,10 +9,17 @@
     <div id="header-status-badge">
         {% include "sheets/partials/_status_badge.html" with sheet=sheet %}
     </div>
-    {% if sheet.is_temporary %}
-    <span class="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded shadow-sm border border-orange-600 ml-2 animate-pulse" title="Hết hạn: {{ sheet.valid_until|date:'d/m/Y H:i' }}">
-        <i class="fas fa-clock mr-1"></i>TẠM THỜI
-    </span>
+    {% if sheet.is_temporary and not sheet.reverted %}
+    <div class="flex items-center ml-2">
+        <span class="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-l shadow-sm border border-orange-600 border-r-0 animate-pulse">
+            <i class="fas fa-clock mr-1"></i>TẠM THỜI
+        </span>
+        {% if sheet.valid_until %}
+        <span class="bg-orange-50 text-orange-700 text-xs font-bold px-2 py-1 rounded-r shadow-sm border border-orange-300">
+            Hết hạn: {{ sheet.valid_until|date:'d/m/Y H:i' }}
+        </span>
+        {% endif %}
+    </div>
     {% endif %}
 </div>
 {% endblock %}
@@ -188,8 +195,14 @@
                         </div>
                         {% endif %}
                         {% endif %}
+                        {% if sheet.is_temporary and sheet.reverted and sheet.revert_to_sheet %}
+                        <div class="bg-blue-50 text-blue-800 p-3 rounded-lg mb-4 text-sm font-medium border border-blue-200">
+                            <i class="fas fa-info-circle mr-2"></i> Phiếu tạm thời này đã hết hạn. Thông số hiển thị bên dưới là thông số đang được phục hồi từ phiếu <a href="{% url 'sheet_detail' sheet.revert_to_sheet.pk %}" class="underline font-bold">{{ sheet.revert_to_sheet.sheet_code }}</a>.
+                        </div>
+                        {% endif %}
+                        
                         <div class="space-y-4 pb-20">
-                            {% for item in sheet.extracted_data %}
+                            {% for item in display_data %}
                             <div class="bg-white rounded-lg p-4 border {% if item.actual_value and item.actual_value != item.value %}border-red-300 shadow-sm shadow-red-100{% else %}border-slate-200 shadow-sm{% endif %}">
                                 <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
                                     <div>
@@ -338,6 +351,12 @@
                         {% endif %}
                     </div>
                     <div class="p-4 space-y-3">
+                        {% if sheet.is_temporary and sheet.reverted and sheet.revert_to_sheet %}
+                        <div class="bg-blue-50 text-blue-800 p-3 rounded-lg mb-4 text-sm font-medium border border-blue-200">
+                            <i class="fas fa-info-circle mr-2"></i> Phiếu tạm thời này đã hết hạn. Dữ liệu so sánh hiển thị bên dưới tương ứng với thông số đang được phục hồi từ phiếu <a href="{% url 'sheet_detail' sheet.revert_to_sheet.pk %}" class="underline font-bold">{{ sheet.revert_to_sheet.sheet_code }}</a>.
+                        </div>
+                        {% endif %}
+                        
                         {% if not has_previous %}
                             <div class="flex flex-col items-center justify-center py-12 text-slate-500">
                                 <i class="fas fa-info-circle text-4xl mb-3 text-blue-300"></i>

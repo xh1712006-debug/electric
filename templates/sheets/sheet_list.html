@@ -79,8 +79,18 @@
                     </td>
                     <td class="px-6 py-4 text-slate-500">{{ sheet.created_at|date:"d/m/Y H:i" }}</td>
                     <td class="px-6 py-4" id="status-cell-{{ sheet.pk }}">
-                        <div class="transform hover:scale-105 transition-transform inline-block">
-                            {% include "sheets/partials/_status_badge.html" with sheet=sheet %}
+                        <div class="flex flex-col gap-1 items-start">
+                            <div class="transform hover:scale-105 transition-transform inline-block">
+                                {% include "sheets/partials/_status_badge.html" with sheet=sheet %}
+                            </div>
+                            {% if sheet.is_temporary and not sheet.reverted %}
+                            <div class="flex items-center">
+                                <span class="bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-l shadow-sm border border-orange-600 animate-pulse">TẠM THỜI</span>
+                                {% if sheet.valid_until %}
+                                <span class="bg-orange-50 text-orange-700 text-[9px] font-bold px-1.5 py-0.5 rounded-r shadow-sm border border-orange-300 border-l-0 whitespace-nowrap"><i class="far fa-clock mr-0.5"></i>{{ sheet.valid_until|date:'d/m/Y H:i' }}</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                     </td>
                     <td class="px-6 py-4 text-right">

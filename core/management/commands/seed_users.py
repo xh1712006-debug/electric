@@ -7,7 +7,7 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         roles = [
             ('ADMIN', 'admin@evn.vn', 'Quản trị viên'),
-            ('A0A1', 'a0@evn.vn', 'Điều độ viên A0/A1'),
+
             ('DISPATCHER', 'dispatcher@evn.vn', 'Người Điều phối'),
             ('STATION_LEADER', 'truongnhom@evn.vn', 'Trưởng nhóm Trạm'),
             ('TECHNICIAN', 'ktv@evn.vn', 'KTV Chỉnh định'),

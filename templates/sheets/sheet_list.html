@@ -4,108 +4,136 @@
 {% block header_title %}{{ list_title|default:"Quản lý Phiếu Chỉnh định" }}{% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-    
+<div class="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div>
+        <h2 class="text-2xl font-black text-slate-800 tracking-tight">{{ list_title|default:"Danh sách Phiếu Chỉnh định" }}</h2>
+        <p class="text-slate-500 text-sm mt-1">Quản lý, tra cứu và theo dõi tiến độ thực thi các phiếu cấu hình rơ-le.</p>
+    </div>
+    {% if request.user|has_group:'ADMIN' or request.user|has_group:'DISPATCHER' %}
+    <a href="{% url 'sheet_create' %}" class="relative overflow-hidden group inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-[0_4px_15px_rgba(79,70,229,0.3)] hover:shadow-[0_8px_20px_rgba(79,70,229,0.4)] transition-all hover:-translate-y-0.5">
+        <span class="relative z-10 flex items-center gap-2">
+            <i class="fas fa-plus-circle"></i> Khởi tạo Phiếu Mới
+        </span>
+        <div class="absolute inset-0 h-full w-full bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"></div>
+    </a>
+    {% endif %}
+</div>
+
+<div class="bg-white/80 backdrop-blur-xl rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white overflow-hidden relative group">
     <!-- Toolbar -->
-    <div class="p-4 md:p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50">
-        
-        <div class="w-full md:w-1/2 lg:w-1/3">
-            <form method="GET" action="" class="relative group">
+    <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="w-full md:w-2/5">
+            <form method="GET" action="" class="relative">
                 <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
                     <i class="fas fa-search text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
                 </div>
-                <input type="text" name="q" value="{{ search_query }}" placeholder="Nhập mã phiếu, tên trạm hoặc rơ-le để tìm kiếm..." 
-                       class="block w-full py-3 pl-11 pr-24 text-sm text-slate-900 bg-white border border-slate-200 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all duration-300 hover:shadow-md outline-none"
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Nhập mã phiếu, tên trạm hoặc mã rơ-le..." 
+                       class="block w-full py-2.5 pl-11 pr-24 text-sm text-slate-900 bg-white border border-slate-200 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all duration-300 hover:shadow-md outline-none"
                        onkeypress="if(event.keyCode==13) { this.form.submit(); return false; }">
                 
                 {% if search_query %}
-                <a href="?" class="absolute inset-y-1.5 right-1.5 px-4 py-1.5 text-xs font-semibold text-slate-500 bg-slate-100 rounded-full hover:bg-slate-200 hover:text-slate-700 focus:outline-none transition-colors flex items-center gap-1">
+                <a href="?" class="absolute inset-y-1.5 right-1.5 px-3 py-1 text-[11px] font-bold text-slate-500 bg-slate-100 rounded-full hover:bg-slate-200 hover:text-slate-700 focus:outline-none transition-colors flex items-center gap-1 uppercase tracking-wider">
                     <i class="fas fa-times"></i> Xóa lọc
                 </a>
                 {% else %}
-                <button type="submit" class="absolute inset-y-1.5 right-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-full hover:bg-blue-700 shadow-sm focus:outline-none transition-colors">
+                <button type="submit" class="absolute inset-y-1.5 right-1.5 px-3 py-1 text-[11px] font-bold text-white bg-slate-800 rounded-full hover:bg-slate-900 shadow-sm focus:outline-none transition-colors uppercase tracking-wider">
                     Tìm kiếm
                 </button>
                 {% endif %}
             </form>
         </div>
-
-        {% if request.user|has_group:'ADMIN' or request.user|has_group:'A0A1' %}
-        <a href="{% url 'sheet_create' %}" class="px-5 py-2.5 bg-blue-600 text-white rounded-full text-sm font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg inline-flex items-center gap-2 shrink-0">
-            <i class="fas fa-plus"></i> Tạo Phiếu Mới
-        </a>
-        {% endif %}
+        <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-slate-500">Tổng cộng: <strong class="text-slate-800">{{ sheets.paginator.count }}</strong> phiếu</span>
+        </div>
     </div>
 
     <!-- Table -->
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
             <thead>
-                <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
-                    <th class="px-6 py-4 font-medium">Mã Phiếu</th>
-                    <th class="px-6 py-4 font-medium">Tiêu đề</th>
-                    <th class="px-6 py-4 font-medium">Người tạo</th>
-                    <th class="px-6 py-4 font-medium">Rơ-le</th>
-                    <th class="px-6 py-4 font-medium">Ngày tạo</th>
-                    <th class="px-6 py-4 font-medium">Trạng thái</th>
-                    <th class="px-6 py-4 font-medium text-right">Hành động</th>
+                <tr class="bg-white border-b border-slate-100 text-slate-400 text-[11px] font-bold uppercase tracking-widest">
+                    <th class="px-6 py-4 whitespace-nowrap">Mã Phiếu</th>
+                    <th class="px-6 py-4">Tiêu đề / Nội dung</th>
+                    <th class="px-6 py-4">Người khởi tạo</th>
+                    <th class="px-6 py-4">Trạm / Rơ-le</th>
+                    <th class="px-6 py-4">Ngày tạo</th>
+                    <th class="px-6 py-4">Trạng thái</th>
+                    <th class="px-6 py-4 text-right">Thao tác</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100 text-sm">
+            <tbody class="divide-y divide-slate-50 text-sm">
                 {% for sheet in sheets %}
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4 font-medium text-slate-800">{{ sheet.sheet_code }}</td>
-                    <td class="px-6 py-4 text-slate-600">{{ sheet.title }}</td>
-                    <td class="px-6 py-4 text-slate-600 font-medium">
-                        <i class="fas fa-user-circle text-slate-400 mr-1"></i> 
-                        {% if sheet.created_by %}
-                            {{ sheet.created_by.first_name|default:sheet.created_by.username }}
-                        {% else %}
-                            <span class="text-slate-400 italic">System</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4 text-slate-600">
-                        {% if sheet.relay %}
-                            <span class="inline-flex items-center px-2 py-1 rounded-md bg-slate-100 text-xs font-medium">
-                                {{ sheet.relay.relay_code }}
-                            </span>
-                        {% elif sheet.relay_text %}
-                            <span class="inline-flex items-center px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium">
-                                {{ sheet.relay_text }}
-                            </span>
-                        {% else %}
-                            <span class="text-slate-400 italic">Chưa gắn</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4 text-slate-500">{{ sheet.created_at|date:"d/m/Y H:i" }}</td>
-                    <td class="px-6 py-4" id="status-cell-{{ sheet.pk }}">
-                        <div class="flex flex-col gap-1 items-start">
-                            <div class="transform hover:scale-105 transition-transform inline-block">
-                                {% include "sheets/partials/_status_badge.html" with sheet=sheet %}
-                            </div>
-                            {% if sheet.is_temporary and not sheet.reverted %}
-                            <div class="flex items-center">
-                                <span class="bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-l shadow-sm border border-orange-600 animate-pulse">TẠM THỜI</span>
-                                {% if sheet.valid_until %}
-                                <span class="bg-orange-50 text-orange-700 text-[9px] font-bold px-1.5 py-0.5 rounded-r shadow-sm border border-orange-300 border-l-0 whitespace-nowrap"><i class="far fa-clock mr-0.5"></i>{{ sheet.valid_until|date:'d/m/Y H:i' }}</span>
-                                {% endif %}
-                            </div>
+                <tr class="hover:bg-blue-50/30 transition-all duration-200 group/row relative z-10">
+                    <td class="px-6 py-5 font-bold text-slate-800">
+                        <a href="{% url 'sheet_detail' sheet.pk %}" class="hover:text-blue-600 transition-colors">
+                            {{ sheet.sheet_code }}
+                        </a>
+                        {% if sheet.is_temporary and not sheet.reverted %}
+                        <div class="mt-1 flex items-center">
+                            <span class="bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-l shadow-[0_0_10px_rgba(249,115,22,0.5)] animate-pulse tracking-wider">TẠM</span>
+                            {% if sheet.valid_until %}
+                            <span class="bg-orange-50 text-orange-700 text-[9px] font-bold px-1.5 py-0.5 rounded-r border border-orange-200 border-l-0 whitespace-nowrap"><i class="far fa-clock mr-0.5"></i>{{ sheet.valid_until|date:'d/m H:i' }}</span>
                             {% endif %}
                         </div>
+                        {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-right">
-                        <a href="{% url 'sheet_detail' sheet.pk %}" class="inline-flex items-center justify-center px-3 py-1.5 bg-slate-50 text-slate-600 hover:bg-primary hover:text-white rounded text-xs font-medium transition-colors shadow-sm border border-slate-200 hover:border-primary">
-                            <i class="fas fa-eye mr-1"></i> Chi tiết
+                    <td class="px-6 py-5">
+                        <p class="text-slate-700 font-medium line-clamp-2 max-w-xs">{{ sheet.title }}</p>
+                    </td>
+                    <td class="px-6 py-5">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-[10px] font-bold text-slate-600 shadow-inner">
+                                {% if sheet.created_by %}{{ sheet.created_by.first_name|default:sheet.created_by.username|make_list|first|upper }}{% else %}S{% endif %}
+                            </div>
+                            <span class="text-slate-600 font-medium text-xs">
+                                {% if sheet.created_by %}{{ sheet.created_by.first_name|default:sheet.created_by.username }}{% else %}<span class="italic text-slate-400">System</span>{% endif %}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-5">
+                        {% if sheet.relay %}
+                            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-100/80 border border-slate-200 text-xs font-semibold text-slate-700">
+                                <i class="fas fa-microchip text-slate-400"></i> {{ sheet.relay.relay_code }}
+                            </div>
+                        {% elif sheet.relay_text %}
+                            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-700">
+                                <i class="fas fa-exclamation-circle text-amber-400"></i> {{ sheet.relay_text }}
+                            </div>
+                        {% else %}
+                            <span class="text-slate-300 italic text-xs"><i class="fas fa-minus"></i> Chưa xác định</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-5">
+                        <div class="flex flex-col">
+                            <span class="text-slate-700 font-medium">{{ sheet.created_at|date:"d/m/Y" }}</span>
+                            <span class="text-slate-400 text-[11px]"><i class="far fa-clock mr-1"></i>{{ sheet.created_at|date:"H:i" }}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-5" id="status-cell-{{ sheet.pk }}">
+                        <div class="inline-block transform group-hover/row:scale-105 transition-transform duration-300">
+                            {% include "sheets/partials/_status_badge.html" with sheet=sheet %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-5 text-right relative">
+                        <a href="{% url 'sheet_detail' sheet.pk %}" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white text-slate-400 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+                            <i class="fas fa-chevron-right text-xs"></i>
                         </a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="px-6 py-8 text-center text-slate-500">
-                    <td colspan="7" class="px-6 py-8 text-center text-slate-500">
-                        <div class="flex flex-col items-center justify-center">
-                            <i class="fas fa-inbox text-4xl mb-3 text-slate-300"></i>
-                            <p>Chưa có phiếu chỉnh định nào.</p>
+                    <td colspan="7" class="px-6 py-16 text-center">
+                        <div class="flex flex-col items-center justify-center max-w-sm mx-auto">
+                            <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                                <i class="fas fa-file-signature text-3xl text-slate-300"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-700 mb-1">Chưa có dữ liệu</h3>
+                            <p class="text-slate-500 text-sm mb-6 text-center">Không tìm thấy phiếu chỉnh định nào khớp với điều kiện lọc của bạn hiện tại.</p>
+                            {% if search_query %}
+                            <a href="?" class="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition-colors shadow-md">
+                                Xóa điều kiện tìm kiếm
+                            </a>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -114,29 +142,36 @@
         </table>
     </div>
     
-    
     <!-- Pagination -->
-    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
-        <span class="text-sm text-slate-500">
-            Hiển thị trang {{ sheets.number }} / {{ sheets.paginator.num_pages }}
+    {% if sheets.has_other_pages %}
+    <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
+        <span class="text-xs font-medium text-slate-500">
+            Trang <strong class="text-slate-800">{{ sheets.number }}</strong> trên <strong class="text-slate-800">{{ sheets.paginator.num_pages }}</strong>
         </span>
-        <div class="flex gap-1">
+        <div class="flex gap-1 bg-white rounded-lg p-1 border border-slate-200 shadow-sm">
             {% if sheets.has_previous %}
-            <a href="?page={{ sheets.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">&laquo; Trước</a>
+            <a href="?page={{ sheets.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="px-3 py-1.5 rounded text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+                <i class="fas fa-chevron-left"></i>
+            </a>
             {% endif %}
             
             {% for i in sheets.paginator.page_range %}
                 {% if sheets.number == i %}
-                <span class="px-3 py-1 bg-primary text-white rounded text-sm font-bold">{{ i }}</span>
+                <span class="px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-bold shadow-sm">{{ i }}</span>
                 {% elif i > sheets.number|add:'-3' and i < sheets.number|add:'3' %}
-                <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">{{ i }}</a>
+                <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="px-3 py-1.5 rounded text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+                    {{ i }}
+                </a>
                 {% endif %}
             {% endfor %}
             
             {% if sheets.has_next %}
-            <a href="?page={{ sheets.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="px-3 py-1 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50">Sau &raquo;</a>
+            <a href="?page={{ sheets.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="px-3 py-1.5 rounded text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+                <i class="fas fa-chevron-right"></i>
+            </a>
             {% endif %}
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}

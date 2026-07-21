@@ -8,7 +8,7 @@ class SettingSheet(models.Model):
         ('ROUTED_TO_STATION', 'Routed to Station'),
         ('TRANSFERRED', 'Transferred to Technician'),
         ('RECEIVED', 'Received by Technician'),
-        ('PENDING_REVIEW', 'Pending Operation Approval'),
+        ('PENDING_ADMIN_APPROVAL', 'Pending Admin Approval'),
         ('COMPLETED', 'Completed'),
     )
 

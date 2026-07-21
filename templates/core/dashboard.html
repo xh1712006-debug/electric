@@ -85,7 +85,7 @@
         {% for act in recent_activities %}
         <div class="flex gap-4 group">
             <div class="mt-1 relative">
-                <div class="w-2.5 h-2.5 rounded-full {% if act.role == 'A0_A1' %}bg-blue-500 ring-blue-100{% elif act.role == 'SUPERVISOR' %}bg-emerald-500 ring-emerald-100{% else %}bg-amber-500 ring-amber-100{% endif %} ring-4 z-10 relative"></div>
+                <div class="w-2.5 h-2.5 rounded-full {% if act.role == 'ADMIN' %}bg-blue-500 ring-blue-100{% elif act.role == 'SUPERVISOR' %}bg-emerald-500 ring-emerald-100{% else %}bg-amber-500 ring-amber-100{% endif %} ring-4 z-10 relative"></div>
                 {% if not forloop.last %}
                 <div class="absolute top-3 left-1/2 -ml-px w-0.5 h-12 bg-slate-100"></div>
                 {% endif %}
@@ -162,7 +162,7 @@ document.addEventListener("DOMContentLoaded", function() {
     new Chart(ctxPie, {
         type: 'doughnut',
         data: {
-            labels: ['Bản nháp', 'Đang thực hiện', 'KTV Đã ký', 'Chờ Duyệt A0/A1', 'Đã Hoàn Thành'],
+            labels: ['Bản nháp', 'Đang thực hiện', 'KTV Đã ký', 'Chờ Admin Duyệt', 'Đã Hoàn Thành'],
             datasets: [{
                 data: doughnutData,
                 backgroundColor: [

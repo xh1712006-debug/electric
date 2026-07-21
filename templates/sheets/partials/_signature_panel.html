@@ -100,25 +100,25 @@
                 </div>
             </div>
             
-            <!-- 3. Role A0/A1 -->
+            <!-- 3. Role Admin -->
             <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                <div class="flex items-center justify-center w-8 h-8 rounded-full border-4 border-white bg-slate-200 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 {% if a0_sig %}bg-blue-500 text-white{% endif %}">
+                <div class="flex items-center justify-center w-8 h-8 rounded-full border-4 border-white bg-slate-200 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 {% if admin_sig %}bg-blue-500 text-white{% endif %}">
                     <i class="fas fa-building text-xs"></i>
                 </div>
-                <div class="w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border shadow-sm {% if a0_sig %}border-blue-200 bg-blue-50/50{% else %}border-slate-200 bg-white{% endif %}">
+                <div class="w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border shadow-sm {% if admin_sig %}border-blue-200 bg-blue-50/50{% else %}border-slate-200 bg-white{% endif %}">
                     <div class="flex items-center justify-between mb-1">
-                        <h4 class="font-bold text-slate-800 text-sm">3. Điều độ viên (Duyệt cuối)</h4>
-                        {% if sheet.status == 'PENDING_REVIEW' and not a0_sig and request.user|has_group:'A0A1' %}
-                        <button @click="initiateSign('A0_A1')" class="px-3 py-1 text-xs font-semibold bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors shadow-sm">Ký số</button>
+                        <h4 class="font-bold text-slate-800 text-sm">3. Quản trị viên (Duyệt ban hành)</h4>
+                        {% if sheet.status == 'PENDING_ADMIN_APPROVAL' and not admin_sig and request.user|has_group:'ADMIN' %}
+                        <button @click="initiateSign('ADMIN')" class="px-3 py-1 text-xs font-semibold bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors shadow-sm">Ký số</button>
                         {% endif %}
                     </div>
-                    {% if a0_sig %}
-                        <p class="text-xs text-blue-700 mt-2 font-medium"><i class="fas fa-check-circle mr-1"></i>Đã phê chuẩn: {{ a0_sig.signer_name }}</p>
-                        <p class="text-xs text-slate-500 mt-1"><i class="far fa-clock mr-1"></i>{{ a0_sig.signed_at|date:"d/m/Y H:i" }}</p>
-                        <p class="text-[10px] text-slate-400 font-mono mt-1 break-all bg-white px-2 py-1 rounded border border-slate-100">Hash: {{ a0_sig.signature_hash }}</p>
+                    {% if admin_sig %}
+                        <p class="text-xs text-blue-700 mt-2 font-medium"><i class="fas fa-check-circle mr-1"></i>Đã phê chuẩn: {{ admin_sig.signer_name }}</p>
+                        <p class="text-xs text-slate-500 mt-1"><i class="far fa-clock mr-1"></i>{{ admin_sig.signed_at|date:"d/m/Y H:i" }}</p>
+                        <p class="text-[10px] text-slate-400 font-mono mt-1 break-all bg-white px-2 py-1 rounded border border-slate-100">Hash: {{ admin_sig.signature_hash }}</p>
                     {% else %}
                         {% if sup_sig %}
-                        <p class="text-xs text-slate-500 mt-2"><i class="fas fa-pen text-slate-400 mr-1"></i>Đang chờ Điều độ viên A0/A1 ký duyệt ban hành.</p>
+                        <p class="text-xs text-slate-500 mt-2"><i class="fas fa-pen text-slate-400 mr-1"></i>Đang chờ Quản trị viên (ADMIN) ký duyệt ban hành.</p>
                         {% else %}
                         <p class="text-xs text-slate-500 mt-2"><i class="fas fa-lock text-slate-300 mr-1"></i>Chờ Giám sát trạm ký xác nhận trước.</p>
                         {% endif %}

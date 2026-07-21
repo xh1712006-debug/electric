@@ -48,8 +48,8 @@ Dashboard Giám Sát -
             <div class="absolute -right-4 -top-4 w-24 h-24 bg-orange-500/10 rounded-full blur-xl group-hover:bg-orange-500/20 transition-all duration-500"></div>
             <div class="flex justify-between items-center relative z-10">
                 <div>
-                    <p class="text-orange-900/70 text-sm font-bold uppercase tracking-wider mb-1">Chờ Nghiệm Thu</p>
-                    <h3 class="text-4xl font-black text-orange-600">{{ pending_review }}</h3>
+                    <p class="text-orange-900/70 text-sm font-bold uppercase tracking-wider mb-1">Chờ Admin Phê Duyệt</p>
+                    <h3 class="text-4xl font-black text-orange-600">{{ PENDING_ADMIN_APPROVAL }}</h3>
                 </div>
                 <div class="w-14 h-14 bg-white/50 rounded-2xl flex items-center justify-center text-2xl text-orange-500 shadow-inner">
                     <i class="fas fa-clipboard-check"></i>
@@ -59,8 +59,7 @@ Dashboard Giám Sát -
                 <span class="relative flex h-2 w-2">
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
-                </span>
-                Cần kiểm tra kết quả ngay
+                Đã gửi lên cấp trên phê duyệt
             </div>
         </div>
 
@@ -119,7 +118,7 @@ Dashboard Giám Sát -
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     {% for sheet in recent_sheets %}
-                    <tr class="hover:bg-amber-50/30 transition-colors {% if sheet.status == 'PENDING_REVIEW' %}bg-orange-50/50{% endif %}">
+                    <tr class="hover:bg-amber-50/30 transition-colors {% if sheet.status == 'PENDING_ADMIN_APPROVAL' %}bg-orange-50/50{% endif %}">
                         <td class="px-6 py-4">
                             <div class="font-bold text-slate-800">{{ sheet.sheet_code }}</div>
                             <div class="text-xs text-slate-500 mt-0.5 max-w-[200px] truncate" title="{{ sheet.title }}">{{ sheet.title|default:"Không có tiêu đề" }}</div>
@@ -152,11 +151,11 @@ Dashboard Giám Sát -
                             {{ sheet.updated_at|date:"d/m/Y H:i" }}
                         </td>
                         <td class="px-6 py-4 text-right">
-                            <a href="{% url 'sheet_detail' sheet.pk %}" class="inline-flex items-center justify-center gap-2 px-3 py-1.5 {% if sheet.status == 'PENDING_REVIEW' %}bg-orange-600 hover:bg-orange-700 text-white shadow-sm shadow-orange-500/30{% else %}bg-slate-100 hover:bg-slate-200 text-slate-700{% endif %} rounded-lg text-sm font-medium transition-all transform hover:-translate-y-0.5">
-                                {% if sheet.status == 'PENDING_REVIEW' %}
-                                Nghiệm thu <i class="fas fa-check"></i>
+                            <a href="{% url 'sheet_detail' sheet.pk %}" class="inline-flex items-center justify-center gap-2 px-3 py-1.5 {% if sheet.status == 'PENDING_ADMIN_APPROVAL' %}bg-orange-600 hover:bg-orange-700 text-white shadow-sm shadow-orange-500/30{% else %}bg-slate-100 hover:bg-slate-200 text-slate-700{% endif %} rounded-lg text-sm font-medium transition-all transform hover:-translate-y-0.5">
+                                {% if sheet.status == 'RECEIVED' %}
+                                Cần Nghiệm thu <i class="fas fa-check"></i>
                                 {% else %}
-                                Giám sát
+                                Xem chi tiết
                                 {% endif %}
                             </a>
                         </td>

@@ -24,7 +24,7 @@ def dashboard(request):
         total_sheets = SettingSheet.objects.count()
         total_users = User.objects.count()
         total_stations = Station.objects.count()
-        pending_review = SettingSheet.objects.filter(status='PENDING_REVIEW').count()
+        PENDING_ADMIN_APPROVAL = SettingSheet.objects.filter(status='PENDING_ADMIN_APPROVAL').count()
         
         # Chart Data
         today = timezone.now().date()
@@ -42,32 +42,11 @@ def dashboard(request):
         recent_activities = SignatureRecord.objects.select_related('sheet').order_by('-signed_at')[:5]
         
         context = {
-            'total_sheets': total_sheets, 'total_users': total_users, 'total_stations': total_stations, 'pending_review': pending_review,
+            'total_sheets': total_sheets, 'total_users': total_users, 'total_stations': total_stations, 'PENDING_ADMIN_APPROVAL': PENDING_ADMIN_APPROVAL,
             'chart_labels': chart_labels, 'chart_data': chart_data, 'recent_activities': recent_activities
         }
         return render(request, 'core/dashboard_admin.html', context)
         
-    # 2. A0A1 (Người tạo phiếu)
-    elif user.groups.filter(name='A0A1').exists():
-        created_today = SettingSheet.objects.filter(created_at__date=timezone.now().date()).count()
-        total_active = SettingSheet.objects.exclude(status__in=['COMPLETED', 'DRAFT']).count()
-        
-        status_counts = SettingSheet.objects.values('status').annotate(count=Count('id'))
-        status_dict = {item['status']: item['count'] for item in status_counts}
-        doughnut_data = [
-            status_dict.get('ISSUED', 0),
-            status_dict.get('COMPLETED', 0),
-            status_dict.get('TRANSFERRED', 0) + status_dict.get('RECEIVED', 0)
-        ]
-        
-        recent_sheets = SettingSheet.objects.all().order_by('-created_at')[:5]
-        
-        context = {
-            'created_today': created_today, 'total_active': total_active,
-            'doughnut_data': doughnut_data, 'recent_sheets': recent_sheets
-        }
-        return render(request, 'core/dashboard_a0.html', context)
-
     # 3. DISPATCHER (Rà soát & Điều phối về Trạm)
     elif user.groups.filter(name='DISPATCHER').exists():
         issued_count = SettingSheet.objects.filter(status='ISSUED').count() # Chờ rà soát
@@ -107,18 +86,18 @@ def dashboard(request):
 
         pending_assign = base_qs.filter(status='ROUTED_TO_STATION').count()
         in_progress = base_qs.filter(status__in=['TRANSFERRED', 'RECEIVED']).count()
-        pending_review = base_qs.filter(status='PENDING_REVIEW').count()
+        PENDING_ADMIN_APPROVAL = base_qs.filter(status='PENDING_ADMIN_APPROVAL').count()
         completed = base_qs.filter(status='COMPLETED').count()
 
-        recent_sheets = base_qs.filter(status__in=['ROUTED_TO_STATION', 'TRANSFERRED', 'RECEIVED', 'PENDING_REVIEW']).order_by('-created_at')[:8]
+        recent_sheets = base_qs.filter(status__in=['ROUTED_TO_STATION', 'TRANSFERRED', 'RECEIVED', 'PENDING_ADMIN_APPROVAL']).order_by('-created_at')[:8]
         
-        doughnut_data = [pending_assign, in_progress, pending_review, completed]
+        doughnut_data = [pending_assign, in_progress, PENDING_ADMIN_APPROVAL, completed]
         
         context = {
             'my_station': my_station,
             'pending_assign': pending_assign,
             'in_progress': in_progress,
-            'pending_review': pending_review,
+            'PENDING_ADMIN_APPROVAL': PENDING_ADMIN_APPROVAL,
             'completed': completed,
             'recent_sheets': recent_sheets,
             'doughnut_data': doughnut_data,
@@ -141,16 +120,16 @@ def dashboard(request):
             active_techs = 0
 
         pending_supervision = base_qs.filter(status='RECEIVED').count()
-        pending_review = base_qs.filter(status='PENDING_REVIEW').count()
+        PENDING_ADMIN_APPROVAL = base_qs.filter(status='PENDING_ADMIN_APPROVAL').count()
         completed = base_qs.filter(status='COMPLETED').count()
         
-        recent_sheets = base_qs.filter(status__in=['TRANSFERRED', 'RECEIVED', 'PENDING_REVIEW']).order_by('-created_at')[:8]
+        recent_sheets = base_qs.filter(status__in=['TRANSFERRED', 'RECEIVED', 'PENDING_ADMIN_APPROVAL']).order_by('-created_at')[:8]
         
         context = {
             'my_station': my_station,
             'active_techs': active_techs, 
             'pending_supervision': pending_supervision,
-            'pending_review': pending_review,
+            'PENDING_ADMIN_APPROVAL': PENDING_ADMIN_APPROVAL,
             'completed': completed,
             'recent_sheets': recent_sheets
         }
@@ -165,7 +144,7 @@ def dashboard(request):
         assigned_sheets = SettingSheet.objects.filter(assigned_to=request.user)
         new_sheets = assigned_sheets.filter(status='TRANSFERRED').count()
         in_progress = assigned_sheets.filter(status='RECEIVED').count()
-        completed = assigned_sheets.filter(status__in=['PENDING_REVIEW', 'COMPLETED']).count()
+        completed = assigned_sheets.filter(status__in=['PENDING_ADMIN_APPROVAL', 'COMPLETED']).count()
         
         recent_sheets = assigned_sheets.exclude(status='COMPLETED').order_by('-created_at')[:8]
         
@@ -200,7 +179,6 @@ def user_list(request):
     
     GROUP_NAMES_VI = {
         "ADMIN": "Quản trị viên",
-        "A0A1": "Điều độ A0/A1",
         "DISPATCHER": "Điều phối viên (kiêm Rà soát)",
         "STATION_LEADER": "Trưởng nhóm Trạm",
         "TECHNICIAN": "Kỹ thuật viên",
@@ -344,7 +322,6 @@ def role_matrix(request):
     
     GROUP_NAMES_VI = {
         "ADMIN": "Quản trị viên",
-        "A0A1": "Điều độ A0/A1",
         "DISPATCHER": "Điều phối viên",
         "STATION_LEADER": "Trưởng nhóm Trạm",
         "TECHNICIAN": "Kỹ thuật viên",

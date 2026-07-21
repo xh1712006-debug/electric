@@ -44,7 +44,7 @@ def sheet_list(request):
     list_title = 'Tất cả Phiếu Chỉnh định'
     if status_filter == 'COMPLETED':
         list_title = 'Hồ sơ Đã Ban hành'
-    elif status_filter == 'PENDING_REVIEW':
+    elif status_filter == 'PENDING_ADMIN_APPROVAL':
         list_title = 'Phiếu Chờ Ký Duyệt'
 
     context = {
@@ -205,7 +205,7 @@ def sheet_detail(request, pk):
     # Lấy danh sách user theo Role để dùng cho Popup Giao việc
     from django.contrib.auth.models import User
     dispatchers = User.objects.filter(groups__name='DISPATCHER')
-    reviewers = User.objects.filter(groups__name='A0A1')
+    reviewers = User.objects.filter(groups__name='ADMIN')
     
     if request.user.groups.filter(name='STATION_LEADER').exists() and not request.user.is_superuser:
         try:
@@ -221,7 +221,7 @@ def sheet_detail(request, pk):
     
     tech_sig = sheet.signatures.filter(role='TECHNICIAN').first()
     sup_sig = sheet.signatures.filter(role='SUPERVISOR').first()
-    a0_sig = sheet.signatures.filter(role='A0_A1').first()
+    admin_sig = sheet.signatures.filter(role='ADMIN').first()
     
     # Logic: So sánh với phiếu cũ gần nhất
     previous_sheet = None
@@ -315,7 +315,7 @@ def sheet_detail(request, pk):
         'supervisors': supervisors,
         'tech_sig': tech_sig,
         'sup_sig': sup_sig,
-        'a0_sig': a0_sig,
+        'admin_sig': admin_sig,
         'previous_sheet': previous_sheet,
         'differences': differences,
         'has_previous': has_previous,
@@ -409,7 +409,7 @@ def sheet_assign(request, pk):
 def sheet_route_to_station(request, pk):
     """
     Route a sheet directly to the station.
-    Allowed for DISPATCHER, A0A1, ADMIN, or the creator of the sheet.
+    Allowed for DISPATCHER, ADMIN, or the creator of the sheet.
     """
     sheet = get_object_or_404(SettingSheet, pk=pk)
     
@@ -446,7 +446,7 @@ def initiate_signature(request, pk):
     """View giả lập tạo phiên ký số EVN."""
     if request.method == 'POST':
         sheet = get_object_or_404(SettingSheet, pk=pk)
-        role = request.POST.get('role', 'A0_A1')
+        role = request.POST.get('role', 'ADMIN')
         
         # Gọi Mock Service
         res = evn_service.initiate_signing_session(sheet.id, role)
@@ -477,7 +477,7 @@ def confirm_signature(request, pk):
             # Server-side validation of signature sequence
             if role == 'SUPERVISOR' and not tech_sig_exists:
                 return JsonResponse({'success': False, 'error': 'Technician must sign first'}, status=400)
-            if role == 'A0_A1' and not sup_sig_exists:
+            if role == 'ADMIN' and not sup_sig_exists:
                 return JsonResponse({'success': False, 'error': 'Supervisor must sign first'}, status=400)
 
             # Lưu chữ ký vào DB
@@ -492,21 +492,21 @@ def confirm_signature(request, pk):
             if role == 'TECHNICIAN' and sheet.status == 'RECEIVED':
                 pass # Chờ thêm Giám sát trạm
             elif role == 'SUPERVISOR' and sheet.status == 'RECEIVED':
-                sheet.status = 'PENDING_REVIEW' # Đẩy lại cho A0/A1 duyệt vận hành
+                sheet.status = 'PENDING_ADMIN_APPROVAL' # Đẩy lên cho ADMIN duyệt
                 sheet.save()
-            elif role == 'A0_A1' and sheet.status == 'PENDING_REVIEW':
+            elif role == 'ADMIN' and sheet.status == 'PENDING_ADMIN_APPROVAL':
                 sheet.status = 'COMPLETED'
                 sheet.save()
                 
             tech_sig = sheet.signatures.filter(role='TECHNICIAN').first()
             sup_sig = sheet.signatures.filter(role='SUPERVISOR').first()
-            a0_sig = sheet.signatures.filter(role='A0_A1').first()
+            admin_sig = sheet.signatures.filter(role='ADMIN').first()
                 
             return render(request, 'sheets/partials/_signature_panel.html', {
                 'sheet': sheet,
                 'tech_sig': tech_sig,
                 'sup_sig': sup_sig,
-                'a0_sig': a0_sig
+                'admin_sig': admin_sig
             })
             
     return JsonResponse({'success': False}, status=400)
@@ -562,7 +562,7 @@ def run_mock_ocr(request, pk):
 
 @login_required
 def sheet_save_actual_data(request, pk):
-    """View cho phép KTV lưu thông số thực tế và Điều phối/A0A1 sửa lỗi OCR."""
+    """View cho phép KTV lưu thông số thực tế và Điều phối sửa lỗi OCR."""
     if request.method == 'POST':
         sheet = get_object_or_404(SettingSheet, pk=pk)
         
@@ -589,7 +589,7 @@ def sheet_save_actual_data(request, pk):
                 sheet.extracted_data = updated_data
                 sheet.save()
                 
-                if changes and is_dispatcher_or_a0:
+                if changes and is_dispatcher:
                     msg = "Đã cập nhật sửa lỗi OCR: " + " | ".join(changes)
                     messages.success(request, msg)
                     
@@ -598,7 +598,7 @@ def sheet_save_actual_data(request, pk):
                         from channels.layers import get_channel_layer
                         channel_layer = get_channel_layer()
                         if channel_layer and sheet.created_by:
-                            # Gửi thông báo cho người tạo phiếu (A0A1) và người dùng khác liên quan
+                            # Gửi thông báo cho người tạo phiếu và người dùng khác liên quan
                             async_to_sync(channel_layer.group_send)(
                                 f"user_{sheet.created_by.id}",
                                 {

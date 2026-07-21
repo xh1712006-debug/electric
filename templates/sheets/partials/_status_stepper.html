@@ -1,0 +1,101 @@
+<div class="w-full flex items-center justify-between mt-2 mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
+    {% with steps="DRAFT,ISSUED,ROUTED_TO_STATION,TRANSFERRED,RECEIVED,COMPLETED" %}
+    <div class="flex items-center min-w-[700px] w-full justify-between relative px-4">
+        <!-- Connecting Line -->
+        <div class="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-1 bg-slate-100 rounded-full z-0"></div>
+        
+        <!-- Step 1: DRAFT -->
+        <div class="relative z-10 flex flex-col items-center gap-2 group cursor-default">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300
+                {% if sheet.status == 'DRAFT' %} bg-slate-800 text-white shadow-lg shadow-slate-300 ring-4 ring-slate-100 scale-110
+                {% elif sheet.status != 'DRAFT' %} bg-emerald-500 text-white
+                {% endif %}">
+                {% if sheet.status != 'DRAFT' %}<i class="fas fa-check text-sm"></i>{% else %}<i class="fas fa-edit text-sm"></i>{% endif %}
+            </div>
+            <span class="text-[11px] font-bold uppercase tracking-wider {% if sheet.status == 'DRAFT' %}text-slate-800{% else %}text-slate-500{% endif %}">Tạo Mới</span>
+        </div>
+
+        <!-- Progress Line 1 -->
+        <div class="flex-1 h-1 z-0 transition-all duration-500 {% if sheet.status != 'DRAFT' %}bg-emerald-500{% else %}bg-transparent{% endif %}"></div>
+
+        <!-- Step 2: ISSUED -->
+        <div class="relative z-10 flex flex-col items-center gap-2 group cursor-default">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300
+                {% if sheet.status == 'DRAFT' %} bg-white text-slate-300 border-2 border-slate-200
+                {% elif sheet.status == 'ISSUED' %} bg-blue-600 text-white shadow-lg shadow-blue-200 ring-4 ring-blue-50 scale-110 animate-pulse
+                {% else %} bg-emerald-500 text-white
+                {% endif %}">
+                {% if sheet.status == 'DRAFT' %}<i class="fas fa-paper-plane text-sm"></i>
+                {% elif sheet.status == 'ISSUED' %}<i class="fas fa-paper-plane text-sm"></i>
+                {% else %}<i class="fas fa-check text-sm"></i>{% endif %}
+            </div>
+            <span class="text-[11px] font-bold uppercase tracking-wider {% if sheet.status == 'ISSUED' %}text-blue-700{% else %}text-slate-500{% endif %}">Chờ Điều Phối</span>
+        </div>
+
+        <!-- Progress Line 2 -->
+        <div class="flex-1 h-1 z-0 transition-all duration-500 {% if sheet.status in 'ROUTED_TO_STATION,TRANSFERRED,RECEIVED,COMPLETED' %}bg-emerald-500{% else %}bg-transparent{% endif %}"></div>
+
+        <!-- Step 3: ROUTED_TO_STATION -->
+        <div class="relative z-10 flex flex-col items-center gap-2 group cursor-default">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300
+                {% if sheet.status in 'DRAFT,ISSUED' %} bg-white text-slate-300 border-2 border-slate-200
+                {% elif sheet.status == 'ROUTED_TO_STATION' %} bg-teal-500 text-white shadow-lg shadow-teal-200 ring-4 ring-teal-50 scale-110 animate-pulse
+                {% else %} bg-emerald-500 text-white
+                {% endif %}">
+                {% if sheet.status in 'DRAFT,ISSUED' %}<i class="fas fa-route text-sm"></i>
+                {% elif sheet.status == 'ROUTED_TO_STATION' %}<i class="fas fa-route text-sm"></i>
+                {% else %}<i class="fas fa-check text-sm"></i>{% endif %}
+            </div>
+            <span class="text-[11px] font-bold uppercase tracking-wider {% if sheet.status == 'ROUTED_TO_STATION' %}text-teal-700{% else %}text-slate-500{% endif %}">Đã Về Trạm</span>
+        </div>
+
+        <!-- Progress Line 3 -->
+        <div class="flex-1 h-1 z-0 transition-all duration-500 {% if sheet.status in 'TRANSFERRED,RECEIVED,COMPLETED' %}bg-emerald-500{% else %}bg-transparent{% endif %}"></div>
+
+        <!-- Step 4: TRANSFERRED -->
+        <div class="relative z-10 flex flex-col items-center gap-2 group cursor-default">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300
+                {% if sheet.status in 'DRAFT,ISSUED,ROUTED_TO_STATION' %} bg-white text-slate-300 border-2 border-slate-200
+                {% elif sheet.status == 'TRANSFERRED' %} bg-purple-500 text-white shadow-lg shadow-purple-200 ring-4 ring-purple-50 scale-110 animate-pulse
+                {% else %} bg-emerald-500 text-white
+                {% endif %}">
+                {% if sheet.status in 'DRAFT,ISSUED,ROUTED_TO_STATION' %}<i class="fas fa-truck text-sm"></i>
+                {% elif sheet.status == 'TRANSFERRED' %}<i class="fas fa-truck text-sm"></i>
+                {% else %}<i class="fas fa-check text-sm"></i>{% endif %}
+            </div>
+            <span class="text-[11px] font-bold uppercase tracking-wider {% if sheet.status == 'TRANSFERRED' %}text-purple-700{% else %}text-slate-500{% endif %}">Đã Giao KTV</span>
+        </div>
+
+        <!-- Progress Line 4 -->
+        <div class="flex-1 h-1 z-0 transition-all duration-500 {% if sheet.status in 'RECEIVED,COMPLETED' %}bg-emerald-500{% else %}bg-transparent{% endif %}"></div>
+
+        <!-- Step 5: RECEIVED -->
+        <div class="relative z-10 flex flex-col items-center gap-2 group cursor-default">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300
+                {% if sheet.status in 'DRAFT,ISSUED,ROUTED_TO_STATION,TRANSFERRED' %} bg-white text-slate-300 border-2 border-slate-200
+                {% elif sheet.status == 'RECEIVED' %} bg-amber-500 text-white shadow-lg shadow-amber-200 ring-4 ring-amber-50 scale-110 animate-pulse
+                {% else %} bg-emerald-500 text-white
+                {% endif %}">
+                {% if sheet.status in 'DRAFT,ISSUED,ROUTED_TO_STATION,TRANSFERRED' %}<i class="fas fa-tools text-sm"></i>
+                {% elif sheet.status == 'RECEIVED' %}<i class="fas fa-tools text-sm"></i>
+                {% else %}<i class="fas fa-check text-sm"></i>{% endif %}
+            </div>
+            <span class="text-[11px] font-bold uppercase tracking-wider {% if sheet.status == 'RECEIVED' %}text-amber-700{% else %}text-slate-500{% endif %}">Đang Thực Hiện</span>
+        </div>
+
+        <!-- Progress Line 5 -->
+        <div class="flex-1 h-1 z-0 transition-all duration-500 {% if sheet.status == 'COMPLETED' %}bg-emerald-500{% else %}bg-transparent{% endif %}"></div>
+
+        <!-- Step 6: COMPLETED -->
+        <div class="relative z-10 flex flex-col items-center gap-2 group cursor-default">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300
+                {% if sheet.status != 'COMPLETED' %} bg-white text-slate-300 border-2 border-slate-200
+                {% else %} bg-emerald-500 text-white shadow-lg shadow-emerald-200 ring-4 ring-emerald-50 scale-110
+                {% endif %}">
+                <i class="fas fa-flag-checkered text-sm"></i>
+            </div>
+            <span class="text-[11px] font-bold uppercase tracking-wider {% if sheet.status == 'COMPLETED' %}text-emerald-700{% else %}text-slate-500{% endif %}">Hoàn Thành</span>
+        </div>
+    </div>
+    {% endwith %}
+</div>

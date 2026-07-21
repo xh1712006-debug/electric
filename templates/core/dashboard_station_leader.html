@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Trưởng nhóm Trạm{% endblock %}
+{% block header_title %}
+Dashboard Điều Hành - 
+{% if my_station %}
+<span class="text-teal-600 font-bold ml-1">{{ my_station.station_code }} - {{ my_station.station_name }}</span>
+{% else %}
+<span class="text-red-500 font-bold ml-1">Chưa được gán Trạm</span>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="h-full flex flex-col gap-6">
+
+    {% if not my_station %}
+    <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl shadow-sm mb-4">
+        <div class="flex">
+            <div class="flex-shrink-0"><i class="fas fa-exclamation-triangle text-red-500"></i></div>
+            <div class="ml-3">
+                <p class="text-sm text-red-700">Tài khoản của bạn chưa được gán vào một Trạm cụ thể. Vui lòng liên hệ Quản trị viên để được cập nhật thông tin.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Thống kê tổng quan (KPIs) với Glassmorphism -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <!-- Card 1: Cần phân công -->
+        <div class="relative overflow-hidden bg-gradient-to-br from-teal-50/80 to-emerald-100/80 backdrop-blur-md rounded-2xl p-5 shadow-sm border border-white/60 group hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+            <div class="absolute -right-4 -top-4 w-24 h-24 bg-teal-500/10 rounded-full blur-xl group-hover:bg-teal-500/20 transition-all duration-500"></div>
+            <div class="flex justify-between items-center relative z-10">
+                <div>
+                    <p class="text-teal-900/70 text-xs font-bold uppercase tracking-wider mb-1">Cần Phân Công (Mới)</p>
+                    <h3 class="text-3xl font-black text-teal-700">{{ pending_assign }}</h3>
+                </div>
+                <div class="w-12 h-12 bg-white/50 rounded-xl flex items-center justify-center text-xl text-teal-600 shadow-inner">
+                    <i class="fas fa-user-plus"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Đang thực thi -->
+        <div class="relative overflow-hidden bg-gradient-to-br from-blue-50/80 to-cyan-100/80 backdrop-blur-md rounded-2xl p-5 shadow-sm border border-white/60 group hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+            <div class="absolute -right-4 -top-4 w-24 h-24 bg-blue-500/10 rounded-full blur-xl group-hover:bg-blue-500/20 transition-all duration-500"></div>
+            <div class="flex justify-between items-center relative z-10">
+                <div>
+                    <p class="text-blue-900/70 text-xs font-bold uppercase tracking-wider mb-1">Đang Thực Thi</p>
+                    <h3 class="text-3xl font-black text-blue-600">{{ in_progress }}</h3>
+                </div>
+                <div class="w-12 h-12 bg-white/50 rounded-xl flex items-center justify-center text-xl text-blue-500 shadow-inner">
+                    <i class="fas fa-tools"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Chờ giám sát -->
+        <div class="relative overflow-hidden bg-gradient-to-br from-amber-50/80 to-orange-100/80 backdrop-blur-md rounded-2xl p-5 shadow-sm border border-white/60 group hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+            <div class="absolute -right-4 -top-4 w-24 h-24 bg-orange-500/10 rounded-full blur-xl group-hover:bg-orange-500/20 transition-all duration-500"></div>
+            <div class="flex justify-between items-center relative z-10">
+                <div>
+                    <p class="text-orange-900/70 text-xs font-bold uppercase tracking-wider mb-1">Chờ Giám Sát</p>
+                    <h3 class="text-3xl font-black text-orange-600">{{ pending_review }}</h3>
+                </div>
+                <div class="w-12 h-12 bg-white/50 rounded-xl flex items-center justify-center text-xl text-orange-500 shadow-inner">
+                    <i class="fas fa-search"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Hoàn thành -->
+        <div class="relative overflow-hidden bg-gradient-to-br from-emerald-50/80 to-green-100/80 backdrop-blur-md rounded-2xl p-5 shadow-sm border border-white/60 group hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+            <div class="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all duration-500"></div>
+            <div class="flex justify-between items-center relative z-10">
+                <div>
+                    <p class="text-emerald-900/70 text-xs font-bold uppercase tracking-wider mb-1">Đã Hoàn Thành</p>
+                    <h3 class="text-3xl font-black text-emerald-600">{{ completed }}</h3>
+                </div>
+                <div class="w-12 h-12 bg-white/50 rounded-xl flex items-center justify-center text-xl text-emerald-500 shadow-inner">
+                    <i class="fas fa-check-double"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Layout 2 cột: Bảng danh sách & Nhân sự/Biểu đồ -->
+    <div class="flex flex-col lg:flex-row gap-6">
+        <!-- Cột trái (2/3): Bảng công việc -->
+        <div class="w-full lg:w-2/3 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+            <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fas fa-clipboard-list text-teal-600"></i> Danh sách Phiếu Chỉnh định tại Trạm
+                </h3>
+                <a href="{% url 'sheet_list' %}" class="text-sm font-medium text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1">
+                    Xem tất cả <i class="fas fa-arrow-right text-xs"></i>
+                </a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200">
+                            <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Mã Phiếu</th>
+                            <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Ngăn lộ / Relay</th>
+                            <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Trạng thái</th>
+                            <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">KTV</th>
+                            <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for sheet in recent_sheets %}
+                        <tr class="hover:bg-teal-50/30 transition-colors {% if sheet.status == 'ROUTED_TO_STATION' %}bg-teal-50/50{% endif %}">
+                            <td class="px-6 py-4">
+                                <div class="font-bold text-slate-800">{{ sheet.sheet_code }}</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm font-medium text-slate-700">
+                                    {% if sheet.relay %}
+                                        <span class="text-blue-600">{{ sheet.relay.bay.bay_code }}</span> - {{ sheet.relay.relay_code }}
+                                    {% else %}
+                                        <span class="text-slate-400 italic">Chưa xác định</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                {% include "sheets/partials/_status_badge.html" with status=sheet.status %}
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if sheet.assigned_to %}
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                                            {{ sheet.assigned_to.username|make_list|first|upper }}
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <span class="inline-flex items-center gap-1 text-xs font-medium text-orange-600 bg-orange-100 px-2 py-1 rounded">
+                                        Chờ giao
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <a href="{% url 'sheet_detail' sheet.pk %}" class="inline-flex items-center justify-center gap-2 px-3 py-1.5 {% if sheet.status == 'ROUTED_TO_STATION' %}bg-teal-600 hover:bg-teal-700 text-white shadow-sm shadow-teal-500/30{% else %}bg-slate-100 hover:bg-slate-200 text-slate-700{% endif %} rounded-lg text-sm font-medium transition-all transform hover:-translate-y-0.5">
+                                    {% if sheet.status == 'ROUTED_TO_STATION' %}
+                                    Giao Việc <i class="fas fa-arrow-right"></i>
+                                    {% else %}
+                                    Chi tiết
+                                    {% endif %}
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="px-6 py-12 text-center">
+                                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 text-slate-400 mb-4 text-2xl">
+                                    <i class="fas fa-inbox"></i>
+                                </div>
+                                <p class="text-slate-500 mt-1 max-w-md mx-auto">Trạm không có Phiếu nào.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Cột phải (1/3): Biểu đồ & Nhân sự -->
+        <div class="w-full lg:w-1/3 flex flex-col gap-6">
+            <!-- Tình trạng nhân sự -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden p-6">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+                    <i class="fas fa-users-cog text-blue-600"></i> Kỹ Thuật Viên Tại Trạm
+                </h3>
+                <div class="space-y-4">
+                    {% for tech in station_techs %}
+                    <div class="flex items-center justify-between p-3 rounded-lg border {% if tech.active_tasks == 0 %}border-green-200 bg-green-50{% else %}border-slate-100 bg-slate-50{% endif %}">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-600 border-2 border-white shadow-sm">
+                                {{ tech.first_name|make_list|first|upper|default:tech.username|make_list|first|upper }}
+                            </div>
+                            <div>
+                                <div class="text-sm font-bold text-slate-800">{{ tech.first_name|default:tech.username }}</div>
+                                <div class="text-xs text-slate-500">{{ tech.email }}</div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold {% if tech.active_tasks == 0 %}bg-green-100 text-green-700{% elif tech.active_tasks < 3 %}bg-blue-100 text-blue-700{% else %}bg-orange-100 text-orange-700{% endif %}">
+                                {{ tech.active_tasks }}
+                            </span>
+                            <span class="text-[10px] uppercase font-semibold text-slate-400 mt-1">Phiếu Đang Làm</span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4">
+                        <p class="text-sm text-slate-500">Chưa có KTV nào thuộc Trạm này.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Biểu đồ phân bổ -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden p-6">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+                    <i class="fas fa-chart-pie text-emerald-600"></i> Tình trạng Phiếu
+                </h3>
+                <div class="relative h-48 w-full flex items-center justify-center">
+                    <canvas id="stationChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('stationChart').getContext('2d');
+        const data = {{ doughnut_data|safe }};
+        
+        // If all 0, show a placeholder
+        if (data.reduce((a, b) => a + b, 0) === 0) {
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Không có dữ liệu'],
+                    datasets: [{
+                        data: [1],
+                        backgroundColor: ['#e2e8f0'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    cutout: '75%',
+                    plugins: { tooltip: { enabled: false }, legend: { display: false } }
+                }
+            });
+            return;
+        }
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Cần Phân Công', 'Đang Thực Thi', 'Chờ Giám Sát', 'Đã Hoàn Thành'],
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        '#14b8a6', // teal-500
+                        '#3b82f6', // blue-500
+                        '#f59e0b', // amber-500
+                        '#10b981'  // emerald-500
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            usePointStyle: true,
+                            boxWidth: 8,
+                            padding: 15,
+                            font: { family: "'Inter', sans-serif", size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        padding: 12,
+                        titleFont: { family: "'Inter', sans-serif", size: 13 },
+                        bodyFont: { family: "'Inter', sans-serif", size: 12 },
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed !== null) {
+                                    label += context.parsed + ' phiếu';
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

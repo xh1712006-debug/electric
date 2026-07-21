@@ -68,57 +68,113 @@ def dashboard(request):
         }
         return render(request, 'core/dashboard_a0.html', context)
 
-    # 3. DISPATCHER (Rà soát & Giao việc)
+    # 3. DISPATCHER (Rà soát & Điều phối về Trạm)
     elif user.groups.filter(name='DISPATCHER').exists():
         issued_count = SettingSheet.objects.filter(status='ISSUED').count() # Chờ rà soát
-        reviewed_count = SettingSheet.objects.filter(status='REVIEWED').count() # Chờ giao KTV
+        routed_count = SettingSheet.objects.filter(status='ROUTED_TO_STATION').count() # Đã chuyển về trạm
         received_count = SettingSheet.objects.filter(status='RECEIVED').count() # KTV đang làm
         
-        tracking_sheets = SettingSheet.objects.filter(status__in=['ISSUED', 'REVIEWED', 'TRANSFERRED', 'RECEIVED']).order_by('-created_at')[:5]
+        tracking_sheets = SettingSheet.objects.filter(status__in=['ISSUED', 'ROUTED_TO_STATION', 'TRANSFERRED', 'RECEIVED']).order_by('-created_at')[:5]
         recent_activities = SignatureRecord.objects.select_related('sheet').order_by('-signed_at')[:5]
         
         context = {
-            'issued_count': issued_count, 'reviewed_count': reviewed_count, 'received_count': received_count,
+            'issued_count': issued_count, 'routed_count': routed_count, 'received_count': received_count,
             'tracking_sheets': tracking_sheets, 'recent_activities': recent_activities
         }
         return render(request, 'core/dashboard_dispatcher.html', context)
 
-    # 4. SUPERVISOR
-    elif user.groups.filter(name='SUPERVISOR').exists():
-        # Lọc các trạm mà supervisor quản lý (giả sử tất cả trạm tạm thời nếu chưa mapping)
-        stations_count = Station.objects.count()
-        active_techs = User.objects.filter(groups__name='TECHNICIAN').count()
-        pending_supervision = SettingSheet.objects.filter(status='RECEIVED').count()
+    # STATION_LEADER
+    elif user.groups.filter(name='STATION_LEADER').exists():
+        my_station = None
+        if hasattr(user, 'userprofile') and user.userprofile.station:
+            my_station = user.userprofile.station
+
+        if my_station:
+            from django.db.models import Q
+            base_qs = SettingSheet.objects.filter(Q(station=my_station) | Q(relay__bay__station=my_station)).distinct()
+            
+            # Get technicians in this station and annotate with active sheets
+            from django.db.models import Count, Q
+            station_techs = User.objects.filter(
+                groups__name='TECHNICIAN', 
+                userprofile__station=my_station
+            ).annotate(
+                active_tasks=Count('assigned_sheets', filter=Q(assigned_sheets__status__in=['TRANSFERRED', 'RECEIVED']))
+            ).order_by('active_tasks')
+        else:
+            base_qs = SettingSheet.objects.none()
+            station_techs = []
+
+        pending_assign = base_qs.filter(status='ROUTED_TO_STATION').count()
+        in_progress = base_qs.filter(status__in=['TRANSFERRED', 'RECEIVED']).count()
+        pending_review = base_qs.filter(status='PENDING_REVIEW').count()
+        completed = base_qs.filter(status='COMPLETED').count()
+
+        recent_sheets = base_qs.filter(status__in=['ROUTED_TO_STATION', 'TRANSFERRED', 'RECEIVED', 'PENDING_REVIEW']).order_by('-created_at')[:8]
         
-        recent_sheets = SettingSheet.objects.filter(status__in=['RECEIVED', 'PENDING_REVIEW']).order_by('-created_at')[:5]
+        doughnut_data = [pending_assign, in_progress, pending_review, completed]
         
         context = {
-            'stations_count': stations_count, 'active_techs': active_techs, 'pending_supervision': pending_supervision,
+            'my_station': my_station,
+            'pending_assign': pending_assign,
+            'in_progress': in_progress,
+            'pending_review': pending_review,
+            'completed': completed,
+            'recent_sheets': recent_sheets,
+            'doughnut_data': doughnut_data,
+            'station_techs': station_techs
+        }
+        return render(request, 'core/dashboard_station_leader.html', context)
+
+    # 4. SUPERVISOR
+    elif user.groups.filter(name='SUPERVISOR').exists():
+        my_station = None
+        if hasattr(user, 'userprofile') and user.userprofile.station:
+            my_station = user.userprofile.station
+
+        if my_station:
+            from django.db.models import Q
+            base_qs = SettingSheet.objects.filter(Q(station=my_station) | Q(relay__bay__station=my_station)).distinct()
+            active_techs = User.objects.filter(groups__name='TECHNICIAN', userprofile__station=my_station).count()
+        else:
+            base_qs = SettingSheet.objects.none()
+            active_techs = 0
+
+        pending_supervision = base_qs.filter(status='RECEIVED').count()
+        pending_review = base_qs.filter(status='PENDING_REVIEW').count()
+        completed = base_qs.filter(status='COMPLETED').count()
+        
+        recent_sheets = base_qs.filter(status__in=['TRANSFERRED', 'RECEIVED', 'PENDING_REVIEW']).order_by('-created_at')[:8]
+        
+        context = {
+            'my_station': my_station,
+            'active_techs': active_techs, 
+            'pending_supervision': pending_supervision,
+            'pending_review': pending_review,
+            'completed': completed,
             'recent_sheets': recent_sheets
         }
         return render(request, 'core/dashboard_supervisor.html', context)
 
     # 5. TECHNICIAN
     elif user.groups.filter(name='TECHNICIAN').exists():
+        my_station = None
+        if hasattr(user, 'userprofile') and user.userprofile.station:
+            my_station = user.userprofile.station
+
         assigned_sheets = SettingSheet.objects.filter(assigned_to=request.user)
         new_sheets = assigned_sheets.filter(status='TRANSFERRED').count()
         in_progress = assigned_sheets.filter(status='RECEIVED').count()
-        completed = assigned_sheets.filter(status__in=['COMPLETED', 'REVIEWED']).count()
+        completed = assigned_sheets.filter(status__in=['PENDING_REVIEW', 'COMPLETED']).count()
         
-        recent_sheets = assigned_sheets.exclude(status='COMPLETED').order_by('-created_at')[:5]
-        recent_activities = SignatureRecord.objects.filter(signer_name=request.user.get_full_name() or request.user.username).select_related('sheet').order_by('-signed_at')[:5]
-        
-        status_counts = assigned_sheets.values('status').annotate(count=Count('id'))
-        status_dict = {item['status']: item['count'] for item in status_counts}
-        doughnut_data = [
-            status_dict.get('TRANSFERRED', 0),
-            status_dict.get('RECEIVED', 0),
-            status_dict.get('PENDING_REVIEW', 0) + status_dict.get('COMPLETED', 0)
-        ]
+        recent_sheets = assigned_sheets.exclude(status='COMPLETED').order_by('-created_at')[:8]
         
         context = {
-            'new_sheets': new_sheets, 'in_progress': in_progress, 'completed': completed,
-            'recent_sheets': recent_sheets, 'doughnut_data': doughnut_data, 'recent_activities': recent_activities
+            'my_station': my_station,
+            'new_sheets': new_sheets, 
+            'in_progress': in_progress, 
+            'completed': completed,
+            'recent_sheets': recent_sheets
         }
         return render(request, 'core/dashboard_technician.html', context)
         
@@ -145,9 +201,10 @@ def user_list(request):
     GROUP_NAMES_VI = {
         "ADMIN": "Quản trị viên",
         "A0A1": "Điều độ A0/A1",
-        "DISPATCHER": "Điều độ viên (kiêm Rà soát)",
+        "DISPATCHER": "Điều phối viên (kiêm Rà soát)",
+        "STATION_LEADER": "Trưởng nhóm Trạm",
         "TECHNICIAN": "Kỹ thuật viên",
-        "SUPERVISOR": "Giám sát trạm",
+        "SUPERVISOR": "Giám sát trạm"
     }
     for g in groups:
         g.vi_name = GROUP_NAMES_VI.get(g.name, g.name)
@@ -156,11 +213,16 @@ def user_list(request):
         for g in u.groups.all():
             g.vi_name = GROUP_NAMES_VI.get(g.name, g.name)
     from django.core.paginator import Paginator
+    from stations.models import Station
     paginator = Paginator(users, 30)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
             
-    return render(request, 'core/user_list.html', {'users': page_obj, 'groups': groups})
+    return render(request, 'core/user_list.html', {
+        'users': page_obj,
+        'groups': groups,
+        'stations': Station.objects.all()
+    })
 
 @login_required
 @permission_required('sheets.can_manage_users', raise_exception=True)
@@ -171,6 +233,7 @@ def user_create(request):
         first_name = request.POST.get('first_name')
         password = request.POST.get('password')
         group_id = request.POST.get('group')
+        station_id = request.POST.get('station_id')
 
         if User.objects.filter(username=username).exists():
             messages.error(request, 'Tên đăng nhập đã tồn tại!')
@@ -179,7 +242,79 @@ def user_create(request):
             if group_id:
                 group = Group.objects.get(id=group_id)
                 user.groups.add(group)
+            
+            if station_id:
+                from stations.models import Station
+                from core.models import UserProfile
+                try:
+                    station = Station.objects.get(id=station_id)
+                    profile, created = UserProfile.objects.get_or_create(user=user)
+                    profile.station = station
+                    profile.save()
+                except Exception as e:
+                    pass
+
             messages.success(request, 'Tạo tài khoản thành công!')
+        return redirect('user_list')
+    return HttpResponse("Invalid request")
+
+@login_required
+@permission_required('sheets.can_manage_users', raise_exception=True)
+def user_update(request, user_id):
+    if request.method == 'POST':
+        from django.shortcuts import get_object_or_404
+        user = get_object_or_404(User, id=user_id)
+        email = request.POST.get('email')
+        first_name = request.POST.get('first_name')
+        password = request.POST.get('password')
+        group_id = request.POST.get('group')
+        station_id = request.POST.get('station_id')
+
+        user.email = email
+        user.first_name = first_name
+        if password:
+            user.set_password(password)
+        
+        if group_id:
+            group = Group.objects.get(id=group_id)
+            user.groups.clear()
+            user.groups.add(group)
+            
+            # Handle station id for specific groups
+            if station_id and group.name in ['TECHNICIAN', 'SUPERVISOR', 'STATION_LEADER']:
+                from stations.models import Station
+                from core.models import UserProfile
+                try:
+                    station = Station.objects.get(id=station_id)
+                    profile, created = UserProfile.objects.get_or_create(user=user)
+                    profile.station = station
+                    profile.save()
+                    print(f"Saved station {station} for {user.username}")
+                except Exception as e:
+                    print(f"Error saving station: {e}")
+            else:
+                from core.models import UserProfile
+                print(f"Clearing station for {user.username} (station_id: {station_id}, group: {group.name})")
+                UserProfile.objects.filter(user=user).update(station=None)
+        
+        user.save()
+        messages.success(request, 'Cập nhật tài khoản thành công!')
+        return redirect('user_list')
+    return HttpResponse("Invalid request")
+
+@login_required
+@permission_required('sheets.can_manage_users', raise_exception=True)
+def user_toggle_status(request, user_id):
+    if request.method == 'POST':
+        from django.shortcuts import get_object_or_404
+        user = get_object_or_404(User, id=user_id)
+        if user != request.user:
+            user.is_active = not user.is_active
+            user.save()
+            status_msg = "mở khóa" if user.is_active else "khóa"
+            messages.success(request, f'Đã {status_msg} tài khoản {user.username}.')
+        else:
+            messages.error(request, 'Bạn không thể tự khóa tài khoản của mình.')
         return redirect('user_list')
     return HttpResponse("Invalid request")
 
@@ -202,7 +337,7 @@ def role_matrix(request):
         "can_manage_users": "Quản trị Hệ thống (Tài khoản & Phân quyền)",
         "can_create_sheet": "Tạo Phiếu chỉnh định & Chạy AI OCR",
         "can_approve_sheet": "Nút: Phê duyệt Lệnh",
-        "can_dispatch_sheet": "Nút: Phân phối Phiếu cho KTV",
+        "can_dispatch_sheet": "Nút: Chuyển Trạm / Phân công Đội",
         "can_execute_sheet": "Nút: Tiếp nhận & Ký Thực thi (KTV)",
         "can_supervise_sheet": "Nút: Ký Nghiệm thu (Giám sát trạm)",
     }
@@ -210,9 +345,10 @@ def role_matrix(request):
     GROUP_NAMES_VI = {
         "ADMIN": "Quản trị viên",
         "A0A1": "Điều độ A0/A1",
-        "DISPATCHER": "Điều độ viên (kiêm Rà soát)",
+        "DISPATCHER": "Điều phối viên",
+        "STATION_LEADER": "Trưởng nhóm Trạm",
         "TECHNICIAN": "Kỹ thuật viên",
-        "SUPERVISOR": "Giám sát trạm",
+        "SUPERVISOR": "Giám sát trạm"
     }
     
     # Inject vi_name directly into the permission object for easy template access

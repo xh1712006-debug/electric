@@ -13,6 +13,7 @@ class Organization(models.Model):
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
+    station = models.ForeignKey('stations.Station', on_delete=models.SET_NULL, null=True, blank=True, related_name='users')
     phone_number = models.CharField(max_length=20, null=True, blank=True)
 
     def __str__(self):

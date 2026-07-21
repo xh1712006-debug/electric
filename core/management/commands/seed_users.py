@@ -8,8 +8,8 @@ class Command(BaseCommand):
         roles = [
             ('ADMIN', 'admin@evn.vn', 'Quản trị viên'),
             ('A0A1', 'a0@evn.vn', 'Điều độ viên A0/A1'),
-            ('REVIEWER', 'reviewer@evn.vn', 'Bộ phận Rà soát'),
             ('DISPATCHER', 'dispatcher@evn.vn', 'Người Điều phối'),
+            ('STATION_LEADER', 'truongnhom@evn.vn', 'Trưởng nhóm Trạm'),
             ('TECHNICIAN', 'ktv@evn.vn', 'KTV Chỉnh định'),
             ('SUPERVISOR', 'truongtram@evn.vn', 'Giám sát Trạm')
         ]

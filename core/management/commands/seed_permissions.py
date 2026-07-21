@@ -12,8 +12,8 @@ class Command(BaseCommand):
         # Matrix mapping
         matrix = {
             'A0A1': ['can_view_stations', 'can_create_sheet'],
-            'REVIEWER': ['can_approve_sheet'],
-            'DISPATCHER': ['can_dispatch_sheet'],
+            'DISPATCHER': ['can_approve_sheet', 'can_dispatch_sheet'],
+            'STATION_LEADER': ['can_view_stations', 'can_dispatch_sheet'],
             'TECHNICIAN': ['can_execute_sheet'],
             'SUPERVISOR': ['can_supervise_sheet'],
             'ADMIN': ['can_view_stations', 'can_manage_users', 'can_create_sheet', 'can_approve_sheet', 'can_dispatch_sheet', 'can_execute_sheet', 'can_supervise_sheet']

@@ -5,6 +5,7 @@ class SettingSheet(models.Model):
     STATUS_CHOICES = (
         ('DRAFT', 'Draft'),
         ('ISSUED', 'Issued (Ready for Dispatch)'),
+        ('ROUTED_TO_STATION', 'Routed to Station'),
         ('TRANSFERRED', 'Transferred to Technician'),
         ('RECEIVED', 'Received by Technician'),
         ('PENDING_REVIEW', 'Pending Operation Approval'),
@@ -22,6 +23,7 @@ class SettingSheet(models.Model):
     
     relay = models.ForeignKey(Relay, on_delete=models.SET_NULL, null=True, blank=True)
     relay_text = models.CharField(max_length=255, null=True, blank=True)
+    station = models.ForeignKey('stations.Station', on_delete=models.SET_NULL, null=True, blank=True)
     
     # OCR Data / Mock Data using JSONField of PostgreSQL
     extracted_data = models.JSONField(null=True, blank=True) 

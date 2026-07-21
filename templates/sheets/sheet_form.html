@@ -45,6 +45,22 @@
                     
                     <div class="group">
                         <label class="block text-sm font-semibold text-slate-700 mb-2 group-focus-within:text-primary transition-colors">
+                            Trạm đích (Bắt buộc) <span class="text-red-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <i class="fas fa-building absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"></i>
+                            <select name="station_id" required class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm appearance-none cursor-pointer">
+                                <option value="">-- Chọn Trạm đích --</option>
+                                {% for st in stations %}
+                                    <option value="{{ st.id }}">{{ st.station_code }} - {{ st.station_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                        </div>
+                    </div>
+
+                    <div class="group">
+                        <label class="block text-sm font-semibold text-slate-700 mb-2 group-focus-within:text-primary transition-colors">
                             Mã Rơ-le áp dụng <span class="text-red-500">*</span>
                         </label>
                         <div class="relative">

@@ -10,6 +10,10 @@
 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
     <i class="fas fa-check-double mr-1.5 text-indigo-400"></i> Chờ Phân phối
 </span>
+{% elif sheet.status == 'ROUTED_TO_STATION' %}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+    <i class="fas fa-route mr-1.5 text-teal-500"></i> Đã chuyển về Trạm
+</span>
 {% elif sheet.status == 'TRANSFERRED' %}
 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
     <i class="fas fa-truck mr-1.5 text-purple-400"></i> Đã giao KTV

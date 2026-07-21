@@ -13,6 +13,18 @@ def sheet_list(request):
     """View danh sách phiếu chỉnh định."""
     sheets = SettingSheet.objects.all().order_by('-created_at')
     
+    # Filter for STATION_LEADER
+    if request.user.groups.filter(name='STATION_LEADER').exists() and not request.user.is_superuser:
+        try:
+            station = request.user.userprofile.station
+            if station:
+                from django.db.models import Q
+                sheets = sheets.filter(Q(station=station) | Q(relay__bay__station=station)).distinct()
+            else:
+                sheets = sheets.none()
+        except Exception:
+            pass
+
     # Simple search
     search_query = request.GET.get('q', '')
     status_filter = request.GET.get('status', '')
@@ -140,10 +152,11 @@ def sheet_create(request):
         sheet_code = request.POST.get('sheet_code')
         title = request.POST.get('title', '')
         relay_text = request.POST.get('relay_text')
+        station_id = request.POST.get('station_id')
         scan_file = request.FILES.get('scan_file')
         
-        if not all([sheet_code, relay_text, scan_file]):
-            messages.error(request, "Vui lòng điền đủ Mã Phiếu, Rơ-le áp dụng và Tải file scan.")
+        if not all([sheet_code, relay_text, station_id, scan_file]):
+            messages.error(request, "Vui lòng điền đủ Mã Phiếu, Trạm đích, Rơ-le áp dụng và Tải file scan.")
             return redirect('sheet_create')
             
         if SettingSheet.objects.filter(sheet_code=sheet_code).exists():
@@ -151,12 +164,15 @@ def sheet_create(request):
             return redirect('sheet_create')
             
         relay = Relay.objects.filter(relay_code=relay_text).first()
+        from stations.models import Station
+        station = Station.objects.filter(id=station_id).first()
         
         sheet = SettingSheet.objects.create(
             sheet_code=sheet_code,
             title=title,
             relay=relay,
             relay_text=relay_text if not relay else None,
+            station=station,
             scan_file=scan_file,
             status='ISSUED', # Directly issued after OCR
             created_by=request.user
@@ -168,9 +184,12 @@ def sheet_create(request):
         messages.success(request, f"Đã tạo phiếu {sheet.sheet_code} và quét OCR thành công!")
         return redirect('sheet_detail', pk=sheet.pk)
 
+    from stations.models import Station
+    stations = Station.objects.all()
     relays = Relay.objects.all()
     initial_relay = request.GET.get('relay_code', '')
     return render(request, 'sheets/sheet_form.html', {
+        'stations': stations,
         'relays': relays,
         'initial_relay': initial_relay
     })
@@ -185,10 +204,20 @@ def sheet_detail(request, pk):
     
     # Lấy danh sách user theo Role để dùng cho Popup Giao việc
     from django.contrib.auth.models import User
-    reviewers = User.objects.filter(groups__name='REVIEWER')
     dispatchers = User.objects.filter(groups__name='DISPATCHER')
-    technicians = User.objects.filter(groups__name='TECHNICIAN')
-    supervisors = User.objects.filter(groups__name='SUPERVISOR')
+    reviewers = User.objects.filter(groups__name='A0A1')
+    
+    if request.user.groups.filter(name='STATION_LEADER').exists() and not request.user.is_superuser:
+        try:
+            station = request.user.userprofile.station
+            technicians = User.objects.filter(groups__name='TECHNICIAN', userprofile__station=station)
+            supervisors = User.objects.filter(groups__name='SUPERVISOR', userprofile__station=station)
+        except Exception:
+            technicians = User.objects.none()
+            supervisors = User.objects.none()
+    else:
+        technicians = User.objects.filter(groups__name='TECHNICIAN')
+        supervisors = User.objects.filter(groups__name='SUPERVISOR')
     
     tech_sig = sheet.signatures.filter(role='TECHNICIAN').first()
     sup_sig = sheet.signatures.filter(role='SUPERVISOR').first()
@@ -377,6 +406,27 @@ def sheet_assign(request, pk):
     return redirect('sheet_list')
 
 @login_required
+def sheet_route_to_station(request, pk):
+    """
+    Route a sheet directly to the station.
+    Allowed for DISPATCHER, A0A1, ADMIN, or the creator of the sheet.
+    """
+    sheet = get_object_or_404(SettingSheet, pk=pk)
+    
+    if request.method == 'POST':
+        # Check permissions: Dispatcher
+        has_perm = request.user.groups.filter(name='DISPATCHER').exists()
+        
+        if has_perm and sheet.status == 'ISSUED':
+            sheet.status = 'ROUTED_TO_STATION'
+            sheet.save()
+            messages.success(request, f"Đã duyệt và chuyển phiếu {sheet.sheet_code} về Trạm thành công!")
+        else:
+            messages.error(request, "Bạn không có quyền hoặc phiếu không ở trạng thái hợp lệ.")
+        return redirect('sheet_detail', pk=pk)
+    return redirect('sheet_list')
+
+@login_required
 def sheet_update_status(request, pk):
     """View update status via HTMX (mock logic)."""
     if request.method == 'POST':
@@ -516,36 +566,24 @@ def sheet_save_actual_data(request, pk):
     if request.method == 'POST':
         sheet = get_object_or_404(SettingSheet, pk=pk)
         
-        is_technician = (sheet.assigned_to == request.user and sheet.status in ['RECEIVED', 'TRANSFERRED'])
-        is_dispatcher_or_a0 = request.user.groups.filter(name__in=['DISPATCHER', 'A0A1']).exists()
+        is_dispatcher = request.user.groups.filter(name='DISPATCHER').exists()
         
-        if is_technician or is_dispatcher_or_a0:
+        if is_dispatcher:
             if sheet.extracted_data:
                 updated_data = []
                 changes = []
                 for index, item in enumerate(sheet.extracted_data):
-                    # Dispatcher/A0A1 saves OCR value
-                    if is_dispatcher_or_a0:
-                        ocr_val = request.POST.get(f'ocr_value_{index}')
-                        if ocr_val is not None and ocr_val.strip() != '':
-                            try:
-                                new_val = float(ocr_val)
-                                old_val = float(item.get('value', 0)) if item.get('value') is not None else None
-                                if old_val != new_val:
-                                    changes.append(f"{item.get('parameter_code')}: {old_val} ➡️ {new_val}")
-                                item['value'] = new_val
-                            except ValueError:
-                                pass
-                                
-                    # Technician saves actual value
-                    if is_technician:
-                        actual_val = request.POST.get(f'actual_value_{index}')
-                        if actual_val is not None and actual_val.strip() != '':
-                            try:
-                                item['actual_value'] = float(actual_val)
-                            except ValueError:
-                                pass
-                                
+                    ocr_val = request.POST.get(f'ocr_value_{index}')
+                    if ocr_val is not None and ocr_val.strip() != '':
+                        try:
+                            new_val = float(ocr_val)
+                            old_val = float(item.get('value', 0)) if item.get('value') is not None else None
+                            if old_val != new_val:
+                                changes.append(f"{item.get('parameter_code')}: {old_val} ➡️ {new_val}")
+                            item['value'] = new_val
+                        except ValueError:
+                            pass
+                            
                     updated_data.append(item)
                 
                 sheet.extracted_data = updated_data

@@ -1,36 +1,181 @@
 {% extends "base.html" %}
-{% block header_title %}Không gian Giám sát (Supervisor){% endblock %}
+
+{% block title %}Dashboard | Giám sát viên{% endblock %}
+{% block header_title %}
+Dashboard Giám Sát - 
+{% if my_station %}
+<span class="text-amber-600 font-bold ml-1">{{ my_station.station_code }} - {{ my_station.station_name }}</span>
+{% else %}
+<span class="text-red-500 font-bold ml-1">Chưa được gán Trạm</span>
+{% endif %}
+{% endblock %}
+
 {% block content %}
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 shadow-lg text-white">
-        <p class="text-indigo-100 font-medium mb-1">Trạm đang quản lý</p>
-        <h3 class="text-4xl font-black">{{ stations_count }}</h3>
-    </div>
-    <div class="bg-white rounded-2xl p-6 shadow border border-slate-100 flex items-center justify-between">
-        <div><p class="text-slate-500 font-medium mb-1">KTV Trực Thuộc</p><h3 class="text-3xl font-black text-slate-800">{{ active_techs }}</h3></div>
-        <div class="w-12 h-12 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center text-xl"><i class="fas fa-users-cog"></i></div>
-    </div>
-    <div class="bg-white rounded-2xl p-6 shadow border border-slate-100 flex items-center justify-between">
-        <div><p class="text-amber-600 font-medium mb-1">Phiếu Chờ Giám Sát</p><h3 class="text-3xl font-black text-amber-600">{{ pending_supervision }}</h3></div>
-        <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-xl"><i class="fas fa-eye"></i></div>
-    </div>
-</div>
-<div class="bg-white rounded-2xl p-6 shadow border border-slate-100">
-    <h3 class="text-lg font-bold mb-4 text-slate-800"><i class="fas fa-clipboard-list mr-2 text-indigo-500"></i>Công việc đang diễn ra tại Trạm</h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {% for sheet in recent_sheets %}
-        <div class="border rounded-xl p-4 hover:border-indigo-300 transition-colors bg-slate-50">
-            <div class="flex justify-between items-start mb-2">
-                <span class="font-bold text-indigo-700">#{{ sheet.sheet_code }}</span>
-                <span class="text-xs px-2 py-1 rounded bg-slate-200 font-medium">{{ sheet.get_status_display }}</span>
+<div class="h-full flex flex-col gap-6">
+
+    {% if not my_station %}
+    <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl shadow-sm mb-4">
+        <div class="flex">
+            <div class="flex-shrink-0"><i class="fas fa-exclamation-triangle text-red-500"></i></div>
+            <div class="ml-3">
+                <p class="text-sm text-red-700">Tài khoản của bạn chưa được gán vào một Trạm cụ thể. Vui lòng liên hệ Quản trị viên để được cập nhật thông tin.</p>
             </div>
-            <p class="text-sm text-slate-600 mb-1"><i class="fas fa-map-marker-alt w-5"></i> Trạm: {{ sheet.station.name|default:"-" }}</p>
-            <p class="text-sm text-slate-600 mb-3"><i class="fas fa-user-hard-hat w-5"></i> KTV: {{ sheet.assigned_to.get_full_name|default:"-" }}</p>
-            <a href="{% url 'sheet_detail' sheet.id %}" class="block text-center w-full py-2 bg-white border border-indigo-200 text-indigo-600 rounded-lg hover:bg-indigo-50 font-medium transition-colors text-sm">Giám sát ngay</a>
         </div>
-        {% empty %}
-        <p class="text-slate-500 italic col-span-2 text-center py-8">Hiện tại không có KTV nào đang thi công.</p>
-        {% endfor %}
     </div>
+    {% endif %}
+
+    <!-- Thống kê tổng quan (KPIs) với Glassmorphism -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <!-- Card 1: KTV đang làm -->
+        <div class="relative overflow-hidden bg-gradient-to-br from-amber-50/80 to-yellow-100/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-white/60 group hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+            <div class="absolute -right-4 -top-4 w-24 h-24 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition-all duration-500"></div>
+            <div class="flex justify-between items-center relative z-10">
+                <div>
+                    <p class="text-amber-900/70 text-sm font-bold uppercase tracking-wider mb-1">Cần Giám sát</p>
+                    <h3 class="text-4xl font-black text-amber-700">{{ pending_supervision }}</h3>
+                </div>
+                <div class="w-14 h-14 bg-white/50 rounded-2xl flex items-center justify-center text-2xl text-amber-600 shadow-inner">
+                    <i class="fas fa-eye"></i>
+                </div>
+            </div>
+            <div class="mt-4 flex items-center gap-2 text-xs font-medium text-amber-800 bg-white/40 inline-flex px-3 py-1.5 rounded-lg">
+                KTV đang thực hiện chỉnh định
+            </div>
+        </div>
+
+        <!-- Card 2: Chờ nghiệm thu -->
+        <div class="relative overflow-hidden bg-gradient-to-br from-orange-50/80 to-red-100/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-white/60 group hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+            <div class="absolute -right-4 -top-4 w-24 h-24 bg-orange-500/10 rounded-full blur-xl group-hover:bg-orange-500/20 transition-all duration-500"></div>
+            <div class="flex justify-between items-center relative z-10">
+                <div>
+                    <p class="text-orange-900/70 text-sm font-bold uppercase tracking-wider mb-1">Chờ Nghiệm Thu</p>
+                    <h3 class="text-4xl font-black text-orange-600">{{ pending_review }}</h3>
+                </div>
+                <div class="w-14 h-14 bg-white/50 rounded-2xl flex items-center justify-center text-2xl text-orange-500 shadow-inner">
+                    <i class="fas fa-clipboard-check"></i>
+                </div>
+            </div>
+            <div class="mt-4 flex items-center gap-2 text-xs font-medium text-orange-800 bg-white/40 inline-flex px-3 py-1.5 rounded-lg">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                </span>
+                Cần kiểm tra kết quả ngay
+            </div>
+        </div>
+
+        <!-- Card 3: Đã duyệt -->
+        <div class="relative overflow-hidden bg-gradient-to-br from-blue-50/80 to-indigo-100/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-white/60 group hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+            <div class="absolute -right-4 -top-4 w-24 h-24 bg-blue-500/10 rounded-full blur-xl group-hover:bg-blue-500/20 transition-all duration-500"></div>
+            <div class="flex justify-between items-center relative z-10">
+                <div>
+                    <p class="text-blue-900/70 text-sm font-bold uppercase tracking-wider mb-1">Đã Hoàn Thành</p>
+                    <h3 class="text-4xl font-black text-blue-600">{{ completed }}</h3>
+                </div>
+                <div class="w-14 h-14 bg-white/50 rounded-2xl flex items-center justify-center text-2xl text-blue-500 shadow-inner">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+            </div>
+            <div class="mt-4 flex items-center gap-2 text-xs font-medium text-blue-800 bg-white/40 inline-flex px-3 py-1.5 rounded-lg">
+                Số phiếu bạn đã nghiệm thu
+            </div>
+        </div>
+        
+        <!-- Card 4: KTV tại trạm -->
+        <div class="relative overflow-hidden bg-gradient-to-br from-slate-50/80 to-slate-200/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-white/60 group hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+            <div class="flex justify-between items-center relative z-10">
+                <div>
+                    <p class="text-slate-700 text-sm font-bold uppercase tracking-wider mb-1">KTV Tại Trạm</p>
+                    <h3 class="text-4xl font-black text-slate-800">{{ active_techs }}</h3>
+                </div>
+                <div class="w-14 h-14 bg-white/50 rounded-2xl flex items-center justify-center text-2xl text-slate-600 shadow-inner">
+                    <i class="fas fa-users-cog"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Danh sách công việc giám sát -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col mt-2">
+        <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-search-plus text-amber-600"></i> Công việc tại Trạm cần Giám sát
+            </h3>
+            <a href="{% url 'sheet_list' %}" class="text-sm font-medium text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1">
+                Xem tất cả <i class="fas fa-arrow-right text-xs"></i>
+            </a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200">
+                        <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Mã Phiếu</th>
+                        <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Ngăn lộ / Relay</th>
+                        <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Trạng thái</th>
+                        <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Kỹ thuật viên</th>
+                        <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Cập nhật</th>
+                        <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for sheet in recent_sheets %}
+                    <tr class="hover:bg-amber-50/30 transition-colors {% if sheet.status == 'PENDING_REVIEW' %}bg-orange-50/50{% endif %}">
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-slate-800">{{ sheet.sheet_code }}</div>
+                            <div class="text-xs text-slate-500 mt-0.5 max-w-[200px] truncate" title="{{ sheet.title }}">{{ sheet.title|default:"Không có tiêu đề" }}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-sm font-medium text-slate-700">
+                                {% if sheet.relay %}
+                                    <span class="text-blue-600">{{ sheet.relay.bay.bay_code }}</span> - {{ sheet.relay.relay_code }}
+                                {% else %}
+                                    <span class="text-slate-400 italic">Chưa xác định</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            {% include "sheets/partials/_status_badge.html" with status=sheet.status %}
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if sheet.assigned_to %}
+                                <div class="flex items-center gap-2">
+                                    <div class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                                        {{ sheet.assigned_to.username|make_list|first|upper }}
+                                    </div>
+                                    <span class="text-sm font-medium text-slate-700">{{ sheet.assigned_to.first_name|default:sheet.assigned_to.username }}</span>
+                                </div>
+                            {% else %}
+                                <span class="text-slate-400 italic">Chưa có</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-slate-500">
+                            {{ sheet.updated_at|date:"d/m/Y H:i" }}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'sheet_detail' sheet.pk %}" class="inline-flex items-center justify-center gap-2 px-3 py-1.5 {% if sheet.status == 'PENDING_REVIEW' %}bg-orange-600 hover:bg-orange-700 text-white shadow-sm shadow-orange-500/30{% else %}bg-slate-100 hover:bg-slate-200 text-slate-700{% endif %} rounded-lg text-sm font-medium transition-all transform hover:-translate-y-0.5">
+                                {% if sheet.status == 'PENDING_REVIEW' %}
+                                Nghiệm thu <i class="fas fa-check"></i>
+                                {% else %}
+                                Giám sát
+                                {% endif %}
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center">
+                            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 text-slate-400 mb-4 text-2xl">
+                                <i class="fas fa-clipboard"></i>
+                            </div>
+                            <h3 class="text-lg font-medium text-slate-800">Không có công việc nào</h3>
+                            <p class="text-slate-500 mt-1 max-w-md mx-auto">Trạm hiện tại không có phiếu nào cần bạn giám sát.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 {% endblock %}

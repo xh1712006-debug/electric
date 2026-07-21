@@ -44,7 +44,7 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     {% for u in users %}
-                    <tr class="hover:bg-slate-50 transition-colors">
+                    <tr class="hover:bg-slate-50 transition-colors" x-data="{ showEditModal_{{ u.id }}: false, editGroup_{{ u.id }}: '{{ u.groups.first.name|default:"" }}' }">
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
                                 <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold uppercase text-xs">
@@ -80,8 +80,79 @@
                         </td>
                         <td class="px-6 py-4 text-right whitespace-nowrap w-32">
                             <div class="flex items-center justify-end gap-1">
-                                <button class="w-8 h-8 inline-flex items-center justify-center rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Chỉnh sửa"><i class="fas fa-edit"></i></button>
-                                <button class="w-8 h-8 inline-flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Khóa tài khoản"><i class="fas fa-ban"></i></button>
+                                <button type="button" @click="showEditModal_{{ u.id }} = true" class="w-8 h-8 inline-flex items-center justify-center rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Chỉnh sửa"><i class="fas fa-edit"></i></button>
+                                {% if u != request.user %}
+                                <form method="post" action="{% url 'user_toggle_status' u.id %}" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-8 h-8 inline-flex items-center justify-center rounded text-slate-400 {% if u.is_active %}hover:text-red-500 hover:bg-red-50{% else %}hover:text-green-500 hover:bg-green-50{% endif %} transition-colors" title="{% if u.is_active %}Khóa tài khoản{% else %}Mở khóa tài khoản{% endif %}">
+                                        <i class="fas {% if u.is_active %}fa-ban{% else %}fa-check-circle{% endif %}"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+
+                            <!-- Edit User Modal -->
+                            <div x-show="showEditModal_{{ u.id }}" class="fixed inset-0 z-50 overflow-y-auto" style="display: none; text-align: left; white-space: normal;">
+                                <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                                    <div x-show="showEditModal_{{ u.id }}" class="fixed inset-0 transition-opacity" @click="showEditModal_{{ u.id }} = false" aria-hidden="true">
+                                        <div class="absolute inset-0 bg-slate-900 opacity-75"></div>
+                                    </div>
+                                    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                                    <div x-show="showEditModal_{{ u.id }}" class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle w-full max-w-lg">
+                                        <form method="post" action="{% url 'user_update' u.id %}">
+                                            {% csrf_token %}
+                                            <div class="bg-white px-6 pt-6 pb-6">
+                                                <div class="flex items-center justify-between mb-5">
+                                                    <h3 class="text-lg font-bold text-slate-800">Chỉnh sửa Tài khoản: {{ u.username }}</h3>
+                                                    <button type="button" @click="showEditModal_{{ u.id }} = false" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
+                                                </div>
+                                                
+                                                <div class="space-y-4">
+                                                    <div>
+                                                        <label class="block text-sm font-medium text-slate-700 mb-1">Mật khẩu mới (Để trống nếu không đổi)</label>
+                                                        <input type="password" name="password" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-white">
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-sm font-medium text-slate-700 mb-1">Họ Tên</label>
+                                                        <input type="text" name="first_name" value="{{ u.first_name }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-white">
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                                                        <input type="email" name="email" value="{{ u.email }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-white">
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-sm font-medium text-slate-700 mb-1">Phân quyền (Nhóm)</label>
+                                                        <select name="group" required @change="editGroup_{{ u.id }} = $event.target.options[$event.target.selectedIndex].dataset.name" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-white">
+                                                            <option value="" data-name="">-- Chọn Nhóm --</option>
+                                                            {% for g in groups %}
+                                                            <option value="{{ g.id }}" data-name="{{ g.name }}" {% if u.groups.first.id == g.id %}selected{% endif %}>{{ g.vi_name }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                    
+                                                    <div x-show="['TECHNICIAN', 'SUPERVISOR', 'STATION_LEADER'].includes(editGroup_{{ u.id }})" x-collapse style="display: none;">
+                                                        <label class="block text-sm font-bold text-teal-700 mb-1"><i class="fas fa-building mr-1"></i> Trạm trực thuộc</label>
+                                                        <select name="station_id" :required="['TECHNICIAN', 'SUPERVISOR', 'STATION_LEADER'].includes(editGroup_{{ u.id }})" class="w-full px-3 py-2 border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors bg-teal-50">
+                                                            <option value="">-- Chọn Trạm --</option>
+                                                            {% for s in stations %}
+                                                            <option value="{{ s.id }}" {% if u.userprofile.station_id == s.id %}selected{% endif %}>{{ s.station_code }} - {{ s.station_name }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <p class="text-xs text-teal-600 mt-1">Gắn người dùng này vào Trạm cụ thể.</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-100">
+                                                <button type="button" @click="showEditModal_{{ u.id }} = false" class="px-4 py-2 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
+                                                    Hủy
+                                                </button>
+                                                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
+                                                    Lưu thay đổi
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -125,7 +196,7 @@
             <div x-show="showModal" class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle w-full max-w-lg">
                 <form method="post" action="{% url 'user_create' %}">
                     {% csrf_token %}
-                    <div class="bg-white px-6 pt-6 pb-6">
+                    <div class="bg-white px-6 pt-6 pb-6" x-data="{ selectedGroupName: '' }">
                         <div class="flex items-center justify-between mb-5">
                             <h3 class="text-lg font-bold text-slate-800">Tạo Tài khoản mới</h3>
                             <button type="button" @click="showModal = false" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
@@ -150,12 +221,23 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-1">Phân quyền (Nhóm) *</label>
-                                <select name="group" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-white">
-                                    <option value="">-- Chọn Nhóm --</option>
+                                <select name="group" required @change="selectedGroupName = $event.target.options[$event.target.selectedIndex].dataset.name" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors bg-white">
+                                    <option value="" data-name="">-- Chọn Nhóm --</option>
                                     {% for g in groups %}
-                                    <option value="{{ g.id }}">{{ g.vi_name }}</option>
+                                    <option value="{{ g.id }}" data-name="{{ g.name }}">{{ g.vi_name }}</option>
                                     {% endfor %}
                                 </select>
+                            </div>
+                            
+                            <div x-show="['TECHNICIAN', 'SUPERVISOR', 'STATION_LEADER'].includes(selectedGroupName)" x-collapse style="display: none;">
+                                <label class="block text-sm font-bold text-teal-700 mb-1"><i class="fas fa-building mr-1"></i> Trạm trực thuộc *</label>
+                                <select name="station_id" :required="['TECHNICIAN', 'SUPERVISOR', 'STATION_LEADER'].includes(selectedGroupName)" class="w-full px-3 py-2 border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors bg-teal-50">
+                                    <option value="">-- Chọn Trạm --</option>
+                                    {% for s in stations %}
+                                    <option value="{{ s.id }}">{{ s.station_code }} - {{ s.station_name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <p class="text-xs text-teal-600 mt-1">Tài khoản này sẽ được gắn cố định với Trạm đã chọn.</p>
                             </div>
                         </div>
                     </div>

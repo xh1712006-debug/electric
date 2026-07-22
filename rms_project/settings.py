@@ -153,7 +153,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'default-unsafe-secret-key')
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = ['*']
-
+CSRF_TRUSTED_ORIGINS = ['https://electricity.nextdev.name.vn', 'http://electricity.nextdev.name.vn']
 
 # Application definition
 

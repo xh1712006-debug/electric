@@ -13,6 +13,10 @@ def sheet_list(request):
     """View danh sách phiếu chỉnh định."""
     sheets = SettingSheet.objects.all().order_by('-created_at')
     
+    # Filter for DISPATCHER (chỉ xem phiếu mình tạo)
+    if request.user.groups.filter(name='DISPATCHER').exists() and not request.user.is_superuser:
+        sheets = sheets.filter(created_by=request.user)
+    
     # Filter for STATION_LEADER
     if request.user.groups.filter(name='STATION_LEADER').exists() and not request.user.is_superuser:
         try:
@@ -219,6 +223,7 @@ def sheet_detail(request, pk):
         technicians = User.objects.filter(groups__name='TECHNICIAN')
         supervisors = User.objects.filter(groups__name='SUPERVISOR')
     
+    dispatcher_sig = sheet.signatures.filter(role='DISPATCHER').first()
     tech_sig = sheet.signatures.filter(role='TECHNICIAN').first()
     sup_sig = sheet.signatures.filter(role='SUPERVISOR').first()
     admin_sig = sheet.signatures.filter(role='ADMIN').first()
@@ -305,6 +310,96 @@ def sheet_detail(request, pk):
     total_diff_count = len(differences)
     
     
+    # Build history logs
+    history_logs = []
+    
+    # 1. Created
+    history_logs.append({
+        'time': sheet.created_at,
+        'action': 'Khởi tạo phiếu (Tải lên bản scan OCR)',
+        'user_name': sheet.created_by.get_full_name() or sheet.created_by.username if sheet.created_by else 'Hệ thống',
+        'icon': 'fa-file-upload',
+        'color_class': 'text-blue-500',
+        'bg_class': 'bg-blue-100',
+        'border_class': 'border-blue-200'
+    })
+    
+    # 2. Signatures
+    for sig in sheet.signatures.all().order_by('signed_at'):
+        if sig.role == 'DISPATCHER':
+            history_logs.append({
+                'time': sig.signed_at,
+                'action': 'Duyệt lệnh và Chuyển về Trạm',
+                'user_name': sig.signer_name,
+                'icon': 'fa-paper-plane',
+                'color_class': 'text-teal-500',
+                'bg_class': 'bg-teal-100',
+                'border_class': 'border-teal-200'
+            })
+        elif sig.role == 'TECHNICIAN':
+            history_logs.append({
+                'time': sig.signed_at,
+                'action': 'KTV thi công cài đặt và Ký xác nhận',
+                'user_name': sig.signer_name,
+                'icon': 'fa-wrench',
+                'color_class': 'text-green-500',
+                'bg_class': 'bg-green-100',
+                'border_class': 'border-green-200'
+            })
+        elif sig.role == 'SUPERVISOR':
+            history_logs.append({
+                'time': sig.signed_at,
+                'action': 'Giám sát trạm kiểm tra và Ký xác nhận',
+                'user_name': sig.signer_name,
+                'icon': 'fa-eye',
+                'color_class': 'text-emerald-500',
+                'bg_class': 'bg-emerald-100',
+                'border_class': 'border-emerald-200'
+            })
+        elif sig.role == 'ADMIN':
+            history_logs.append({
+                'time': sig.signed_at,
+                'action': 'Quản trị viên phê duyệt ban hành',
+                'user_name': sig.signer_name,
+                'icon': 'fa-check-double',
+                'color_class': 'text-amber-500',
+                'bg_class': 'bg-amber-100',
+                'border_class': 'border-amber-200'
+            })
+            
+    if getattr(sheet, 'assigned_at', None) or sheet.assigned_to or sheet.supervisor_assigned:
+        history_logs.append({
+            'time': sheet.assigned_at or getattr(dispatcher_sig, 'signed_at', sheet.created_at),
+            'action': 'Trưởng trạm phân công KTV & Giám sát',
+            'user_name': 'Trưởng nhóm Trạm',
+            'icon': 'fa-user-tag',
+            'color_class': 'text-purple-500',
+            'bg_class': 'bg-purple-100',
+            'border_class': 'border-purple-200'
+        })
+
+    # 3. Edit logs
+    if isinstance(sheet.edit_logs, list):
+        from django.utils.dateparse import parse_datetime
+        for log in sheet.edit_logs:
+            try:
+                dt = parse_datetime(log.get('time', ''))
+                if dt:
+                    changes_text = "<br>".join([f"• {c}" for c in log.get('changes', [])])
+                    history_logs.append({
+                        'time': dt,
+                        'action': f"Sửa đổi thông số OCR:<br><span class='text-xs text-slate-500 font-medium'>{changes_text}</span>",
+                        'user_name': log.get('user', 'Người Điều phối'),
+                        'icon': 'fa-edit',
+                        'color_class': 'text-orange-500',
+                        'bg_class': 'bg-orange-100',
+                        'border_class': 'border-orange-200'
+                    })
+            except Exception:
+                pass
+
+    # Sort descending
+    history_logs.sort(key=lambda x: x['time'], reverse=True)
     
     context = {
         'sheet': sheet,
@@ -313,6 +408,7 @@ def sheet_detail(request, pk):
         'dispatchers': dispatchers,
         'technicians': technicians,
         'supervisors': supervisors,
+        'dispatcher_sig': dispatcher_sig,
         'tech_sig': tech_sig,
         'sup_sig': sup_sig,
         'admin_sig': admin_sig,
@@ -323,8 +419,10 @@ def sheet_detail(request, pk):
         'removed_count': removed_count,
         'changed_count': changed_count,
         'total_diff_count': total_diff_count,
-        'display_data': display_data
+        'display_data': display_data,
+        'history_logs': history_logs,
     }
+    
     return render(request, 'sheets/sheet_detail.html', context)
 
 @login_required
@@ -341,6 +439,10 @@ def sheet_assign(request, pk):
             sheet.assigned_to = User.objects.get(pk=assignee_id)
         if supervisor_id:
             sheet.supervisor_assigned = User.objects.get(pk=supervisor_id)
+        
+        if assignee_id or supervisor_id:
+            from django.utils import timezone
+            sheet.assigned_at = timezone.now()
             
         valid_statuses = [s[0] for s in SettingSheet.STATUS_CHOICES]
         if new_status in valid_statuses:
@@ -418,8 +520,26 @@ def sheet_route_to_station(request, pk):
         has_perm = request.user.groups.filter(name='DISPATCHER').exists()
         
         if has_perm and sheet.status == 'ISSUED':
+            if sheet.created_by != request.user and not request.user.is_superuser:
+                messages.error(request, "Bạn chỉ có thể duyệt chuyển trạm đối với những phiếu do chính bạn khởi tạo.")
+                return redirect('sheet_detail', pk=pk)
+                
             sheet.status = 'ROUTED_TO_STATION'
             sheet.save()
+            
+            # Ghi nhận người duyệt
+            import hashlib
+            from django.utils.timezone import now
+            hash_input = f"{sheet.id}-{request.user.username}-{now()}".encode('utf-8')
+            sig_hash = hashlib.sha256(hash_input).hexdigest()
+            
+            SignatureRecord.objects.create(
+                sheet=sheet,
+                signer_name=request.user.get_full_name() or request.user.username,
+                role='DISPATCHER',
+                signature_hash=sig_hash
+            )
+            
             messages.success(request, f"Đã duyệt và chuyển phiếu {sheet.sheet_code} về Trạm thành công!")
         else:
             messages.error(request, "Bạn không có quyền hoặc phiếu không ở trạng thái hợp lệ.")
@@ -513,7 +633,32 @@ def confirm_signature(request, pk):
 
 def perform_mock_ocr(sheet):
     """Hàm chạy AI OCR (mock) trực tiếp."""
+    import random
     extracted_data = []
+    
+    # 1. Trích xuất metadata từ PDF (Tên trạm, Mã rơ-le)
+    station_name = sheet.station.station_name if sheet.station else 'Không xác định'
+    relay_code = sheet.relay.relay_code if sheet.relay else (sheet.relay_text or 'Không xác định')
+    
+    extracted_data.append({
+        'parameter_code': 'STATION_NAME',
+        'parameter_name': 'Tên Trạm (Nhận diện)',
+        'unit': '',
+        'value': station_name,
+        'original_value': station_name,
+        'confidence': round(random.uniform(95.0, 99.9), 1)
+    })
+    
+    extracted_data.append({
+        'parameter_code': 'RELAY_CODE',
+        'parameter_name': 'Mã Rơ-le (Nhận diện)',
+        'unit': '',
+        'value': relay_code,
+        'original_value': relay_code,
+        'confidence': round(random.uniform(95.0, 99.9), 1)
+    })
+    
+    # 2. Trích xuất thông số
     if sheet.relay and sheet.relay.settings.exists():
         for setting in sheet.relay.settings.all():
             is_perfect = random.random() > 0.1
@@ -527,22 +672,65 @@ def perform_mock_ocr(sheet):
                 'parameter_name': setting.parameter_name,
                 'unit': setting.unit,
                 'value': val,
+                'original_value': val,
                 'confidence': round(conf, 1)
             })
     else:
-        # Nếu không có relay hoặc relay chưa cấu hình thông số, tạo random vài thông số
-        mock_params = [
-            {'code': 'I_max', 'name': 'Dòng điện cắt cực đại', 'unit': 'A', 'val': round(random.uniform(10, 50), 2)},
-            {'code': 'T_delay', 'name': 'Thời gian trễ', 'unit': 's', 'val': round(random.uniform(0.1, 2.0), 2)},
-            {'code': 'V_min', 'name': 'Điện áp cắt thấp áp', 'unit': 'V', 'val': round(random.uniform(90, 110), 2)}
+        # Nếu không có relay hoặc relay chưa cấu hình thông số, tạo random 20-30 thông số
+        mock_params_template = [
+            {'code': 'I_max', 'name': 'Dòng điện cắt cực đại', 'unit': 'A', 'min': 10, 'max': 50},
+            {'code': 'T_delay', 'name': 'Thời gian trễ cắt', 'unit': 's', 'min': 0.1, 'max': 2.0},
+            {'code': 'V_min', 'name': 'Điện áp cắt thấp áp', 'unit': 'V', 'min': 90, 'max': 110},
+            {'code': 'V_max', 'name': 'Điện áp cắt quá áp', 'unit': 'V', 'min': 120, 'max': 150},
+            {'code': 'F_min', 'name': 'Tần số cắt thấp', 'unit': 'Hz', 'min': 48, 'max': 49.5},
+            {'code': 'F_max', 'name': 'Tần số cắt cao', 'unit': 'Hz', 'min': 50.5, 'max': 52},
+            {'code': 'Z_reach_1', 'name': 'Vùng bảo vệ khoảng cách 1', 'unit': 'Ohm', 'min': 1, 'max': 10},
+            {'code': 'Z_reach_2', 'name': 'Vùng bảo vệ khoảng cách 2', 'unit': 'Ohm', 'min': 10, 'max': 25},
+            {'code': 'Z_reach_3', 'name': 'Vùng bảo vệ khoảng cách 3', 'unit': 'Ohm', 'min': 25, 'max': 50},
+            {'code': 'I_diff', 'name': 'Dòng điện so lệch', 'unit': 'A', 'min': 0.5, 'max': 5.0},
+            {'code': 'T_diff', 'name': 'Thời gian cắt so lệch', 'unit': 's', 'min': 0.0, 'max': 0.5},
+            {'code': 'Dir_angle', 'name': 'Góc hướng dòng', 'unit': 'Deg', 'min': -90, 'max': 90},
+            {'code': 'I_earth_1', 'name': 'Dòng chạm đất cực đại cấp 1', 'unit': 'A', 'min': 1, 'max': 10},
+            {'code': 'T_earth_1', 'name': 'Thời gian trễ chạm đất cấp 1', 'unit': 's', 'min': 0.1, 'max': 1.0},
+            {'code': 'I_earth_2', 'name': 'Dòng chạm đất cực đại cấp 2', 'unit': 'A', 'min': 10, 'max': 50},
+            {'code': 'P_reverse', 'name': 'Công suất ngược', 'unit': 'kW', 'min': 5, 'max': 20},
+            {'code': 'T_reverse', 'name': 'Thời gian cắt công suất ngược', 'unit': 's', 'min': 0.5, 'max': 5.0},
+            {'code': 'I_thermal', 'name': 'Dòng bảo vệ quá nhiệt', 'unit': 'A', 'min': 50, 'max': 200},
+            {'code': 'K_thermal', 'name': 'Hệ số thời gian nhiệt', 'unit': '', 'min': 0.1, 'max': 1.5},
+            {'code': 'T_reclose_1', 'name': 'Thời gian tự đóng lại lần 1', 'unit': 's', 'min': 0.5, 'max': 3.0},
+            {'code': 'T_reclose_2', 'name': 'Thời gian tự đóng lại lần 2', 'unit': 's', 'min': 10, 'max': 30},
+            {'code': 'N_reclose', 'name': 'Số lần tự đóng lại', 'unit': 'lần', 'min': 1, 'max': 3},
+            {'code': 'U_sync', 'name': 'Điện áp hòa đồng bộ', 'unit': 'V', 'min': 95, 'max': 105},
+            {'code': 'F_sync', 'name': 'Độ lệch tần số hòa đồng bộ', 'unit': 'Hz', 'min': 0.05, 'max': 0.2},
+            {'code': 'Phi_sync', 'name': 'Góc lệch pha hòa đồng', 'unit': 'Deg', 'min': 5, 'max': 15},
+            {'code': 'I_unbalance', 'name': 'Dòng không cân bằng', 'unit': 'A', 'min': 1, 'max': 5},
+            {'code': 'V_unbalance', 'name': 'Điện áp không cân bằng', 'unit': 'V', 'min': 2, 'max': 10},
+            {'code': 'T_start', 'name': 'Thời gian khởi động', 'unit': 's', 'min': 1, 'max': 10}
         ]
-        for p in mock_params:
+        
+        # Tự động sinh thêm thông số cho các pha A, B, C, N để làm phong phú dữ liệu (đủ 50-60 dòng)
+        expanded_params = []
+        for p in mock_params_template:
+            expanded_params.append(p)
+            if 'chạm đất' not in p['name'] and p['unit'] in ['A', 'V']:
+                expanded_params.append({**p, 'code': f"{p['code']}_phA", 'name': f"{p['name']} (Pha A)"})
+                expanded_params.append({**p, 'code': f"{p['code']}_phB", 'name': f"{p['name']} (Pha B)"})
+                expanded_params.append({**p, 'code': f"{p['code']}_phC", 'name': f"{p['name']} (Pha C)"})
+            if 'chạm đất' in p['name'] or 'không cân bằng' in p['name']:
+                expanded_params.append({**p, 'code': f"{p['code']}_N", 'name': f"{p['name']} (Trung tính)"})
+
+        # Chọn 50 thông số đầu tiên (hoặc ngẫu nhiên 50)
+        selected_params = random.sample(expanded_params, min(50, len(expanded_params)))
+        
+        for p in selected_params:
+            val = round(random.uniform(p['min'], p['max']), 2)
             conf = random.uniform(85.0, 99.9)
             extracted_data.append({
                 'parameter_code': p['code'],
                 'parameter_name': p['name'],
                 'unit': p['unit'],
-                'value': p['val'],
+                'value': val,
+                'original_value': val,
                 'confidence': round(conf, 1)
             })
     
@@ -555,6 +743,11 @@ def run_mock_ocr(request, pk):
     """View giả lập quá trình chạy AI OCR (Dành cho trigger thủ công nếu cần)."""
     if request.method == 'POST':
         sheet = get_object_or_404(SettingSheet, pk=pk)
+        
+        if sheet.status not in ['DRAFT', 'ISSUED']:
+            messages.error(request, "Phiếu đã được duyệt và chuyển trạm. Không thể chạy lại AI OCR.")
+            return redirect('sheet_detail', pk=pk)
+            
         time.sleep(1.5)
         perform_mock_ocr(sheet)
         return redirect('sheet_detail', pk=pk)
@@ -566,6 +759,10 @@ def sheet_save_actual_data(request, pk):
     if request.method == 'POST':
         sheet = get_object_or_404(SettingSheet, pk=pk)
         
+        if sheet.status not in ['DRAFT', 'ISSUED']:
+            messages.error(request, "Phiếu đã được duyệt và chuyển trạm. Không thể sửa đổi thông số OCR nữa.")
+            return redirect('sheet_detail', pk=pk)
+            
         is_dispatcher = request.user.groups.filter(name='DISPATCHER').exists()
         
         if is_dispatcher:
@@ -575,17 +772,44 @@ def sheet_save_actual_data(request, pk):
                 for index, item in enumerate(sheet.extracted_data):
                     ocr_val = request.POST.get(f'ocr_value_{index}')
                     if ocr_val is not None and ocr_val.strip() != '':
+                        old_val_raw = item.get('value', '')
+                        new_val_raw = ocr_val.strip()
+                        
+                        is_changed = False
                         try:
-                            new_val = float(ocr_val)
-                            old_val = float(item.get('value', 0)) if item.get('value') is not None else None
-                            if old_val != new_val:
-                                changes.append(f"{item.get('parameter_code')}: {old_val} ➡️ {new_val}")
+                            # Nếu cả 2 đều là số, so sánh theo dạng số
+                            old_float = float(old_val_raw)
+                            new_float = float(new_val_raw)
+                            if old_float != new_float:
+                                is_changed = True
+                                new_val = new_float
+                            else:
+                                new_val = old_val_raw # Giữ nguyên type cũ
+                        except (ValueError, TypeError):
+                            # Nếu là chuỗi (hoặc 1 trong 2 là chuỗi)
+                            if str(old_val_raw) != new_val_raw:
+                                is_changed = True
+                            new_val = new_val_raw
+                            
+                        if is_changed:
+                            if 'original_value' not in item:
+                                item['original_value'] = old_val_raw
+                            changes.append(f"{item.get('parameter_code')}: {old_val_raw} ➡️ {new_val}")
                             item['value'] = new_val
-                        except ValueError:
-                            pass
                             
                     updated_data.append(item)
                 
+                if changes and is_dispatcher:
+                    from django.utils import timezone
+                    edit_log = {
+                        'time': timezone.now().isoformat(),
+                        'user': request.user.get_full_name() or request.user.username,
+                        'changes': changes
+                    }
+                    if not isinstance(sheet.edit_logs, list):
+                        sheet.edit_logs = []
+                    sheet.edit_logs.append(edit_log)
+                    
                 sheet.extracted_data = updated_data
                 sheet.save()
                 

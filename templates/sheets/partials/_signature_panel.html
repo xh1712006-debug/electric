@@ -48,6 +48,25 @@
         <!-- Timeline / Stepper -->
         <div class="relative pl-6 space-y-8 before:absolute before:inset-0 before:ml-[1.4rem] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
             
+            <!-- 0. Role Dispatcher -->
+            <div class="relative flex items-center justify-between md:justify-normal md:even:flex-row-reverse group is-active">
+                <div class="flex items-center justify-center w-8 h-8 rounded-full border-4 border-white bg-slate-200 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 {% if dispatcher_sig %}bg-teal-500 text-white{% endif %}">
+                    <i class="fas fa-paper-plane text-xs"></i>
+                </div>
+                <div class="w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border shadow-sm {% if dispatcher_sig %}border-teal-200 bg-teal-50/50{% else %}border-slate-200 bg-white{% endif %}">
+                    <div class="flex items-center justify-between mb-1">
+                        <h4 class="font-bold text-slate-800 text-sm">0. Điều phối viên (Duyệt lệnh)</h4>
+                    </div>
+                    {% if dispatcher_sig %}
+                        <p class="text-xs text-teal-700 mt-2 font-medium"><i class="fas fa-check-circle mr-1"></i>Người duyệt: {{ dispatcher_sig.signer_name }}</p>
+                        <p class="text-xs text-slate-500 mt-1"><i class="far fa-clock mr-1"></i>{{ dispatcher_sig.signed_at|date:"d/m/Y H:i" }}</p>
+                        <p class="text-[10px] text-slate-400 font-mono mt-1 break-all bg-white px-2 py-1 rounded border border-slate-100">Hash: {{ dispatcher_sig.signature_hash }}</p>
+                    {% else %}
+                        <p class="text-xs text-slate-500 mt-2"><i class="fas fa-hourglass-half mr-1"></i>Chưa duyệt chuyển trạm.</p>
+                    {% endif %}
+                </div>
+            </div>
+
             <!-- 1. Role Technician -->
             <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                 <div class="flex items-center justify-center w-8 h-8 rounded-full border-4 border-white bg-slate-200 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 {% if tech_sig %}bg-green-500 text-white{% endif %}">
@@ -186,7 +205,8 @@
                     <form x-ref="signForm" hx-post="{% url 'confirm_signature' sheet.pk %}" 
                           hx-target="#signature-panel" 
                           hx-swap="outerHTML"
-                          @submit="setTimeout(() => { openModal = false; location.reload(); }, 300);">
+                          @submit.prevent
+                          @htmx:after-request="if($event.detail.successful) { openModal = false; location.reload(); }">
                         {% csrf_token %}
                         <input type="hidden" name="role" x-model="currentRole">
                     </form>

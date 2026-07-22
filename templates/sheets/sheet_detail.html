@@ -294,15 +294,20 @@
                                         </div>
                                         
                                         <!-- Cột Giá trị -->
-                                        <div class="col-span-4 flex justify-center">
+                                        <div class="col-span-4 flex flex-col justify-center gap-1">
                                             <div class="flex items-center bg-slate-100 px-3 py-2 rounded-lg w-full border border-slate-200 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-colors">
-                                                {% if request.user|has_group:'DISPATCHER' %}
-                                                    <input type="number" name="ocr_value_{{ forloop.counter0 }}" value="{{ item.value }}" step="0.01" class="w-full text-sm font-bold bg-transparent text-center focus:outline-none text-slate-800">
+                                                {% if request.user|has_group:'DISPATCHER' and sheet.status in 'DRAFT ISSUED' %}
+                                                    <input type="text" name="ocr_value_{{ forloop.counter0 }}" value="{{ item.value }}" class="w-full text-sm font-bold bg-transparent text-center focus:outline-none text-slate-800">
                                                 {% else %}
                                                     <span class="w-full text-sm font-bold text-center text-slate-800">{{ item.value }}</span>
                                                 {% endif %}
                                                 <span class="text-xs text-slate-500 font-medium w-8 text-right">{{ item.unit }}</span>
                                             </div>
+                                            {% if item.original_value and item.original_value|stringformat:"s" != item.value|stringformat:"s" %}
+                                            <div class="text-[10px] text-orange-600 flex items-center justify-center font-bold bg-orange-50 py-0.5 px-2 rounded border border-orange-100 w-fit mx-auto mt-0.5">
+                                                <i class="fas fa-exclamation-triangle mr-1 opacity-70"></i> OCR gốc: {{ item.original_value }}
+                                            </div>
+                                            {% endif %}
                                         </div>
                                     </div>
                                     {% endfor %}
@@ -315,10 +320,12 @@
                         <!-- Sticky Footer (Nút Lưu) - Nằm ngoài vùng cuộn, luôn hiển thị ở đáy -->
                         <div class="bg-white border-t border-slate-200 p-4 flex justify-end items-center shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] relative z-10">
                             
-                            {% if request.user|has_group:'DISPATCHER' %}
+                            {% if request.user|has_group:'DISPATCHER' and sheet.status in 'DRAFT ISSUED' %}
                             <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all flex items-center gap-2 transform hover:-translate-y-0.5">
                                 <i class="fas fa-save"></i> Lưu Dữ Liệu
                             </button>
+                            {% else %}
+                            <div class="text-sm font-medium text-slate-500 italic"><i class="fas fa-lock mr-1"></i> Dữ liệu OCR đã được khóa</div>
                             {% endif %}
                         </div>
                     </form>
@@ -331,6 +338,7 @@
                         <p class="text-primary text-sm mb-6 text-center font-medium" x-show="loading" style="display: none;">Đang phân tích PDF bằng Tesseract...<br>Vui lòng đợi vài giây.</p>
                         
                         {% if perms.sheets.can_create_sheet %}
+                        {% if sheet.status in 'DRAFT ISSUED' %}
                         <form method="POST" action="{% url 'run_mock_ocr' sheet.pk %}" @submit="loading = true">
                             {% csrf_token %}
                             <button type="submit" class="px-5 py-2.5 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition-colors shadow-sm inline-flex items-center gap-2" :disabled="loading" :class="loading ? 'opacity-50 cursor-not-allowed' : ''">
@@ -339,13 +347,13 @@
                             </button>
                         </form>
                         {% else %}
+                        <p class="text-sm text-slate-500 font-medium italic"><i class="fas fa-lock mr-1"></i> Phiếu đã duyệt. Dữ liệu đã bị khóa.</p>
+                        {% endif %}
+                        {% else %}
                         <p class="text-sm text-red-500 font-medium">Bạn không có quyền chạy AI OCR. Vui lòng liên hệ Admin.</p>
                         {% endif %}
                     </div>
                 {% endif %}
-
-            </div>
-            </div>
             </div> <!-- CLOSE OCR TAB -->
 
             <!-- Tab Info (Metadata) -->
@@ -373,14 +381,6 @@
                     </span>
                 </div>
                 <div class="flex justify-between border-b border-slate-50 pb-2">
-                    <span class="text-sm text-slate-500">Ngăn lộ:</span>
-                    <span class="text-sm font-medium text-slate-800 text-right">{{ sheet.relay.bay.bay_code|default:"-" }}</span>
-                </div>
-                <div class="flex justify-between border-b border-slate-50 pb-2">
-                    <span class="text-sm text-slate-500">Trạm:</span>
-                    <span class="text-sm font-medium text-slate-800 text-right">{{ sheet.relay.bay.station.station_name|default:"-" }}</span>
-                </div>
-                <div class="flex justify-between border-b border-slate-50 pb-2">
                     <span class="text-sm text-slate-500">Người tạo:</span>
                     <span class="text-sm font-medium text-slate-800 text-right">
                         {% if sheet.created_by %}
@@ -390,12 +390,38 @@
                         {% endif %}
                     </span>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-sm text-slate-500">Ngày tạo:</span>
-                    <span class="text-sm font-medium text-slate-800 text-right">{{ sheet.created_at|date:"d/m/Y H:i" }}</span>
+            </div>
+        </div>
+        
+        <!-- History Timeline -->
+        <div class="p-0 mt-4 border-t border-slate-200">
+            <div class="p-5 border-b border-slate-200 bg-white shadow-sm flex items-center gap-2">
+                <i class="fas fa-history text-blue-500"></i>
+                <h3 class="text-sm font-semibold text-slate-800">Lịch sử Hoạt động</h3>
+            </div>
+            
+            <div class="p-5">
+                <div class="relative pl-6 space-y-6 before:absolute before:inset-0 before:ml-[1.4rem] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+                    
+                    {% for log in history_logs %}
+                    <div class="relative flex items-center justify-between md:justify-normal md:even:flex-row-reverse group is-active">
+                        <div class="flex items-center justify-center w-8 h-8 rounded-full border-4 border-white {{ log.bg_class }} {{ log.color_class }} shadow-sm shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                            <i class="fas {{ log.icon }} text-xs"></i>
+                        </div>
+                        <div class="w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-200 shadow-sm bg-white hover:border-slate-300 transition-colors">
+                            <h4 class="font-bold text-slate-800 text-sm mb-1">{{ log.action|safe }}</h4>
+                            <div class="flex flex-col gap-1">
+                                <span class="text-xs text-slate-500"><i class="fas fa-user-circle mr-1 text-slate-400"></i> {{ log.user_name }}</span>
+                                <span class="text-xs text-slate-500 font-medium"><i class="far fa-clock mr-1 text-slate-400"></i> {{ log.time|date:"H:i d/m/Y" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
                 </div>
             </div>
         </div>
+
             </div>
 
             <!-- Tab Compare (Differences) -->

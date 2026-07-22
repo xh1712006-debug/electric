@@ -49,16 +49,26 @@ def dashboard(request):
         
     # 3. DISPATCHER (Rà soát & Điều phối về Trạm)
     elif user.groups.filter(name='DISPATCHER').exists():
-        issued_count = SettingSheet.objects.filter(status='ISSUED').count() # Chờ rà soát
-        routed_count = SettingSheet.objects.filter(status='ROUTED_TO_STATION').count() # Đã chuyển về trạm
-        received_count = SettingSheet.objects.filter(status='RECEIVED').count() # KTV đang làm
+        base_qs = SettingSheet.objects.filter(created_by=user)
+        issued_count = base_qs.filter(status='ISSUED').count() # Chờ rà soát
+        routed_count = base_qs.filter(status='ROUTED_TO_STATION').count() # Đã chuyển về trạm
+        received_count = base_qs.filter(status='RECEIVED').count() # KTV đang làm
         
-        tracking_sheets = SettingSheet.objects.filter(status__in=['ISSUED', 'ROUTED_TO_STATION', 'TRANSFERRED', 'RECEIVED']).order_by('-created_at')[:5]
-        recent_activities = SignatureRecord.objects.select_related('sheet').order_by('-signed_at')[:5]
+        tracking_sheets = base_qs.filter(status__in=['ISSUED', 'ROUTED_TO_STATION', 'TRANSFERRED', 'RECEIVED']).order_by('-created_at')[:5]
+        
+        # Chỉ lấy SignatureRecord của những phiếu do mình tạo
+        recent_activities = SignatureRecord.objects.filter(sheet__created_by=user).select_related('sheet').order_by('-signed_at')[:5]
+        
+        # Lấy danh sách các rơ-le có phiếu mới nhất đã duyệt xuống trạm (hoặc lớn hơn)
+        recent_routed_sheets = base_qs.filter(
+            status__in=['ROUTED_TO_STATION', 'TRANSFERRED', 'RECEIVED', 'PENDING_ADMIN_APPROVAL', 'COMPLETED'],
+            relay__isnull=False
+        ).select_related('relay', 'relay__bay', 'relay__bay__station').order_by('-created_at')[:15]
         
         context = {
             'issued_count': issued_count, 'routed_count': routed_count, 'received_count': received_count,
-            'tracking_sheets': tracking_sheets, 'recent_activities': recent_activities
+            'tracking_sheets': tracking_sheets, 'recent_activities': recent_activities,
+            'recent_routed_sheets': recent_routed_sheets
         }
         return render(request, 'core/dashboard_dispatcher.html', context)
 
@@ -364,3 +374,37 @@ def role_matrix_update(request):
             
         return HttpResponse("""<i class="fas fa-check text-green-500"></i>""", status=200)
     return HttpResponse("Error", status=400)
+
+@login_required
+def dispatcher_routed_relays(request):
+    """Trang xem tất cả các rơ-le có phiếu mới nhất đã được duyệt về trạm."""
+    if not request.user.groups.filter(name='DISPATCHER').exists() and not request.user.is_superuser:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied
+        
+    from sheets.models import SettingSheet
+    # Lấy các phiếu có rơ-le và đã được Admin phê duyệt (COMPLETED)
+    all_routed_sheets = SettingSheet.objects.filter(
+        status='COMPLETED',
+        relay__isnull=False
+    )
+    if not request.user.is_superuser:
+        all_routed_sheets = all_routed_sheets.filter(created_by=request.user)
+        
+    all_routed_sheets = all_routed_sheets.select_related('relay', 'relay__bay', 'relay__bay__station').order_by('-created_at')
+    
+    # Lọc unique rơ-le (chỉ lấy phiếu mới nhất của mỗi rơ-le đã duyệt)
+    seen_relays = set()
+    unique_routed_sheets = []
+    for sheet in all_routed_sheets:
+        if sheet.relay_id not in seen_relays:
+            unique_routed_sheets.append(sheet)
+            seen_relays.add(sheet.relay_id)
+            
+    # Phân trang
+    from django.core.paginator import Paginator
+    paginator = Paginator(unique_routed_sheets, 40)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'core/routed_relays.html', {'sheets': page_obj})

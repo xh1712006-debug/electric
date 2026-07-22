@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block header_title %}Danh sách Rơ-le Đã Duyệt Về Trạm{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h2 class="text-3xl font-black text-slate-800 tracking-tight">Danh sách Rơ-le Đã Duyệt</h2>
+    <p class="text-slate-500 text-sm mt-1">Quản lý và tra cứu toàn bộ các Rơ-le đã có phiếu chỉnh định được Quản trị viên (Admin) phê duyệt ban hành chính thức (hiển thị phiếu hoàn tất mới nhất của mỗi rơ-le).</p>
+</div>
+
+<!-- List View -->
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <h3 class="text-lg font-bold text-slate-800">
+            Tổng cộng: <span class="text-blue-600">{{ sheets.paginator.count }}</span> Rơ-le
+        </h3>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-white border-b border-slate-200 text-slate-400 text-xs font-bold uppercase tracking-widest">
+                    <th class="px-6 py-4 whitespace-nowrap">Rơ-le / Trạm</th>
+                    <th class="px-6 py-4">Mã Phiếu Mới Nhất</th>
+                    <th class="px-6 py-4">Trạng thái Phiếu</th>
+                    <th class="px-6 py-4">Thời gian Duyệt (Tạo)</th>
+                    <th class="px-6 py-4 text-right">Chi tiết Phiếu</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-sm">
+                {% for sheet in sheets %}
+                <tr class="hover:bg-blue-50/50 transition-colors duration-200">
+                    <!-- Relay Info -->
+                    <td class="px-6 py-4">
+                        <div class="font-black text-slate-800 text-base mb-1 flex items-center gap-2">
+                            <i class="fas fa-server text-blue-500"></i> {{ sheet.relay.relay_code }}
+                        </div>
+                        <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                            <i class="fas fa-building mr-1"></i> {{ sheet.relay.bay.station.station_name|default:"Không xác định" }}
+                        </div>
+                    </td>
+                    
+                    <!-- Sheet Code -->
+                    <td class="px-6 py-4 font-bold text-blue-700">
+                        <a href="{% url 'sheet_detail' sheet.id %}" class="hover:underline">{{ sheet.sheet_code }}</a>
+                    </td>
+                    
+                    <!-- Status -->
+                    <td class="px-6 py-4">
+                        {% include "sheets/partials/_status_badge.html" with status=sheet.status %}
+                    </td>
+                    
+                    <!-- Date -->
+                    <td class="px-6 py-4">
+                        <div class="text-slate-700 font-medium">
+                            {{ sheet.created_at|date:"d/m/Y" }}
+                        </div>
+                        <div class="text-[11px] text-slate-400 font-mono mt-0.5">
+                            {{ sheet.created_at|date:"H:i:s" }}
+                        </div>
+                    </td>
+                    
+                    <!-- Action -->
+                    <td class="px-6 py-4 text-right">
+                        <a href="{% url 'sheet_detail' sheet.id %}" class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 hover:shadow-sm transition-all text-xs">
+                            Xem Phiếu <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-6 py-16 text-center">
+                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-50 text-slate-300 mb-4 text-3xl">
+                            <i class="fas fa-box-open"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-700 mb-1">Không có dữ liệu</h3>
+                        <p class="text-sm text-slate-500">Chưa có rơ-le nào được Admin duyệt ban hành hoàn tất.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if sheets.has_other_pages %}
+    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+        <p class="text-sm text-slate-600">
+            Hiển thị trang <span class="font-bold">{{ sheets.number }}</span> / <span class="font-bold">{{ sheets.paginator.num_pages }}</span>
+        </p>
+        <div class="flex gap-2">
+            {% if sheets.has_previous %}
+            <a href="?page={{ sheets.previous_page_number }}" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 font-bold text-sm transition-colors">
+                Trước
+            </a>
+            {% endif %}
+            
+            {% if sheets.has_next %}
+            <a href="?page={{ sheets.next_page_number }}" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 font-bold text-sm transition-colors">
+                Sau
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

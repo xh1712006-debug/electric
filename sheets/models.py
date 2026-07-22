@@ -3,13 +3,13 @@ from stations.models import Relay
 
 class SettingSheet(models.Model):
     STATUS_CHOICES = (
-        ('DRAFT', 'Draft'),
-        ('ISSUED', 'Issued (Ready for Dispatch)'),
-        ('ROUTED_TO_STATION', 'Routed to Station'),
-        ('TRANSFERRED', 'Transferred to Technician'),
-        ('RECEIVED', 'Received by Technician'),
-        ('PENDING_ADMIN_APPROVAL', 'Pending Admin Approval'),
-        ('COMPLETED', 'Completed'),
+        ('DRAFT', 'Nháp'),
+        ('ISSUED', 'Chờ Rà soát'),
+        ('ROUTED_TO_STATION', 'Đã chuyển về Trạm'),
+        ('TRANSFERRED', 'Đã giao KTV'),
+        ('RECEIVED', 'Đang thực hiện'),
+        ('PENDING_ADMIN_APPROVAL', 'Chờ Duyệt Ban hành'),
+        ('COMPLETED', 'Hoàn thành'),
     )
 
     sheet_code = models.CharField(max_length=100, unique=True)
@@ -20,6 +20,7 @@ class SettingSheet(models.Model):
     created_by = models.ForeignKey('auth.User', related_name='created_sheets', on_delete=models.SET_NULL, null=True)
     assigned_to = models.ForeignKey('auth.User', related_name='assigned_sheets', on_delete=models.SET_NULL, null=True, blank=True)
     supervisor_assigned = models.ForeignKey('auth.User', related_name='supervised_sheets', on_delete=models.SET_NULL, null=True, blank=True)
+    assigned_at = models.DateTimeField(null=True, blank=True)
     
     relay = models.ForeignKey(Relay, on_delete=models.SET_NULL, null=True, blank=True)
     relay_text = models.CharField(max_length=255, null=True, blank=True)
@@ -27,6 +28,10 @@ class SettingSheet(models.Model):
     
     # OCR Data / Mock Data using JSONField of PostgreSQL
     extracted_data = models.JSONField(null=True, blank=True) 
+    
+    # Lịch sử sửa đổi thông số
+    edit_logs = models.JSONField(default=list, blank=True)
+
 
     is_temporary = models.BooleanField(default=False)
     valid_until = models.DateTimeField(null=True, blank=True)

@@ -26,6 +26,10 @@
 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
     <i class="fas fa-check-circle mr-1.5 text-emerald-400"></i> Hoàn thành
 </span>
+{% elif sheet.status == 'PENDING_ADMIN_APPROVAL' %}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+    <i class="fas fa-user-shield mr-1.5 text-orange-400"></i> Chờ Duyệt Ban hành
+</span>
 {% else %}
 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
     {{ sheet.get_status_display }}

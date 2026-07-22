@@ -127,18 +127,19 @@
             <a href="{{ url_sheets }}?status=ISSUED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'ISSUED' %}bg-amber-600 text-white shadow-lg shadow-amber-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
                 <i class="fas fa-search-plus w-6 text-amber-400 {% if request.GET.status == 'ISSUED' %}text-white{% endif %}"></i><span class="font-medium text-sm">Phiếu Chờ Rà soát</span>
             </a>
-            <a href="{{ url_sheets }}?status=REVIEWED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'REVIEWED' %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
-                <i class="fas fa-paper-plane w-6 text-blue-400 {% if request.GET.status == 'REVIEWED' %}text-white{% endif %}"></i><span class="font-medium text-sm">Chuyển Phiếu Về Trạm</span>
-            </a>
         </div>
         
         <div class="pt-4 mt-2 border-t border-slate-700/50">
             <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Giám sát Thi công</p>
-            <a href="{{ url_sheets }}?status=TRANSFERRED,RECEIVED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'TRANSFERRED,RECEIVED' %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
-                <i class="fas fa-hard-hat w-6"></i><span class="font-medium text-sm">Phiếu KTV Đang Làm</span>
+            <a href="{{ url_sheets }}?status=ROUTED_TO_STATION,TRANSFERRED,RECEIVED" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'ROUTED_TO_STATION,TRANSFERRED,RECEIVED' %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-hard-hat w-6"></i><span class="font-medium text-sm">Trạm Đang Xử Lý</span>
             </a>
-            <a href="{{ url_sheets }}?status=PENDING_ADMIN_APPROVAL" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
-                <i class="fas fa-tasks w-6"></i><span class="font-medium text-sm">Chờ Ký duyệt Cuối</span>
+        </div>
+
+        <div class="pt-4 mt-2 border-t border-slate-700/50">
+            <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Quản lý Dữ liệu</p>
+            <a href="{% url 'dispatcher_routed_relays' %}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.path == '/dispatcher/routed-relays/' %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                <i class="fas fa-server w-6 text-teal-400 {% if request.path == '/dispatcher/routed-relays/' %}text-white{% endif %}"></i><span class="font-medium text-sm">Danh sách Rơ-le đã duyệt</span>
             </a>
         </div>
 
@@ -171,12 +172,7 @@
             </a>
         </div>
 
-        <div class="pt-4 mt-2 border-t border-slate-700/50">
-            <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Theo dõi Thay đổi</p>
-            <a href="{{ url_updated_sheets }}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.path == url_updated_sheets %}bg-red-500/20 text-red-400 font-semibold{% else %}text-slate-400 hover:bg-slate-800 hover:text-red-400{% endif %}">
-                <i class="fas fa-exclamation-circle w-6 text-red-400"></i><span class="font-medium text-sm">Phiếu Có Thay Đổi</span>
-            </a>
-        </div>
+
 
     {% elif request.user|has_group:'TECHNICIAN' %}
         <!-- TECHNICIAN MENU -->
@@ -197,13 +193,7 @@
             </a>
         </div>
         
-        <div class="pt-4 mt-2 border-t border-slate-700/50">
-            <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Hỗ trợ</p>
-            <a href="{{ url_stations }}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.path == url_stations %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
-                <i class="fas fa-search w-6"></i><span class="font-medium text-sm">Tra cứu Cấu hình Rơ-le</span>
-            </a>
-        </div>
-        
+
     {% elif request.user|has_group:'STATION_LEADER' %}
         <!-- STATION_LEADER MENU -->
         <a href="{{ url_dashboard }}" class="flex items-center px-4 py-3 rounded-lg transition-colors {% if request.path == url_dashboard %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
@@ -226,12 +216,7 @@
             </a>
         </div>
         
-        <div class="pt-4 mt-2 border-t border-slate-700/50">
-            <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Tài nguyên</p>
-            <a href="{{ url_stations }}" class="flex items-center px-4 py-2.5 rounded-lg transition-colors {% if request.path == url_stations %}bg-blue-600 text-white shadow-lg shadow-blue-500/30{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
-                <i class="fas fa-server w-6"></i><span class="font-medium text-sm">CSDL Thiết bị Trạm</span>
-            </a>
-        </div>
+
 
     {% else %}
         <!-- FALLBACK MENU FOR NO ROLE -->

@@ -30,6 +30,11 @@ services:
       - db
     env_file:
       - .env
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared_tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token eyJhIjoiMmI1MGI5ZGJiYjYxY2YyZDg4OTY1MGNhNTViMzVhMTIiLCJ0IjoiMjA5YjQxYTUtYThhNy00ZWI4LTg0MzUtZTI0ZjgyY2U2ODY5IiwicyI6Ik56bGlaR05pTVRJdE1EUTBaQzAwTXpCaUxUbGtaV1l0WldZd1lUZzVORGN6WkRVMiJ9
 
 volumes:
   postgres_data:

@@ -5,10 +5,12 @@ services:
     restart: always
     env_file:
       - .env
+    environment:
+      - PGPORT=5440
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5440:5432"
+      - "5440:5440"
 
   web:
     build: .
@@ -30,6 +32,8 @@ services:
       - db
     env_file:
       - .env
+    environment:
+      - DB_HOST=db
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared_tunnel

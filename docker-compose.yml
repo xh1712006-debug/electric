@@ -3,14 +3,12 @@ services:
     image: postgres:15-alpine
     container_name: rms_db
     restart: always
-    environment:
-      POSTGRES_DB: ${DB_NAME:-rms_db}
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+    env_file:
+      - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5440:5432"
 
   web:
     build: .
@@ -29,17 +27,8 @@ services:
       - "9000:9000"
     depends_on:
       - db
-    environment:
-      - DEBUG=False
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_NAME=${DB_NAME:-rms_db}
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-password}
-      - SECRET_KEY=${SECRET_KEY:-your_super_secret_key_for_docker}
-      - DJANGO_SUPERUSER_USERNAME=admin
-      - DJANGO_SUPERUSER_PASSWORD=admin
-      - DJANGO_SUPERUSER_EMAIL=admin@example.com
+    env_file:
+      - .env
 
 volumes:
   postgres_data:

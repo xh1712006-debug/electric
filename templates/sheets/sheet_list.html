@@ -68,14 +68,7 @@
                         <a href="{% url 'sheet_detail' sheet.pk %}" class="hover:text-blue-600 transition-colors">
                             {{ sheet.sheet_code }}
                         </a>
-                        {% if sheet.is_temporary and not sheet.reverted %}
-                        <div class="mt-1 flex items-center">
-                            <span class="bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-l shadow-[0_0_10px_rgba(249,115,22,0.5)] animate-pulse tracking-wider">TẠM</span>
-                            {% if sheet.valid_until %}
-                            <span class="bg-orange-50 text-orange-700 text-[9px] font-bold px-1.5 py-0.5 rounded-r border border-orange-200 border-l-0 whitespace-nowrap"><i class="far fa-clock mr-0.5"></i>{{ sheet.valid_until|date:'d/m H:i' }}</span>
-                            {% endif %}
-                        </div>
-                        {% endif %}
+
                     </td>
                     <td class="px-6 py-5">
                         <p class="text-slate-700 font-medium line-clamp-2 max-w-xs">{{ sheet.title }}</p>

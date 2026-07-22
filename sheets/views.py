@@ -233,10 +233,7 @@ def sheet_detail(request, pk):
     differences = []
     has_previous = False
     
-    if sheet.is_temporary and sheet.reverted and sheet.revert_to_sheet:
-        display_data = sheet.revert_to_sheet.extracted_data
-    else:
-        display_data = sheet.extracted_data
+    display_data = sheet.extracted_data
 
     if sheet.relay and display_data:
         previous_sheet = SettingSheet.objects.filter(
@@ -448,32 +445,6 @@ def sheet_assign(request, pk):
         if new_status in valid_statuses:
             sheet.status = new_status
             
-        # Handle Temporary Setting
-        is_temporary = request.POST.get('is_temporary') == 'on'
-        valid_until_str = request.POST.get('valid_until_datetime')
-        
-        if is_temporary and valid_until_str:
-            try:
-                from django.utils.dateparse import parse_datetime
-                from django.utils import timezone
-                dt = parse_datetime(valid_until_str)
-                if dt:
-                    if timezone.is_naive(dt):
-                        dt = timezone.make_aware(dt)
-                    sheet.is_temporary = True
-                    sheet.valid_until = dt
-                    
-                    # Find previous sheet to revert to
-                    if sheet.relay:
-                        previous_sheet = SettingSheet.objects.filter(
-                            relay=sheet.relay,
-                            status='COMPLETED',
-                            created_at__lt=sheet.created_at
-                        ).order_by('-created_at').first()
-                        sheet.revert_to_sheet = previous_sheet
-            except Exception as e:
-                print("Date parse error:", e)
-        
         sheet.save()
         
         # --- Send real-time notifications via Channels ---

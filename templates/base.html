@@ -218,6 +218,9 @@
                 <a href="{{ url_sheets }}?status=PENDING_ADMIN_APPROVAL" class="nav-item {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}active{% endif %}">
                     <i class="fas fa-file-signature nav-icon text-violet-400"></i>
                     <span>Chờ Duyệt Ban hành</span>
+                    {% if badges.pending_admin > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.pending_admin }}</span>
+                    {% endif %}
                 </a>
                 <a href="{{ url_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' and request.path == url_sheets %}active-emerald{% endif %}">
                     <i class="fas fa-check-double nav-icon text-emerald-400"></i>
@@ -245,6 +248,14 @@
                     <i class="fas fa-shield-halved nav-icon text-amber-400"></i>
                     <span>Ma trận Phân quyền</span>
                 </a>
+                
+                <hr class="nav-separator">
+                <p class="nav-section-label">Tự động hóa</p>
+                {% url 'autocheck_dashboard' as url_autocheck %}
+                <a href="{{ url_autocheck }}" class="nav-item {% if request.path == url_autocheck %}active-amber{% endif %}">
+                    <i class="fas fa-satellite-dish nav-icon text-blue-400"></i>
+                    <span>Quản lý Lịch hẹn giờ</span>
+                </a>
 
             <!-- ===== DISPATCHER ===== -->
             {% elif request.user|has_group:'DISPATCHER' %}
@@ -265,6 +276,9 @@
                 <a href="{{ url_sheets }}?status=ISSUED" class="nav-item {% if request.GET.status == 'ISSUED' %}active-amber{% endif %}">
                     <i class="fas fa-magnifying-glass nav-icon text-amber-400"></i>
                     <span>Phiếu Chờ Rà soát</span>
+                    {% if badges.issued > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.issued }}</span>
+                    {% endif %}
                 </a>
 
                 <hr class="nav-separator">
@@ -272,6 +286,9 @@
                 <a href="{{ url_sheets }}?status=ROUTED_TO_STATION,TRANSFERRED,RECEIVED" class="nav-item {% if request.GET.status == 'ROUTED_TO_STATION,TRANSFERRED,RECEIVED' %}active{% endif %}">
                     <i class="fas fa-helmet-safety nav-icon"></i>
                     <span>Trạm Đang Xử Lý</span>
+                    {% if badges.dispatcher_in_progress > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.dispatcher_in_progress }}</span>
+                    {% endif %}
                 </a>
 
                 <hr class="nav-separator">
@@ -296,15 +313,24 @@
                 <p class="nav-section-label">Quản lý Phiếu tại Trạm</p>
                 <a href="{{ url_sheets }}?status=ROUTED_TO_STATION" class="nav-item {% if request.GET.status == 'ROUTED_TO_STATION' %}active{% endif %}">
                     <i class="fas fa-user-plus nav-icon text-teal-400"></i>
-                    <span>Chờ Phân Công KTV</span>
+                    <span>Chờ Phân Công</span>
+                    {% if badges.routed > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.routed }}</span>
+                    {% endif %}
                 </a>
                 <a href="{{ url_sheets }}?status=TRANSFERRED,RECEIVED" class="nav-item {% if request.GET.status == 'TRANSFERRED,RECEIVED' %}active{% endif %}">
                     <i class="fas fa-screwdriver-wrench nav-icon text-blue-400"></i>
                     <span>Đang Thi Công</span>
+                    {% if badges.station_in_progress > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.station_in_progress }}</span>
+                    {% endif %}
                 </a>
                 <a href="{{ url_sheets }}?status=PENDING_ADMIN_APPROVAL" class="nav-item {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}active{% endif %}">
                     <i class="fas fa-hourglass-half nav-icon text-orange-400"></i>
                     <span>Chờ Admin Phê Duyệt</span>
+                    {% if badges.station_pending_admin > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-orange-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(249,115,22,0.7)] animate-pulse">{{ badges.station_pending_admin }}</span>
+                    {% endif %}
                 </a>
                 <a href="{{ url_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' %}active-emerald{% endif %}">
                     <i class="fas fa-box-archive nav-icon text-emerald-400"></i>
@@ -323,14 +349,23 @@
                 <a href="{{ url_my_sheets }}?status=TRANSFERRED" class="nav-item {% if request.GET.status == 'TRANSFERRED' %}active{% endif %}">
                     <i class="fas fa-file-import nav-icon text-blue-400"></i>
                     <span>Phiếu KTV Sắp Làm</span>
+                    {% if badges.supervisor_transferred > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.supervisor_transferred }}</span>
+                    {% endif %}
                 </a>
                 <a href="{{ url_my_sheets }}?status=RECEIVED" class="nav-item {% if request.GET.status == 'RECEIVED' %}active-amber{% endif %}">
                     <i class="fas fa-file-signature nav-icon text-amber-400"></i>
                     <span>Ký Nghiệm Thu</span>
+                    {% if badges.supervisor_received > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.supervisor_received }}</span>
+                    {% endif %}
                 </a>
                 <a href="{{ url_my_sheets }}?status=PENDING_ADMIN_APPROVAL" class="nav-item {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}active{% endif %}">
                     <i class="fas fa-hourglass-half nav-icon text-violet-400"></i>
                     <span>Chờ Admin Phê Duyệt</span>
+                    {% if badges.supervisor_pending_admin > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-violet-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(139,92,246,0.7)] animate-pulse">{{ badges.supervisor_pending_admin }}</span>
+                    {% endif %}
                 </a>
                 <a href="{{ url_my_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' %}active-emerald{% endif %}">
                     <i class="fas fa-clock-rotate-left nav-icon text-emerald-400"></i>
@@ -349,10 +384,16 @@
                 <a href="{{ url_my_sheets }}?status=TRANSFERRED" class="nav-item {% if request.GET.status == 'TRANSFERRED' %}active{% endif %}">
                     <i class="fas fa-file-arrow-down nav-icon text-blue-400"></i>
                     <span>Tiếp Nhận Công Việc</span>
+                    {% if badges.transferred > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.transferred }}</span>
+                    {% endif %}
                 </a>
                 <a href="{{ url_my_sheets }}?status=RECEIVED" class="nav-item {% if request.GET.status == 'RECEIVED' %}active-amber{% endif %}">
                     <i class="fas fa-screwdriver-wrench nav-icon text-amber-400"></i>
                     <span>Đang Thi Công & Ký</span>
+                    {% if badges.technician_received > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(245,158,11,0.7)] animate-pulse">{{ badges.technician_received }}</span>
+                    {% endif %}
                 </a>
                 <a href="{{ url_my_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' %}active-emerald{% endif %}">
                     <i class="fas fa-clock-rotate-left nav-icon text-emerald-400"></i>

@@ -8,10 +8,25 @@ from .models import SettingSheet, SignatureRecord
 from stations.models import Relay
 from .services import evn_service
 
+import hashlib
+from django.core.cache import cache
+
 @login_required
 def sheet_list(request):
     """View danh sách phiếu chỉnh định."""
-    sheets = SettingSheet.objects.all().order_by('-created_at')
+    search_query = request.GET.get('q', '')
+    status_filter = request.GET.get('status', '')
+    page_number = request.GET.get('page', 1)
+    
+    cache_version = cache.get('sheet_list_version', 1)
+    key_string = f"sheet_list_v{cache_version}_user_{request.user.id}_q_{search_query}_s_{status_filter}_p_{page_number}"
+    cache_key = hashlib.md5(key_string.encode('utf-8')).hexdigest()
+    
+    cached_context = cache.get(cache_key)
+    if cached_context:
+        return render(request, 'sheets/sheet_list.html', cached_context)
+        
+    sheets = SettingSheet.objects.select_related('created_by', 'relay', 'relay__bay', 'relay__bay__station', 'station').all().order_by('-created_at')
     
     # Filter for DISPATCHER (chỉ xem phiếu mình tạo)
     if request.user.groups.filter(name='DISPATCHER').exists() and not request.user.is_superuser:
@@ -29,10 +44,6 @@ def sheet_list(request):
         except Exception:
             pass
 
-    # Simple search
-    search_query = request.GET.get('q', '')
-    status_filter = request.GET.get('status', '')
-    
     from django.core.paginator import Paginator
 
     if search_query:
@@ -42,8 +53,10 @@ def sheet_list(request):
         sheets = sheets.filter(status__in=status_filter.split(','))
 
     paginator = Paginator(sheets, 40)
-    page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
+    
+    # Force queryset evaluation before caching
+    _ = list(page_obj.object_list)
 
     list_title = 'Tất cả Phiếu Chỉnh định'
     if status_filter == 'COMPLETED':
@@ -57,19 +70,31 @@ def sheet_list(request):
         'status_filter': status_filter,
         'list_title': list_title
     }
+    
+    cache.set(cache_key, context, timeout=86400)
+    
     return render(request, 'sheets/sheet_list.html', context)
 
 @login_required
 def my_sheets(request):
     """View danh sách phiếu của tôi."""
-    # Lấy các phiếu do mình tạo hoặc được assign cho mình
-    from django.db.models import Q
-    sheets = SettingSheet.objects.filter(
-        Q(created_by=request.user) | Q(assigned_to=request.user) | Q(supervisor_assigned=request.user)
-    ).order_by('-created_at')
-    
     search_query = request.GET.get('q', '')
     status_filter = request.GET.get('status', '')
+    page_number = request.GET.get('page', 1)
+    
+    cache_version = cache.get('sheet_list_version', 1)
+    key_string = f"my_sheets_v{cache_version}_user_{request.user.id}_q_{search_query}_s_{status_filter}_p_{page_number}"
+    cache_key = hashlib.md5(key_string.encode('utf-8')).hexdigest()
+    
+    cached_context = cache.get(cache_key)
+    if cached_context:
+        return render(request, 'sheets/sheet_list.html', cached_context)
+
+    # Lấy các phiếu do mình tạo hoặc được assign cho mình
+    from django.db.models import Q
+    sheets = SettingSheet.objects.select_related('created_by', 'relay', 'relay__bay', 'relay__bay__station', 'station').filter(
+        Q(created_by=request.user) | Q(assigned_to=request.user) | Q(supervisor_assigned=request.user)
+    ).order_by('-created_at')
     
     from django.core.paginator import Paginator
 
@@ -80,8 +105,9 @@ def my_sheets(request):
         sheets = sheets.filter(status__in=status_filter.split(','))
 
     paginator = Paginator(sheets, 40)
-    page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
+    
+    _ = list(page_obj.object_list)
 
     context = {
         'sheets': page_obj,
@@ -89,64 +115,50 @@ def my_sheets(request):
         'status_filter': status_filter,
         'list_title': 'Phiếu của tôi'
     }
+    
+    cache.set(cache_key, context, timeout=86400)
+    
     return render(request, 'sheets/sheet_list.html', context)
 
 @login_required
 def updated_sheets(request):
     """View danh sách các phiếu có thay đổi thông số so với bản cũ."""
-    all_sheets = SettingSheet.objects.select_related('relay').all().order_by('-created_at')
+    search_query = request.GET.get('q', '')
+    status_filter = request.GET.get('status', '')
+    page_number = request.GET.get('page', 1)
     
-    updated_sheets_list = []
+    cache_version = cache.get('sheet_list_version', 1)
+    key_string = f"updated_sheets_v{cache_version}_user_{request.user.id}_q_{search_query}_s_{status_filter}_p_{page_number}"
+    cache_key = hashlib.md5(key_string.encode('utf-8')).hexdigest()
     
-    for sheet in all_sheets:
-        if sheet.relay and sheet.extracted_data:
-            previous_sheet = SettingSheet.objects.filter(
-                relay=sheet.relay,
-                created_at__lt=sheet.created_at
-            ).order_by('-created_at').first()
-            
-            if previous_sheet:
-                old_data = previous_sheet.extracted_data or []
-                new_data = sheet.extracted_data or []
-                
-                old_dict = {item.get('parameter_code'): item for item in old_data if item.get('parameter_code')}
-                new_dict = {item.get('parameter_code'): item for item in new_data if item.get('parameter_code')}
-                
-                has_diff = False
-                for code, new_item in new_dict.items():
-                    if code not in old_dict:
-                        has_diff = True
-                        break
-                    else:
-                        try:
-                            old_val = float(old_dict[code].get('value', 0))
-                            new_val = float(new_item.get('value', 0))
-                            if old_val != new_val:
-                                has_diff = True
-                                break
-                        except (ValueError, TypeError):
-                            if str(old_dict[code].get('value')) != str(new_item.get('value')):
-                                has_diff = True
-                                break
-                
-                if not has_diff:
-                    for code in old_dict:
-                        if code not in new_dict:
-                            has_diff = True
-                            break
-                            
-                if has_diff:
-                    updated_sheets_list.append(sheet)
+    cached_context = cache.get(cache_key)
+    if cached_context:
+        return render(request, 'sheets/sheet_list.html', cached_context)
+
+    sheets = SettingSheet.objects.select_related('created_by', 'relay', 'relay__bay', 'relay__bay__station', 'station').filter(has_parameters_changed=True).order_by('-created_at')
 
     from django.core.paginator import Paginator
-    paginator = Paginator(updated_sheets_list, 40)
-    page_number = request.GET.get('page', 1)
+    
+    if search_query:
+        sheets = sheets.filter(sheet_code__icontains=search_query)
+        
+    if status_filter:
+        sheets = sheets.filter(status__in=status_filter.split(','))
+
+    paginator = Paginator(sheets, 40)
     page_obj = paginator.get_page(page_number)
+    
+    _ = list(page_obj.object_list)
 
     context = {
         'sheets': page_obj,
+        'search_query': search_query,
+        'status_filter': status_filter,
         'list_title': 'Phiếu Có Thay Đổi Thông Số (Cần Lưu Ý)'
     }
+    
+    cache.set(cache_key, context, timeout=86400)
+    
     return render(request, 'sheets/sheet_list.html', context)
 
 @login_required
@@ -707,6 +719,10 @@ def perform_mock_ocr(sheet):
     
     sheet.extracted_data = extracted_data
     sheet.save()
+    
+    from .utils import update_has_parameters_changed_for_sheet
+    update_has_parameters_changed_for_sheet(sheet)
+    
     return extracted_data
 
 @login_required
@@ -783,6 +799,9 @@ def sheet_save_actual_data(request, pk):
                     
                 sheet.extracted_data = updated_data
                 sheet.save()
+                
+                from .utils import update_has_parameters_changed_for_sheet
+                update_has_parameters_changed_for_sheet(sheet)
                 
                 if changes and is_dispatcher:
                     msg = "Đã cập nhật sửa lỗi OCR: " + " | ".join(changes)

@@ -22,7 +22,25 @@
 </div>
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-        <h3 class="text-lg font-bold mb-4">Lưu lượng tạo Phiếu (7 ngày qua)</h3>
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+            <h3 class="text-lg font-bold">{{ chart_title|default:"Lưu lượng tạo Phiếu" }}</h3>
+            
+            <form id="chartFilterForm" method="GET" class="flex flex-wrap items-center gap-2">
+                <select name="period" id="periodSelect" class="text-sm border-slate-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 py-1.5" onchange="toggleCustomDates()">
+                    <option value="7days" {% if period == '7days' %}selected{% endif %}>7 Ngày qua</option>
+                    <option value="this_month" {% if period == 'this_month' %}selected{% endif %}>Tháng này</option>
+                    <option value="this_year" {% if period == 'this_year' %}selected{% endif %}>Năm nay</option>
+                    <option value="custom" {% if period == 'custom' %}selected{% endif %}>Tùy chọn...</option>
+                </select>
+                
+                <div id="customDateContainer" class="{% if period != 'custom' %}hidden{% endif %} flex items-center gap-2">
+                    <input type="date" name="start_date" value="{{ start_date }}" class="text-sm border-slate-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 py-1.5" required>
+                    <span class="text-slate-400">-</span>
+                    <input type="date" name="end_date" value="{{ end_date }}" class="text-sm border-slate-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 py-1.5" required>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">Lọc</button>
+                </div>
+            </form>
+        </div>
         <canvas id="barChart" height="100"></canvas>
     </div>
     <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
@@ -42,6 +60,18 @@
     </div>
 </div>
 <script>
+    function toggleCustomDates() {
+        const period = document.getElementById('periodSelect').value;
+        const customContainer = document.getElementById('customDateContainer');
+        if (period === 'custom') {
+            customContainer.classList.remove('hidden');
+        } else {
+            customContainer.classList.add('hidden');
+            // Auto submit when standard period is selected
+            document.getElementById('chartFilterForm').submit();
+        }
+    }
+
     new Chart(document.getElementById('barChart'), {
         type: 'bar',
         data: {

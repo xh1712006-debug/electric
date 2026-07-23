@@ -4,3 +4,4 @@ python-dotenv>=1.0
 channels>=4.0
 daphne>=4.0
 openpyxl>=3.0
+django-redis 

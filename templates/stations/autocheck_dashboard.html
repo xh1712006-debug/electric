@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block header_title %}Quản lý Lịch Hẹn giờ Tự động{% endblock %}
+
+{% block content %}
+<div class="min-h-full flex flex-col p-4 md:p-6 space-y-6">
+    
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-xl md:text-2xl font-bold text-slate-800">Lịch Hẹn giờ Rơ-le</h1>
+            <p class="text-sm text-slate-500 mt-1">Hệ thống quét tự động đối chiếu thông số Rơ-le (Autocheck).</p>
+        </div>
+        <div class="bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200 flex items-center gap-2">
+            <i class="fas fa-microchip text-blue-500"></i>
+            <span class="text-sm text-slate-600">Tổng Rơ-le: <strong class="text-slate-800">{{ total_relays }}</strong></span>
+        </div>
+    </div>
+
+    <!-- Mini-Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center transition-shadow hover:shadow-md">
+            <div>
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Đang Bật</p>
+                <h3 class="text-2xl font-bold text-emerald-600 mt-1">{{ enabled_count }}</h3>
+            </div>
+            <div class="w-12 h-12 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 text-xl">
+                <i class="fas fa-play"></i>
+            </div>
+        </div>
+        
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center transition-shadow hover:shadow-md">
+            <div>
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Đang Tắt</p>
+                <h3 class="text-2xl font-bold text-slate-600 mt-1">{{ disabled_count }}</h3>
+            </div>
+            <div class="w-12 h-12 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 text-xl">
+                <i class="fas fa-pause"></i>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center transition-shadow hover:shadow-md relative overflow-hidden">
+            <div class="relative z-10">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Sắp quét (1H tới)</p>
+                <h3 class="text-2xl font-bold text-amber-500 mt-1">{{ soon_count }}</h3>
+            </div>
+            <div class="w-12 h-12 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500 text-xl relative z-10">
+                <i class="fas fa-clock"></i>
+            </div>
+            {% if soon_count > 0 %}
+            <div class="absolute -bottom-2 -right-2 text-6xl text-amber-500/10 z-0 animate-pulse">
+                <i class="fas fa-satellite-dish"></i>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Filter & Search -->
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <form method="GET" class="flex flex-col md:flex-row gap-4">
+            <div class="flex-1 relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <i class="fas fa-search"></i>
+                </div>
+                <input type="text" name="q" value="{{ q }}" placeholder="Tìm theo mã rơ-le, tên trạm..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors">
+            </div>
+            
+            <select name="status" class="py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-slate-700 min-w-[180px] cursor-pointer transition-colors">
+                <option value="">Tất cả trạng thái</option>
+                <option value="enabled" {% if status_filter == 'enabled' %}selected{% endif %}>Đang Bật (Tự động)</option>
+                <option value="disabled" {% if status_filter == 'disabled' %}selected{% endif %}>Đang Tắt</option>
+            </select>
+            
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap">
+                <i class="fas fa-filter"></i> Lọc
+            </button>
+            {% if q or status_filter %}
+            <a href="{% url 'autocheck_dashboard' %}" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center">
+                Xóa
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Table Data -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead class="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                    <tr>
+                        <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Mã Rơ-le</th>
+                        <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Trạm / Ngăn lộ</th>
+                        <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Trạng thái</th>
+                        <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Chu kỳ</th>
+                        <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Lần quét kế tiếp</th>
+                        <th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for relay in page_obj %}
+                    <tr class="hover:bg-slate-50 transition-colors group">
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-slate-800">{{ relay.relay_code }}</div>
+                            <div class="text-xs text-slate-500 truncate max-w-[200px] mt-0.5">{{ relay.relay_name|default:"-" }}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="font-semibold text-slate-700">{{ relay.bay.station.station_code }} - {{ relay.bay.station.station_name }}</div>
+                            <div class="text-xs text-slate-500 mt-0.5">Ngăn lộ: <strong class="text-slate-600">{{ relay.bay.bay_code }}</strong></div>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if relay.auto_check_enabled %}
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Bật
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Tắt
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% if relay.auto_check_enabled %}
+                                <span class="font-bold text-slate-700">{{ relay.check_interval_value }}</span> 
+                                <span class="text-xs font-medium text-slate-500 uppercase">
+                                    {% if relay.check_interval_unit == 's' %}Giây
+                                    {% elif relay.check_interval_unit == 'm' %}Phút
+                                    {% elif relay.check_interval_unit == 'h' %}Giờ
+                                    {% elif relay.check_interval_unit == 'd' %}Ngày
+                                    {% elif relay.check_interval_unit == 'M' %}Tháng
+                                    {% elif relay.check_interval_unit == 'y' %}Năm
+                                    {% endif %}
+                                </span>
+                            {% else %}
+                                <span class="text-slate-300 font-medium">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if relay.auto_check_enabled %}
+                                {% if relay.next_check_at %}
+                                    <div class="font-bold text-blue-600">{{ relay.next_check_at|date:"H:i:s" }}</div>
+                                    <div class="text-xs text-slate-500 font-medium mt-0.5">{{ relay.next_check_at|date:"d/m/Y" }}</div>
+                                {% else %}
+                                    <span class="text-xs text-amber-500 bg-amber-50 px-2 py-1 rounded-md font-medium"><i class="fas fa-spinner fa-spin mr-1"></i> Chờ...</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-xs text-slate-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'sheet_detail' relay.settingsheet_set.last.id %}" target="_blank" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-slate-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-colors shadow-sm" title="Đi tới Phiếu để cài đặt">
+                                <i class="fas fa-external-link-alt text-sm"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-slate-500">
+                            <div class="w-12 h-12 mx-auto bg-slate-100 rounded-full flex items-center justify-center text-slate-300 text-xl mb-3">
+                                <i class="fas fa-search"></i>
+                            </div>
+                            <p class="font-medium">Không tìm thấy Rơ-le nào phù hợp.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-sm">
+            <span class="text-slate-500">
+                Hiển thị <span class="font-bold text-slate-700">{{ page_obj.start_index }}-{{ page_obj.end_index }}</span> / <span class="font-bold text-slate-700">{{ paginator.count }}</span>
+            </span>
+            <div class="flex gap-1 font-medium">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 rounded-md text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"><i class="fas fa-angle-left"></i></a>
+                {% endif %}
+                
+                {% for i in paginator.page_range %}
+                    {% if page_obj.number == i %}
+                        <span class="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-md shadow-sm">{{ i }}</span>
+                    {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                        <a href="?page={{ i }}&q={{ q }}&status={{ status_filter }}" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 rounded-md text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">{{ i }}</a>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 rounded-md text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"><i class="fas fa-angle-right"></i></a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

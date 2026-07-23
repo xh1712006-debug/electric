@@ -32,6 +32,9 @@ class SettingSheet(models.Model):
     # Lịch sử sửa đổi thông số
     edit_logs = models.JSONField(default=list, blank=True)
 
+    # Đánh dấu phiếu có thông số thay đổi so với phiên bản trước đó
+    has_parameters_changed = models.BooleanField(default=False)
+
 
     is_temporary = models.BooleanField(default=False)
     valid_until = models.DateTimeField(null=True, blank=True)

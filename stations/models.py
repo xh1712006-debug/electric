@@ -22,6 +22,53 @@ class Relay(models.Model):
     relay_name = models.CharField(max_length=100)
     manufacturer = models.CharField(max_length=100)
 
+    # Lịch trình tự động kiểm tra API
+    UNIT_CHOICES = [
+        ('s', 'Giây'),
+        ('m', 'Phút'),
+        ('h', 'Giờ'),
+        ('d', 'Ngày'),
+        ('M', 'Tháng'),
+        ('y', 'Năm'),
+    ]
+    auto_check_enabled = models.BooleanField(default=False)
+    check_interval_value = models.IntegerField(default=1)
+    check_interval_unit = models.CharField(max_length=1, choices=UNIT_CHOICES, default='h')
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    next_check_at = models.DateTimeField(null=True, blank=True)
+
+    def calculate_next_check(self, from_time=None):
+        import datetime
+        import calendar
+        from django.utils import timezone
+        if not from_time:
+            from_time = timezone.now()
+            
+        val = self.check_interval_value
+        unit = self.check_interval_unit
+        
+        if unit == 's':
+            return from_time + datetime.timedelta(seconds=val)
+        elif unit == 'm':
+            return from_time + datetime.timedelta(minutes=val)
+        elif unit == 'h':
+            return from_time + datetime.timedelta(hours=val)
+        elif unit == 'd':
+            return from_time + datetime.timedelta(days=val)
+        elif unit == 'M':
+            month = from_time.month - 1 + val
+            year = from_time.year + month // 12
+            month = month % 12 + 1
+            day = min(from_time.day, calendar.monthrange(year, month)[1])
+            return from_time.replace(year=year, month=month, day=day)
+        elif unit == 'y':
+            try:
+                return from_time.replace(year=from_time.year + val)
+            except ValueError:
+                return from_time.replace(year=from_time.year + val, day=28)
+        
+        return from_time + datetime.timedelta(hours=1)
+
     def __str__(self):
         return f"{self.relay_code} - {self.relay_name}"
         
@@ -42,3 +89,21 @@ class RelaySetting(models.Model):
 
     def __str__(self):
         return f"{self.parameter_code}: {self.standard_value} {self.unit}"
+
+class RelayAutoCheckLog(models.Model):
+    STATUS_CHOICES = [
+        ('MATCH', 'Trùng khớp'),
+        ('MISMATCH', 'Có sai lệch'),
+        ('API_ERROR', 'Lỗi kết nối API'),
+    ]
+    relay = models.ForeignKey(Relay, related_name='auto_checks', on_delete=models.CASCADE)
+    checked_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='MATCH')
+    api_raw_data = models.JSONField(null=True, blank=True)
+    differences = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-checked_at']
+
+    def __str__(self):
+        return f"Check {self.relay.relay_code} at {self.checked_at.strftime('%d/%m/%Y %H:%M:%S')}"

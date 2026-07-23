@@ -1,0 +1,68 @@
+{% with latest_log=relay.auto_checks.first %}
+{% if not latest_log %}
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-500">
+    <i class="fas fa-satellite-dish text-4xl mb-4 text-slate-300"></i>
+    <p>Chưa có dữ liệu kiểm tra từ API.</p>
+    <p class="text-xs mt-1">Hệ thống sẽ tự động lấy dữ liệu hoặc bạn có thể bấm "Chạy kiểm tra ngay".</p>
+</div>
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div>
+            <span class="text-sm font-semibold text-slate-700">Kết quả lần kiểm tra gần nhất:</span>
+            <span class="text-xs text-slate-500 ml-2"><i class="far fa-clock"></i> {{ latest_log.checked_at|date:"d/m/Y H:i:s" }}</span>
+        </div>
+        
+        {% if latest_log.status == 'MATCH' %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200 shadow-sm"><i class="fas fa-check-circle mr-1.5"></i> Trùng khớp 100%</span>
+        {% elif latest_log.status == 'MISMATCH' %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200 shadow-sm animate-pulse"><i class="fas fa-exclamation-triangle mr-1.5"></i> Có sai lệch dữ liệu</span>
+        {% else %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 shadow-sm"><i class="fas fa-exclamation-circle mr-1.5"></i> Lỗi API</span>
+        {% endif %}
+    </div>
+
+    {% if latest_log.status == 'MISMATCH' or latest_log.status == 'MATCH' %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm border-collapse">
+            <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                    <th class="px-6 py-3 font-bold text-slate-600 text-xs uppercase tracking-wide">Mã thông số</th>
+                    <th class="px-6 py-3 font-bold text-slate-600 text-xs uppercase tracking-wide">Tên thông số</th>
+                    <th class="px-6 py-3 font-bold text-slate-600 text-xs uppercase tracking-wide">Dữ liệu hệ thống (RMS)</th>
+                    <th class="px-6 py-3 font-bold text-slate-600 text-xs uppercase tracking-wide">Dữ liệu thực tế (API)</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for param in latest_log.api_raw_data %}
+                
+                <tr class="{% if param.is_diff %}bg-red-50/50 hover:bg-red-50{% else %}hover:bg-slate-50{% endif %} transition-colors">
+                    <td class="px-6 py-3 font-mono font-bold text-slate-700">{{ param.code }}</td>
+                    <td class="px-6 py-3 text-slate-600">{{ param.name }}</td>
+                    
+                    <td class="px-6 py-3">
+                        {% if param.is_diff %}
+                            <span class="text-slate-500 font-medium line-through">{{ param.db_value }}</span>
+                        {% else %}
+                            <span class="text-slate-700 font-medium">{{ param.db_value }}</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="px-6 py-3">
+                        {% if param.is_diff %}
+                            <span class="inline-flex items-center text-red-600 font-bold bg-white px-2 py-1 rounded border border-red-200 shadow-sm">
+                                <i class="fas fa-exclamation-circle mr-1 animate-pulse"></i> {{ param.value }}
+                            </span>
+                        {% else %}
+                            <span class="text-green-600 font-medium"><i class="fas fa-check mr-1 opacity-50"></i> {{ param.value }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endwith %}

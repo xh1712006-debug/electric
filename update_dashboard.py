@@ -1,14 +1,15 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required, permission_required
-from django.contrib.auth.models import User, Group, Permission
-from django.contrib.contenttypes.models import ContentType
-from django.http import HttpResponse
-from django.contrib import messages
-from sheets.models import SettingSheet
+import re
 
-@login_required
+def update_views():
+    with open('d:/project/dien-luc/core/views.py', 'r', encoding='utf-8') as f:
+        content = f.read()
+        
+    # Extract the dashboard function using regex (from @login_required \n def dashboard... to the next @login_required)
+    pattern = re.compile(r'@login_required\ndef dashboard\(request\):.*?(?=\n@login_required\n@permission_required)', re.DOTALL)
+    
+    new_dashboard_code = """@login_required
 def dashboard(request):
-    """Trang chủ hiển thị thống kê tổng quan theo Role."""
+    \"\"\"Trang chủ hiển thị thống kê tổng quan theo Role.\"\"\"
     from django.db.models import Count
     from django.db.models.functions import TruncDate, TruncMonth
     from django.utils import timezone
@@ -249,241 +250,14 @@ def dashboard(request):
     cache.set(cache_key, context, timeout=86400)
     template_name = context.pop('_template_name')
     return render(request, template_name, context)
-
-@login_required
-@permission_required('sheets.can_manage_users', raise_exception=True)
-def user_list(request):
-    from django.db.models import Q
-    search_query = request.GET.get('search', '')
+"""
     
-    users = User.objects.all().prefetch_related('groups').order_by('-date_joined')
-    if search_query:
-        users = users.filter(
-            Q(username__icontains=search_query) | 
-            Q(first_name__icontains=search_query) |
-            Q(email__icontains=search_query)
-        )
-        
-    groups = Group.objects.all()
+    new_content = pattern.sub(new_dashboard_code, content)
     
-    GROUP_NAMES_VI = {
-        "ADMIN": "Quản trị viên",
-        "DISPATCHER": "Điều phối viên (kiêm Rà soát)",
-        "STATION_LEADER": "Trưởng nhóm Trạm",
-        "TECHNICIAN": "Kỹ thuật viên",
-        "SUPERVISOR": "Giám sát trạm"
-    }
-    for g in groups:
-        g.vi_name = GROUP_NAMES_VI.get(g.name, g.name)
+    with open('d:/project/dien-luc/core/views.py', 'w', encoding='utf-8') as f:
+        f.write(new_content)
         
-    for u in users:
-        for g in u.groups.all():
-            g.vi_name = GROUP_NAMES_VI.get(g.name, g.name)
-    from django.core.paginator import Paginator
-    from stations.models import Station
-    paginator = Paginator(users, 30)
-    page_number = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page_number)
-            
-    return render(request, 'core/user_list.html', {
-        'users': page_obj,
-        'groups': groups,
-        'stations': Station.objects.all()
-    })
+    print("Dashboard updated successfully.")
 
-@login_required
-@permission_required('sheets.can_manage_users', raise_exception=True)
-def user_create(request):
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        email = request.POST.get('email')
-        first_name = request.POST.get('first_name')
-        password = request.POST.get('password')
-        group_id = request.POST.get('group')
-        station_id = request.POST.get('station_id')
-
-        if User.objects.filter(username=username).exists():
-            messages.error(request, 'Tên đăng nhập đã tồn tại!')
-        else:
-            user = User.objects.create_user(username=username, email=email, password=password, first_name=first_name)
-            if group_id:
-                group = Group.objects.get(id=group_id)
-                user.groups.add(group)
-            
-            if station_id:
-                from stations.models import Station
-                from core.models import UserProfile
-                try:
-                    station = Station.objects.get(id=station_id)
-                    profile, created = UserProfile.objects.get_or_create(user=user)
-                    profile.station = station
-                    profile.save()
-                except Exception as e:
-                    pass
-
-            messages.success(request, 'Tạo tài khoản thành công!')
-        return redirect('user_list')
-    return HttpResponse("Invalid request")
-
-@login_required
-@permission_required('sheets.can_manage_users', raise_exception=True)
-def user_update(request, user_id):
-    if request.method == 'POST':
-        from django.shortcuts import get_object_or_404
-        user = get_object_or_404(User, id=user_id)
-        email = request.POST.get('email')
-        first_name = request.POST.get('first_name')
-        password = request.POST.get('password')
-        group_id = request.POST.get('group')
-        station_id = request.POST.get('station_id')
-
-        user.email = email
-        user.first_name = first_name
-        if password:
-            user.set_password(password)
-        
-        if group_id:
-            group = Group.objects.get(id=group_id)
-            user.groups.clear()
-            user.groups.add(group)
-            
-            # Handle station id for specific groups
-            if station_id and group.name in ['TECHNICIAN', 'SUPERVISOR', 'STATION_LEADER']:
-                from stations.models import Station
-                from core.models import UserProfile
-                try:
-                    station = Station.objects.get(id=station_id)
-                    profile, created = UserProfile.objects.get_or_create(user=user)
-                    profile.station = station
-                    profile.save()
-                    print(f"Saved station {station} for {user.username}")
-                except Exception as e:
-                    print(f"Error saving station: {e}")
-            else:
-                from core.models import UserProfile
-                print(f"Clearing station for {user.username} (station_id: {station_id}, group: {group.name})")
-                UserProfile.objects.filter(user=user).update(station=None)
-        
-        user.save()
-        messages.success(request, 'Cập nhật tài khoản thành công!')
-        return redirect('user_list')
-    return HttpResponse("Invalid request")
-
-@login_required
-@permission_required('sheets.can_manage_users', raise_exception=True)
-def user_toggle_status(request, user_id):
-    if request.method == 'POST':
-        from django.shortcuts import get_object_or_404
-        user = get_object_or_404(User, id=user_id)
-        if user != request.user:
-            user.is_active = not user.is_active
-            user.save()
-            status_msg = "mở khóa" if user.is_active else "khóa"
-            messages.success(request, f'Đã {status_msg} tài khoản {user.username}.')
-        else:
-            messages.error(request, 'Bạn không thể tự khóa tài khoản của mình.')
-        return redirect('user_list')
-    return HttpResponse("Invalid request")
-
-@login_required
-@permission_required('sheets.can_manage_users', raise_exception=True)
-def role_matrix(request):
-    groups = Group.objects.all().order_by('id')
-    content_type = ContentType.objects.get_for_model(SettingSheet)
-    # Filter only custom permissions for the matrix
-    custom_perms_codenames = [
-        "can_view_stations", "can_view_checks", "can_manage_users", "can_create_sheet",
-        "can_approve_sheet", "can_dispatch_sheet", "can_execute_sheet",
-        "can_supervise_sheet"
-    ]
-    permissions = Permission.objects.filter(content_type=content_type, codename__in=custom_perms_codenames).order_by('id')
-    
-    PERM_NAMES_VI = {
-        "can_view_stations": "Truy cập Quản lý Trạm",
-        "can_view_checks": "Truy cập Kiểm tra Định kỳ",
-        "can_manage_users": "Quản trị Hệ thống (Tài khoản & Phân quyền)",
-        "can_create_sheet": "Tạo Phiếu chỉnh định & Chạy AI OCR",
-        "can_approve_sheet": "Nút: Phê duyệt Lệnh",
-        "can_dispatch_sheet": "Nút: Chuyển Trạm / Phân công Đội",
-        "can_execute_sheet": "Nút: Tiếp nhận & Ký Thực thi (KTV)",
-        "can_supervise_sheet": "Nút: Ký Nghiệm thu (Giám sát trạm)",
-    }
-    
-    GROUP_NAMES_VI = {
-        "ADMIN": "Quản trị viên",
-        "DISPATCHER": "Điều phối viên",
-        "STATION_LEADER": "Trưởng nhóm Trạm",
-        "TECHNICIAN": "Kỹ thuật viên",
-        "SUPERVISOR": "Giám sát trạm"
-    }
-    
-    # Inject vi_name directly into the permission object for easy template access
-    for perm in permissions:
-        perm.vi_name = PERM_NAMES_VI.get(perm.codename, perm.name)
-        
-    for group in groups:
-        group.vi_name = GROUP_NAMES_VI.get(group.name, group.name)
-    
-    # Pre-calculate matrix state
-    matrix = {}
-    for group in groups:
-        matrix[group.id] = list(group.permissions.values_list('id', flat=True))
-
-    return render(request, 'core/role_matrix.html', {
-        'groups': groups,
-        'permissions': permissions,
-        'matrix': matrix
-    })
-
-@login_required
-@permission_required('sheets.can_manage_users', raise_exception=True)
-def role_matrix_update(request):
-    if request.method == 'POST':
-        group_id = request.POST.get('group_id')
-        perm_id = request.POST.get('perm_id')
-        action = request.POST.get('action') # 'add' or 'remove'
-        
-        group = Group.objects.get(id=group_id)
-        perm = Permission.objects.get(id=perm_id)
-        
-        if action == 'add':
-            group.permissions.add(perm)
-        else:
-            group.permissions.remove(perm)
-            
-        return HttpResponse("""<i class="fas fa-check text-green-500"></i>""", status=200)
-    return HttpResponse("Error", status=400)
-
-@login_required
-def dispatcher_routed_relays(request):
-    """Trang xem tất cả các rơ-le có phiếu mới nhất đã được duyệt về trạm."""
-    if not request.user.groups.filter(name='DISPATCHER').exists() and not request.user.is_superuser:
-        from django.core.exceptions import PermissionDenied
-        raise PermissionDenied
-        
-    from sheets.models import SettingSheet
-    # Lấy các phiếu có rơ-le và đã được Admin phê duyệt (COMPLETED)
-    all_routed_sheets = SettingSheet.objects.filter(
-        status='COMPLETED',
-        relay__isnull=False
-    )
-    if not request.user.is_superuser:
-        all_routed_sheets = all_routed_sheets.filter(created_by=request.user)
-        
-    all_routed_sheets = all_routed_sheets.select_related('relay', 'relay__bay', 'relay__bay__station').order_by('-created_at')
-    
-    # Lọc unique rơ-le (chỉ lấy phiếu mới nhất của mỗi rơ-le đã duyệt)
-    seen_relays = set()
-    unique_routed_sheets = []
-    for sheet in all_routed_sheets:
-        if sheet.relay_id not in seen_relays:
-            unique_routed_sheets.append(sheet)
-            seen_relays.add(sheet.relay_id)
-            
-    # Phân trang
-    from django.core.paginator import Paginator
-    paginator = Paginator(unique_routed_sheets, 40)
-    page_number = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page_number)
-    
-    return render(request, 'core/routed_relays.html', {'sheets': page_obj})
+if __name__ == '__main__':
+    update_views()

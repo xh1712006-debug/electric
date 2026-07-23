@@ -39,7 +39,7 @@
                 {% include 'stations/partials/relay_list.html' with relays=bay.relays.all %}
             {% else %}
                 <div class="text-center py-6 text-slate-400 htmx-indicator">
-                    <i class="fas fa-spinner fa-spin text-xl mb-2"></i>
+                    <i class="fas fa-spinner animate-spin text-xl mb-2 inline-block"></i>
                     <p class="text-xs">Đang tải Rơ-le...</p>
                 </div>
             {% endif %}

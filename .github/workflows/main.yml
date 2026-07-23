@@ -39,11 +39,6 @@ jobs:
           python manage.py check
           # python manage.py test
 
-      # 3. Đóng gói Docker Image ngay trên máy ảo Ubuntu
-      - name: Build Docker Image Locally
-        run: |
-          docker build -t ${{ env.APP_NAME }}:latest .
-
       # 4. Cài đặt Docker Compose Plugin nếu chưa có
       - name: Ensure Docker Compose Plugin
         run: |
@@ -72,15 +67,15 @@ jobs:
           POSTGRES_PASSWORD=999999
           EOF
 
-      # 5. Giao tiếp qua mạng LAN: Nén và đẩy trực tiếp sang Docker Windows để chạy
-      - name: Stream Docker Image to Windows & Restart App
+      # 5. Giao tiếp qua mạng LAN: Ra lệnh cho Windows tự Build và Restart
+      - name: Build and Restart App directly on Windows Docker
         run: |
-          echo "Đang truyền Docker Image sang Windows qua mạng LAN..."
-          # Nén image ở Ubuntu và đẩy sang Docker Windows
-          docker save ${{ env.APP_NAME }}:latest | docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 load
+          echo "Đang ra lệnh cho Windows tự build Docker Image..."
+          # Đẩy source code sang Windows và Build Image trực tiếp trên máy Windows
+          docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 build -t ${{ env.APP_NAME }}:latest .
           
           echo "Đang khởi động lại Container web trên máy Windows..."
-          # Dùng docker compose (plugin) qua TCP để cập nhật app (tên service trong file docker-compose là 'web')
+          # Dùng docker compose (plugin) qua TCP để cập nhật app
           docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 compose up -d --no-deps web
             
           # Dọn dẹp bộ nhớ Docker dư thừa trên Windows

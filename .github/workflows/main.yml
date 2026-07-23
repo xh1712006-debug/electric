@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main # Tự động kích hoạt khi push code vào nhánh main
+      # Kích hoạt lại luồng CI/CD
 
 jobs:
   ci-and-deploy:

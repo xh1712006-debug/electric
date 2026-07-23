@@ -22,7 +22,7 @@ services:
       - redis_data:/data
 
   web:
-    image: dien-luc-web:latest
+    image: electric-web:latest
     build: .
     container_name: rms_web
     restart: always

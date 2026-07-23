@@ -4,7 +4,8 @@ on:
   push:
     branches:
       - main # Tự động kích hoạt khi push code vào nhánh main
-      # Kích hoạt lại luồng CI/CD
+  workflow_dispatch: # Cho phép kích hoạt thủ công bằng nút "Run workflow" trên GitHub
+
 
 jobs:
   ci-and-deploy:

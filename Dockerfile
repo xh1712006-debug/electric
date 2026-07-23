@@ -15,10 +15,11 @@ RUN apt-get update \
 # Đặt thư mục làm việc trong container
 WORKDIR /app
 
-# Sao chép requirements.txt và cài đặt thư viện
+# Sao chép requirements.txt, thư mục vendor và cài đặt thư viện offline
 COPY requirements.txt /app/
+COPY vendor /app/vendor/
 RUN pip install --upgrade pip \
-    && pip install -r requirements.txt
+    && pip install --no-index --find-links=/app/vendor -r requirements.txt
 
 # Sao chép toàn bộ mã nguồn dự án vào container
 COPY . /app/

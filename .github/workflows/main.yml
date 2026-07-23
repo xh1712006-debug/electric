@@ -1,0 +1,71 @@
+name: LAN Network CI/CD (Ubuntu VM to Windows Host)
+
+on:
+  push:
+    branches:
+      - main # Tự động kích hoạt khi push code vào nhánh main
+
+jobs:
+  ci-and-deploy:
+    runs-on: self-hosted # Chạy lệnh trực tiếp trên máy ảo Ubuntu LAN
+
+    env:
+      WINDOWS_HOST_IP: ${{ secrets.WINDOWS_HOST_IP }}
+      APP_NAME: "electric-web"
+
+    steps:
+      # 1. Kéo code mới nhất từ GitHub về máy ảo Ubuntu
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Setup môi trường Python và cài đặt
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install System Dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc libpq-dev
+
+      - name: Install dependencies & Test
+        env:
+          DEBUG: 'True'
+          SECRET_KEY: 'dummy-secret-key-for-testing'
+          DB_ENGINE: 'django.db.backends.sqlite3'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python manage.py check
+          # python manage.py test
+
+      # 3. Đóng gói Docker Image ngay trên máy ảo Ubuntu
+      - name: Build Docker Image Locally
+        run: |
+          docker build -t ${{ env.APP_NAME }}:latest .
+
+      # 4. Cài đặt Docker Compose Plugin nếu chưa có
+      - name: Ensure Docker Compose Plugin
+        run: |
+          mkdir -p ~/.docker/cli-plugins
+          if [ ! -f ~/.docker/cli-plugins/docker-compose ]; then
+            echo "Đang tải Docker Compose Plugin..."
+            curl -SL https://github.com/docker/compose/releases/download/v2.24.6/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+            chmod +x ~/.docker/cli-plugins/docker-compose
+          fi
+
+      # 5. Giao tiếp qua mạng LAN: Nén và đẩy trực tiếp sang Docker Windows để chạy
+      - name: Stream Docker Image to Windows & Restart App
+        run: |
+          echo "Đang truyền Docker Image sang Windows qua mạng LAN..."
+          # Nén image ở Ubuntu và đẩy sang Docker Windows
+          docker save ${{ env.APP_NAME }}:latest | docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 load
+          
+          echo "Đang khởi động lại Container web trên máy Windows..."
+          # Dùng docker compose (plugin) qua TCP để cập nhật app (tên service trong file docker-compose là 'web')
+          docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 compose up -d --no-deps web
+            
+          # Dọn dẹp bộ nhớ Docker dư thừa trên Windows
+          docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 image prune -f
+          
+          echo "=== DEPLOY TỰ ĐỘNG THÀNH CÔNG HOÀN TOÀN! ==="

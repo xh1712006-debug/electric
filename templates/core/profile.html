@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block header_title %}Thông tin tài khoản{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-6">
+    
+    <!-- Profile Header Card -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6 relative">
+        <div class="h-32 bg-gradient-to-r from-brand-600 to-indigo-700"></div>
+        <div class="px-8 pb-8 relative">
+            <div class="flex flex-col md:flex-row items-start md:items-end gap-6 -mt-12">
+                <div class="w-24 h-24 rounded-2xl bg-white p-1.5 shadow-lg relative">
+                    <div class="w-full h-full rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-4xl uppercase">
+                        {{ user.username|make_list|first }}
+                    </div>
+                    {% if user.is_active %}
+                    <div class="absolute bottom-1.5 right-1.5 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full" title="Đang hoạt động"></div>
+                    {% endif %}
+                </div>
+                <div class="flex-1 pb-1">
+                    <h1 class="text-2xl font-bold text-slate-800">{{ user.first_name|default:user.username }}</h1>
+                    <p class="text-slate-500 text-sm mt-0.5">@{{ user.username }}</p>
+                </div>
+                <div class="pb-2 w-full md:w-auto">
+                    <button class="w-full md:w-auto px-5 py-2.5 bg-brand-50 text-brand-700 hover:bg-brand-100 font-semibold text-sm rounded-xl transition-colors border border-brand-200">
+                        <i class="fas fa-key mr-2"></i> Đổi mật khẩu
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Left Col: Details -->
+        <div class="md:col-span-2 space-y-6">
+            
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-base font-bold text-slate-800 mb-5 flex items-center gap-2">
+                    <i class="fas fa-id-card text-brand-500"></i> Thông tin cơ bản
+                </h2>
+                
+                <div class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 border-b border-slate-100 pb-4">
+                        <div class="text-sm font-medium text-slate-500">Họ và tên</div>
+                        <div class="text-sm font-semibold text-slate-800 sm:col-span-2">{{ user.first_name|default:"Chưa cập nhật" }}</div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 border-b border-slate-100 pb-4">
+                        <div class="text-sm font-medium text-slate-500">Email</div>
+                        <div class="text-sm font-semibold text-slate-800 sm:col-span-2">{{ user.email|default:"Chưa cập nhật" }}</div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 border-b border-slate-100 pb-4">
+                        <div class="text-sm font-medium text-slate-500">Trạng thái</div>
+                        <div class="text-sm font-semibold sm:col-span-2">
+                            {% if user.is_active %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Đang hoạt động
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Bị khóa
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 pt-1">
+                        <div class="text-sm font-medium text-slate-500">Ngày tham gia</div>
+                        <div class="text-sm font-semibold text-slate-800 sm:col-span-2">{{ user.date_joined|date:"d/m/Y H:i" }}</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Col: Roles & Permissions -->
+        <div class="space-y-6">
+            
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-base font-bold text-slate-800 mb-5 flex items-center gap-2">
+                    <i class="fas fa-shield-halved text-brand-500"></i> Vai trò & Đơn vị
+                </h2>
+                
+                <div class="space-y-5">
+                    <div>
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Vai trò Hệ thống</div>
+                        <div class="flex flex-wrap gap-2">
+                            {% if user.is_superuser %}
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 text-xs font-bold border border-purple-200">
+                                <i class="fas fa-crown text-purple-500"></i> Quản trị tối cao
+                            </span>
+                            {% endif %}
+                            
+                            {% for group in user.groups.all %}
+                            <span class="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold border border-blue-200">
+                                {{ group.name }}
+                            </span>
+                            {% empty %}
+                                {% if not user.is_superuser %}
+                                <span class="text-sm text-slate-500 italic">Chưa được cấp vai trò nào.</span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Đơn vị / Trạm Công tác</div>
+                        {% if user.userprofile and user.userprofile.station %}
+                        <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                            <div class="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 text-slate-400">
+                                <i class="fas fa-building"></i>
+                            </div>
+                            <div>
+                                <div class="text-sm font-bold text-slate-800">{{ user.userprofile.station.station_name }}</div>
+                                <div class="text-xs font-medium text-slate-500 mt-0.5">Mã: {{ user.userprofile.station.station_code }}</div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-sm text-slate-500 italic p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                            Không thuộc Trạm công tác nào.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -485,5 +485,9 @@ def dispatcher_routed_relays(request):
     paginator = Paginator(unique_routed_sheets, 40)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
-    
     return render(request, 'core/routed_relays.html', {'sheets': page_obj})
+
+@login_required
+def profile(request):
+    """Trang xem thông tin tài khoản cá nhân."""
+    return render(request, 'core/profile.html')

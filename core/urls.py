@@ -9,4 +9,5 @@ urlpatterns = [
     path('roles/', views.role_matrix, name='role_matrix'),
     path('roles/update/', views.role_matrix_update, name='role_matrix_update'),
     path('dispatcher/routed-relays/', views.dispatcher_routed_relays, name='dispatcher_routed_relays'),
+    path('profile/', views.profile, name='profile'),
 ]

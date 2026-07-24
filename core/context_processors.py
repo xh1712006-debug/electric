@@ -13,14 +13,6 @@ def notification_badges(request):
         
     user = request.user
     
-    # Caching key dựa trên user ID và phiên bản cache toàn cục
-    cache_version = cache.get('sheet_list_version', 1)
-    cache_key = f"notification_badges_v{cache_version}_user_{user.id}"
-    
-    cached_badges = cache.get(cache_key)
-    if cached_badges:
-        return {'badges': cached_badges}
-
     badges = {
         'pending_admin': 0, 'issued': 0, 'dispatcher_in_progress': 0,
         'routed': 0, 'station_in_progress': 0, 'station_pending_admin': 0,
@@ -68,5 +60,4 @@ def notification_badges(request):
         badges['transferred'] = base_qs.filter(status='TRANSFERRED').count()
         badges['technician_received'] = base_qs.filter(status='RECEIVED').count()
 
-    cache.set(cache_key, badges, timeout=86400)
     return {'badges': badges}

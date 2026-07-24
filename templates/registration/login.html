@@ -67,13 +67,13 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans">
+<body class="min-h-screen flex flex-col p-4 sm:p-8 relative overflow-x-hidden font-sans text-slate-800">
     
     <!-- Background Decor -->
     <div class="decorative-blob w-96 h-96 bg-blue-200 top-0 left-0 -translate-x-1/2 -translate-y-1/2"></div>
     <div class="decorative-blob w-[500px] h-[500px] bg-indigo-100 bottom-0 right-0 translate-x-1/3 translate-y-1/3"></div>
 
-    <div class="w-full max-w-4xl bg-white rounded-[2rem] overflow-hidden flex flex-col md:flex-row relative z-10 login-card border border-slate-100">
+    <div class="m-auto w-full max-w-4xl bg-white rounded-[2rem] overflow-hidden flex flex-col md:flex-row relative z-10 login-card border border-slate-100 shadow-xl">
         
         <!-- Left Side: Branding -->
         <div class="w-full md:w-5/12 bg-gradient-to-br from-brand-900 to-brand-700 p-10 flex flex-col justify-between text-white relative overflow-hidden">
@@ -171,35 +171,25 @@
             <div class="mt-6 border-t border-slate-100 pt-6">
                 <div class="mb-4 flex items-center gap-3">
                     <div class="h-px bg-slate-200 flex-1"></div>
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Đăng nhập nhanh (Demo)</span>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Đăng nhập nhanh (Test Data)</span>
                     <div class="h-px bg-slate-200 flex-1"></div>
                 </div>
                 
-                <div class="flex flex-wrap justify-center gap-2">
-                    <button type="button" onclick="quickLogin('admin', 'admin')" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-brand-300 hover:bg-brand-50 transition-colors group flex flex-col items-center">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase group-hover:text-brand-600">Quản trị</span>
-                        <span class="text-xs font-semibold text-slate-800">admin</span>
+                <div class="flex flex-col gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div class="flex gap-2">
+                        <select id="quickRole" class="flex-1 px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                            <option value="admin">Quản trị (admin)</option>
+                            <option value="dispatcher">Điều độ (dispatcher)</option>
+                            <option value="station">Trưởng trạm (station)</option>
+                            <option value="supervisor">Giám sát (supervisor)</option>
+                            <option value="technician">Kỹ thuật (technician)</option>
+                        </select>
+                        <input type="number" id="quickId" min="1" max="45" value="1" class="w-20 px-3 py-2 rounded-lg border border-slate-300 text-sm text-center focus:ring-2 focus:ring-brand-500 outline-none" placeholder="ID (1-45)">
+                    </div>
+                    <button type="button" onclick="executeQuickLogin()" class="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-lg transition-colors">
+                        Đăng nhập bằng tài khoản Test
                     </button>
-                    
-                    <button type="button" onclick="quickLogin('dispatcher_1', '123456')" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-amber-300 hover:bg-amber-50 transition-colors group flex flex-col items-center">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase group-hover:text-amber-600">Điều độ</span>
-                        <span class="text-xs font-semibold text-slate-800">dispatcher_1</span>
-                    </button>
-                    
-                    <button type="button" onclick="quickLogin('station_leader_1', '123456')" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 transition-colors group flex flex-col items-center">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase group-hover:text-emerald-600">Trưởng trạm</span>
-                        <span class="text-xs font-semibold text-slate-800">station_leader_1</span>
-                    </button>
-                    
-                    <button type="button" onclick="quickLogin('supervisor_1', '123456')" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-purple-300 hover:bg-purple-50 transition-colors group flex flex-col items-center">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase group-hover:text-purple-600">Giám sát</span>
-                        <span class="text-xs font-semibold text-slate-800">supervisor_1</span>
-                    </button>
-                    
-                    <button type="button" onclick="quickLogin('technician_1', '123456')" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-colors group flex flex-col items-center">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase group-hover:text-blue-600">Kỹ thuật</span>
-                        <span class="text-xs font-semibold text-slate-800">technician_1</span>
-                    </button>
+                    <p class="text-[10px] text-center text-slate-500">Mật khẩu mặc định cho tất cả tài khoản test là 123456</p>
                 </div>
             </div>
 
@@ -207,11 +197,19 @@
     </div>
 
     <script>
-        function quickLogin(username, password) {
-            document.getElementById('username').value = username;
-            document.getElementById('password').value = password;
+        function executeQuickLogin() {
+            const role = document.getElementById('quickRole').value;
+            const idInput = document.getElementById('quickId').value;
+            let id = parseInt(idInput);
+            if(isNaN(id) || id < 1) id = 1;
+            if(id > 45) id = 45;
             
-            // Optional: highlight inputs before submitting to show user what happened
+            const paddedId = id.toString().padStart(3, '0');
+            const username = `${role}_${paddedId}`;
+            
+            document.getElementById('username').value = username;
+            document.getElementById('password').value = '123456';
+            
             document.getElementById('username').classList.add('ring-2', 'ring-brand-500', 'bg-brand-50');
             document.getElementById('password').classList.add('ring-2', 'ring-brand-500', 'bg-brand-50');
             

@@ -16,10 +16,10 @@ def create_mock_data():
     # 1. Get some users
     try:
         admin_user = User.objects.get(username='admin')
-        dispatcher = User.objects.filter(groups__name='DISPATCHER').first() or admin_user
-        station_leader = User.objects.filter(groups__name='STATION_LEADER').first() or admin_user
-        technician = User.objects.filter(groups__name='TECHNICIAN').first() or admin_user
-        supervisor = User.objects.filter(groups__name='SUPERVISOR').first() or admin_user
+        dispatcher = User.objects.get(username='dispatcher_1')
+        station_leader = User.objects.get(username='station_leader_1')
+        technician = User.objects.get(username='technician_1')
+        supervisor = User.objects.get(username='supervisor_1')
     except Exception:
         admin_user = User.objects.filter(is_superuser=True).first()
         dispatcher = station_leader = technician = supervisor = admin_user

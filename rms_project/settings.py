@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+import urllib.parse
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -224,7 +225,9 @@ CHANNEL_LAYERS = {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
             "hosts": [{
-                "address": os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+                "host": urllib.parse.urlparse(os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')).hostname or '127.0.0.1',
+                "port": urllib.parse.urlparse(os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')).port or 6379,
+                "db": int((urllib.parse.urlparse(os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')).path or '/1').strip('/')),
                 "socket_keepalive": True,
                 "socket_timeout": None,
                 "socket_connect_timeout": 10,

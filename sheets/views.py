@@ -23,7 +23,7 @@ def sheet_list(request):
     cache_key = hashlib.md5(key_string.encode('utf-8')).hexdigest()
     
     cached_html = cache.get(cache_key)
-    if cached_html:
+    if cached_html and isinstance(cached_html, str):
         from django.http import HttpResponse
         return HttpResponse(cached_html)
         
@@ -97,7 +97,7 @@ def my_sheets(request):
     cache_key = hashlib.md5(key_string.encode('utf-8')).hexdigest()
     
     cached_html = cache.get(cache_key)
-    if cached_html:
+    if cached_html and isinstance(cached_html, str):
         from django.http import HttpResponse
         return HttpResponse(cached_html)
 
@@ -146,7 +146,7 @@ def updated_sheets(request):
     cache_key = hashlib.md5(key_string.encode('utf-8')).hexdigest()
     
     cached_html = cache.get(cache_key)
-    if cached_html:
+    if cached_html and isinstance(cached_html, str):
         from django.http import HttpResponse
         return HttpResponse(cached_html)
 

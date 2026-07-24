@@ -154,6 +154,7 @@ DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = ['https://electricity.nextdev.name.vn', 'http://electricity.nextdev.name.vn']
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
 
@@ -222,15 +223,7 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [{
-                "host": os.getenv('REDIS_HOST', '127.0.0.1'),
-                "port": int(os.getenv('REDIS_PORT', 6379)),
-                "db": 1,
-                "socket_keepalive": True,
-                "socket_timeout": None,
-                "socket_connect_timeout": 10,
-                "retry_on_timeout": True,
-            }],
+            "hosts": [os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')],
             "capacity": 1500,
             "expiry": 10,
         },

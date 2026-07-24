@@ -178,7 +178,7 @@
         }
     </style>
 </head>
-<body class="text-slate-800 h-screen flex overflow-hidden">
+<body class="text-slate-800 h-screen flex overflow-hidden" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 
     <!-- ===== SIDEBAR ===== -->
     <aside id="sidebar" class="w-60 flex flex-col flex-shrink-0">

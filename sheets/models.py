@@ -15,7 +15,7 @@ class SettingSheet(models.Model):
     sheet_code = models.CharField(max_length=100, unique=True)
     title = models.CharField(max_length=255, null=True, blank=True)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='DRAFT')
-    scan_file = models.FileField(upload_to='scans/')
+    scan_file = models.FileField(upload_to='scans/', blank=True, null=True)
     
     created_by = models.ForeignKey('auth.User', related_name='created_sheets', on_delete=models.SET_NULL, null=True)
     assigned_to = models.ForeignKey('auth.User', related_name='assigned_sheets', on_delete=models.SET_NULL, null=True, blank=True)
@@ -45,6 +45,12 @@ class SettingSheet(models.Model):
 
     def __str__(self):
         return f"{self.sheet_code} - {self.title}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        from django.core.cache import cache
+        import time
+        cache.set('sheet_list_version', int(time.time()))
 
     class Meta:
         ordering = ['-created_at']

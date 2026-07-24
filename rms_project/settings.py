@@ -171,6 +171,7 @@ INSTALLED_APPS = [
     'stations',
     'sheets',
     'checks',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -219,9 +220,30 @@ SESSION_CACHE_ALIAS = "default"
 
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [{
+                "host": os.getenv('REDIS_HOST', '127.0.0.1'),
+                "port": int(os.getenv('REDIS_PORT', 6379)),
+                "db": 1,
+                "socket_keepalive": True,
+                "socket_timeout": None,
+                "socket_connect_timeout": 10,
+                "retry_on_timeout": True,
+            }],
+            "capacity": 1500,
+            "expiry": 10,
+        },
     },
 }
+
+# Celery Configuration Options
+CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')
+CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'
 
 
 # Database

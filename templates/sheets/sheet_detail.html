@@ -422,7 +422,7 @@
                 <div class="p-0">
                     <div class="p-5 border-b border-slate-200 bg-white sticky top-0 z-10 shadow-sm flex justify-between items-center">
                         <h3 class="text-sm font-semibold text-slate-800">Kết quả So sánh Thông số</h3>
-                        {% if has_previous %}
+                        {% if previous_sheet %}
                             <a href="{% url 'sheet_detail' previous_sheet.pk %}" class="text-xs text-blue-600 hover:underline" target="_blank">
                                 <i class="fas fa-external-link-alt mr-1"></i> Xem phiếu cũ: {{ previous_sheet.sheet_code }}
                             </a>

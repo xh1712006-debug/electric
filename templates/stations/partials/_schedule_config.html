@@ -1,5 +1,5 @@
-<form hx-post="{% url 'update_relay_schedule' relay.id %}" hx-target="#schedule-config-container" hx-swap="innerHTML" class="flex flex-col gap-3">
-    <div class="flex justify-between items-center">
+<form hx-post="{% url 'update_relay_schedule' relay.id %}" hx-target="this" hx-swap="outerHTML" class="flex flex-col gap-4" x-data="{ submitting: false }" @submit="submitting = true" @htmx:after-request="if($event.detail.successful) { submitting = false; document.getElementById('schedule-modal').classList.add('hidden'); } else { submitting = false; }">
+    <div class="flex justify-between items-center border-b border-slate-100 pb-3">
         <h3 class="font-bold text-slate-800"><i class="far fa-calendar-alt text-blue-500 mr-1"></i> Lịch trình tự động</h3>
         <label class="relative inline-flex items-center cursor-pointer">
           <input type="checkbox" name="enabled" class="sr-only peer" {% if relay.auto_check_enabled %}checked{% endif %} onchange="this.form.requestSubmit()">
@@ -8,30 +8,62 @@
         </label>
     </div>
     
-    <div class="flex items-center gap-2">
-        <span class="text-sm text-slate-600">Kiểm tra mỗi:</span>
-        <input type="number" name="interval_value" value="{{ relay.check_interval_value }}" min="1" class="w-16 px-2 py-1 text-sm border border-slate-300 rounded focus:ring-blue-500 focus:border-blue-500" {% if not relay.auto_check_enabled %}disabled{% endif %}>
-        <select name="interval_unit" class="px-2 py-1 text-sm border border-slate-300 rounded focus:ring-blue-500 focus:border-blue-500" {% if not relay.auto_check_enabled %}disabled{% endif %}>
-            <option value="s" {% if relay.check_interval_unit == 's' %}selected{% endif %}>Giây</option>
-            <option value="m" {% if relay.check_interval_unit == 'm' %}selected{% endif %}>Phút</option>
-            <option value="h" {% if relay.check_interval_unit == 'h' %}selected{% endif %}>Giờ</option>
-            <option value="d" {% if relay.check_interval_unit == 'd' %}selected{% endif %}>Ngày</option>
-            <option value="M" {% if relay.check_interval_unit == 'M' %}selected{% endif %}>Tháng</option>
-            <option value="y" {% if relay.check_interval_unit == 'y' %}selected{% endif %}>Năm</option>
-        </select>
-        <button type="submit" class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded border border-blue-200 text-sm font-semibold transition-colors ml-auto" {% if not relay.auto_check_enabled %}disabled{% endif %}>
-            Cập nhật
+    <div x-data="{ mode: '{% if relay.check_interval_unit == 'e' %}exact{% else %}interval{% endif %}' }" class="flex flex-col gap-3">
+        <div class="flex gap-4 mb-1">
+            <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="schedule_mode" value="interval" x-model="mode" class="text-blue-600 focus:ring-blue-500" {% if not relay.auto_check_enabled %}disabled{% endif %}>
+                <span class="text-sm text-slate-600 font-medium">Lặp lại định kỳ</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="schedule_mode" value="exact" x-model="mode" class="text-blue-600 focus:ring-blue-500" {% if not relay.auto_check_enabled %}disabled{% endif %}>
+                <span class="text-sm text-slate-600 font-medium">Hẹn giờ cụ thể (1 lần)</span>
+            </label>
+        </div>
+        
+        <!-- Chế độ Định kỳ -->
+        <div x-show="mode === 'interval'" class="flex items-center gap-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
+            <span class="text-sm text-slate-600 whitespace-nowrap">Kiểm tra mỗi:</span>
+            <input type="number" name="interval_value" value="{{ relay.check_interval_value|default:1 }}" min="1" class="w-16 px-2 py-1 text-sm border border-slate-300 rounded focus:ring-blue-500 focus:border-blue-500" {% if not relay.auto_check_enabled %}disabled{% endif %}>
+            <select name="interval_unit" class="px-2 py-1 text-sm border border-slate-300 rounded focus:ring-blue-500 focus:border-blue-500" {% if not relay.auto_check_enabled %}disabled{% endif %}>
+                <option value="s" {% if relay.check_interval_unit == 's' %}selected{% endif %}>Giây</option>
+                <option value="m" {% if relay.check_interval_unit == 'm' %}selected{% endif %}>Phút</option>
+                <option value="h" {% if relay.check_interval_unit == 'h' %}selected{% endif %}>Giờ</option>
+                <option value="d" {% if relay.check_interval_unit == 'd' %}selected{% endif %}>Ngày</option>
+                <option value="M" {% if relay.check_interval_unit == 'M' %}selected{% endif %}>Tháng</option>
+                <option value="y" {% if relay.check_interval_unit == 'y' %}selected{% endif %}>Năm</option>
+            </select>
+        </div>
+        
+        <!-- Chế độ Cụ thể -->
+        <div x-show="mode === 'exact'" x-cloak style="display: none;" class="flex items-center gap-2 bg-slate-50 p-3 rounded-lg border border-slate-100" x-init="$el.style.display = (mode === 'exact' ? 'flex' : 'none')">
+            <span class="text-sm text-slate-600 whitespace-nowrap">Lúc:</span>
+            <input type="datetime-local" name="exact_datetime" 
+                value="{% if relay.check_interval_unit == 'e' and relay.next_check_at %}{{ relay.next_check_at|date:'Y-m-d\TH:i' }}{% endif %}" 
+                class="flex-1 px-2 py-1 text-sm border border-slate-300 rounded focus:ring-blue-500 focus:border-blue-500" {% if not relay.auto_check_enabled %}disabled{% endif %}>
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm flex justify-center items-center gap-2 mt-1 relative overflow-hidden" {% if not relay.auto_check_enabled %}disabled{% endif %} :class="{'opacity-75 cursor-wait': submitting}">
+            <i class="fas fa-save" x-show="!submitting"></i>
+            <i class="fas fa-spinner fa-spin" x-show="submitting" x-cloak style="display: none;"></i>
+            <span x-text="submitting ? 'Đang lưu...' : 'Lưu Cấu Hình'"></span>
         </button>
+        {% if request.method == 'POST' %}
+        <div x-data="{ show: true }" x-show="show" x-transition.opacity x-init="setTimeout(() => show = false, 3000)" class="text-center text-emerald-600 text-sm font-bold mt-1">
+            <i class="fas fa-check-circle"></i> Đã lưu cấu hình thành công!
+        </div>
+        {% endif %}
     </div>
     
     {% if relay.next_check_at and relay.auto_check_enabled %}
-    <div class="mt-1 bg-green-50 text-green-700 px-3 py-2 rounded text-xs border border-green-100 flex items-center">
-        <i class="fas fa-satellite-dish mr-2 animate-pulse"></i>
-        <span>Đang chờ gọi API lần tới vào lúc: <strong>{{ relay.next_check_at|date:"H:i:s d/m/Y" }}</strong></span>
+    <div class="mt-2 bg-green-50 text-green-700 px-3 py-2.5 rounded-lg text-sm border border-green-200 flex items-center shadow-sm">
+        <i class="fas fa-satellite-dish mr-2 animate-pulse text-green-500"></i>
+        <span>Đang chờ gọi API lần tới vào lúc: <br><strong class="text-green-800">{{ relay.next_check_at|date:"H:i:s - d/m/Y" }}</strong></span>
     </div>
     {% elif not relay.auto_check_enabled %}
-    <div class="mt-1 text-slate-400 text-xs italic">
+    <div class="mt-2 text-slate-400 text-sm italic text-center p-2 bg-slate-50 rounded-lg border border-slate-100">
         (Bật công tắc để bắt đầu chạy lịch trình)
     </div>
     {% endif %}
 </form>
+
+

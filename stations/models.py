@@ -30,12 +30,17 @@ class Relay(models.Model):
         ('d', 'Ngày'),
         ('M', 'Tháng'),
         ('y', 'Năm'),
+        ('e', 'Cụ thể (1 lần)'),
     ]
-    auto_check_enabled = models.BooleanField(default=False)
+    auto_check_enabled = models.BooleanField(default=False, db_index=True)
     check_interval_value = models.IntegerField(default=1)
     check_interval_unit = models.CharField(max_length=1, choices=UNIT_CHOICES, default='h')
     last_checked_at = models.DateTimeField(null=True, blank=True)
-    next_check_at = models.DateTimeField(null=True, blank=True)
+    next_check_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    
+    # Workflow fields
+    is_paused_for_correction = models.BooleanField(default=False, db_index=True)
+    paused_schedule_data = models.JSONField(null=True, blank=True)
 
     def calculate_next_check(self, from_time=None):
         import datetime
@@ -47,6 +52,9 @@ class Relay(models.Model):
         val = self.check_interval_value
         unit = self.check_interval_unit
         
+        if unit == 'e':
+            return None # Chế độ 1 lần không tự tính toán chu kỳ lặp lại
+            
         if unit == 's':
             return from_time + datetime.timedelta(seconds=val)
         elif unit == 'm':
@@ -107,3 +115,48 @@ class RelayAutoCheckLog(models.Model):
 
     def __str__(self):
         return f"Check {self.relay.relay_code} at {self.checked_at.strftime('%d/%m/%Y %H:%M:%S')}"
+
+class CorrectionTicket(models.Model):
+    STATUS_CHOICES = [
+        ('DISPATCHER', 'Phân phối viên xử lý'),
+        ('STATION', 'Trạm xử lý'),
+        ('TECH', 'Kỹ thuật viên xử lý'),
+        ('SUPERVISOR', 'Giám sát ký'),
+        ('ADMIN', 'Admin ký duyệt'),
+        ('RESOLVED', 'Hoàn tất'),
+    ]
+    relay = models.ForeignKey(Relay, related_name='correction_tickets', on_delete=models.CASCADE)
+    log = models.ForeignKey(RelayAutoCheckLog, on_delete=models.SET_NULL, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DISPATCHER')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def current_step_idx(self):
+        flow = ['DISPATCHER', 'STATION', 'TECH', 'SUPERVISOR', 'ADMIN', 'RESOLVED']
+        try:
+            return flow.index(self.status)
+        except ValueError:
+            return 0
+            
+    def get_flow_steps(self):
+        return [
+            ('DISPATCHER', 'Phân phối', 0),
+            ('STATION', 'Trạm', 1),
+            ('TECH', 'Kỹ thuật', 2),
+            ('SUPERVISOR', 'Giám sát', 3),
+            ('ADMIN', 'Admin', 4),
+        ]
+
+class TicketSignature(models.Model):
+    ticket = models.ForeignKey(CorrectionTicket, related_name='signatures', on_delete=models.CASCADE)
+    signer_name = models.CharField(max_length=100)
+    role = models.CharField(max_length=50)
+    signed_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, null=True)
+    signature_hash = models.CharField(max_length=256)
+
+    class Meta:
+        ordering = ['signed_at']

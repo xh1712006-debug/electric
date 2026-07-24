@@ -22,9 +22,10 @@ def sheet_list(request):
     key_string = f"sheet_list_v{cache_version}_user_{request.user.id}_q_{search_query}_s_{status_filter}_p_{page_number}"
     cache_key = hashlib.md5(key_string.encode('utf-8')).hexdigest()
     
-    cached_context = cache.get(cache_key)
-    if cached_context:
-        return render(request, 'sheets/sheet_list.html', cached_context)
+    cached_html = cache.get(cache_key)
+    if cached_html:
+        from django.http import HttpResponse
+        return HttpResponse(cached_html)
         
     sheets = SettingSheet.objects.select_related('created_by', 'relay', 'relay__bay', 'relay__bay__station', 'station').all().order_by('-created_at')
     
@@ -63,6 +64,12 @@ def sheet_list(request):
         list_title = 'Hồ sơ Đã Ban hành'
     elif status_filter == 'PENDING_ADMIN_APPROVAL':
         list_title = 'Phiếu Chờ Ký Duyệt'
+    elif status_filter == 'ROUTED_TO_STATION':
+        list_title = 'Phiếu Chờ Phân Công'
+    elif status_filter == 'RECEIVED':
+        list_title = 'Phiếu Đang Thi Công'
+    elif status_filter == 'ISSUED':
+        list_title = 'Phiếu Chờ Rà soát'
 
     context = {
         'sheets': page_obj,
@@ -71,9 +78,12 @@ def sheet_list(request):
         'list_title': list_title
     }
     
-    cache.set(cache_key, context, timeout=86400)
+    from django.template.loader import render_to_string
+    from django.http import HttpResponse
+    html = render_to_string('sheets/sheet_list.html', context, request=request)
+    cache.set(cache_key, html, timeout=86400)
     
-    return render(request, 'sheets/sheet_list.html', context)
+    return HttpResponse(html)
 
 @login_required
 def my_sheets(request):
@@ -86,9 +96,10 @@ def my_sheets(request):
     key_string = f"my_sheets_v{cache_version}_user_{request.user.id}_q_{search_query}_s_{status_filter}_p_{page_number}"
     cache_key = hashlib.md5(key_string.encode('utf-8')).hexdigest()
     
-    cached_context = cache.get(cache_key)
-    if cached_context:
-        return render(request, 'sheets/sheet_list.html', cached_context)
+    cached_html = cache.get(cache_key)
+    if cached_html:
+        from django.http import HttpResponse
+        return HttpResponse(cached_html)
 
     # Lấy các phiếu do mình tạo hoặc được assign cho mình
     from django.db.models import Q
@@ -116,9 +127,12 @@ def my_sheets(request):
         'list_title': 'Phiếu của tôi'
     }
     
-    cache.set(cache_key, context, timeout=86400)
+    from django.template.loader import render_to_string
+    from django.http import HttpResponse
+    html = render_to_string('sheets/sheet_list.html', context, request=request)
+    cache.set(cache_key, html, timeout=86400)
     
-    return render(request, 'sheets/sheet_list.html', context)
+    return HttpResponse(html)
 
 @login_required
 def updated_sheets(request):
@@ -131,9 +145,10 @@ def updated_sheets(request):
     key_string = f"updated_sheets_v{cache_version}_user_{request.user.id}_q_{search_query}_s_{status_filter}_p_{page_number}"
     cache_key = hashlib.md5(key_string.encode('utf-8')).hexdigest()
     
-    cached_context = cache.get(cache_key)
-    if cached_context:
-        return render(request, 'sheets/sheet_list.html', cached_context)
+    cached_html = cache.get(cache_key)
+    if cached_html:
+        from django.http import HttpResponse
+        return HttpResponse(cached_html)
 
     sheets = SettingSheet.objects.select_related('created_by', 'relay', 'relay__bay', 'relay__bay__station', 'station').filter(has_parameters_changed=True).order_by('-created_at')
 
@@ -157,9 +172,12 @@ def updated_sheets(request):
         'list_title': 'Phiếu Có Thay Đổi Thông Số (Cần Lưu Ý)'
     }
     
-    cache.set(cache_key, context, timeout=86400)
+    from django.template.loader import render_to_string
+    from django.http import HttpResponse
+    html = render_to_string('sheets/sheet_list.html', context, request=request)
+    cache.set(cache_key, html, timeout=86400)
     
-    return render(request, 'sheets/sheet_list.html', context)
+    return HttpResponse(html)
 
 @login_required
 def sheet_create(request):
@@ -248,69 +266,82 @@ def sheet_detail(request, pk):
     display_data = sheet.extracted_data
 
     if sheet.relay and display_data:
-        previous_sheet = SettingSheet.objects.filter(
-            relay=sheet.relay,
-            created_at__lt=sheet.created_at
-        ).order_by('-created_at').first()
-        
-        if previous_sheet:
+        if sheet.sheet_code.startswith('AUTO-CORRECT-'):
             has_previous = True
-            old_data = previous_sheet.extracted_data or []
-            new_data = display_data or []
-            
-            # Convert to dict for easier comparison by parameter_code
-            old_dict = {item.get('parameter_code'): item for item in old_data if item.get('parameter_code')}
-            new_dict = {item.get('parameter_code'): item for item in new_data if item.get('parameter_code')}
-            
-            # Compare
-            # 1. Added and Changed
-            for code, new_item in new_dict.items():
-                if code not in old_dict:
+            for item in display_data:
+                if 'wrong_value' in item:
                     differences.append({
-                        'code': code,
-                        'name': new_item.get('parameter_name', ''),
-                        'unit': new_item.get('unit', ''),
-                        'type': 'ADDED',
-                        'old_value': None,
-                        'new_value': new_item.get('value')
+                        'code': item.get('parameter_code'),
+                        'name': item.get('parameter_name', ''),
+                        'unit': item.get('unit', ''),
+                        'type': 'CHANGED',
+                        'old_value': item.get('wrong_value'),
+                        'new_value': item.get('value')
                     })
-                else:
-                    old_item = old_dict[code]
-                    try:
-                        old_val = float(old_item.get('value', 0))
-                        new_val = float(new_item.get('value', 0))
-                        if old_val != new_val:
-                            differences.append({
-                                'code': code,
-                                'name': new_item.get('parameter_name', ''),
-                                'unit': new_item.get('unit', ''),
-                                'type': 'CHANGED',
-                                'old_value': old_val,
-                                'new_value': new_val
-                            })
-                    except (ValueError, TypeError):
-                        # In case values are not convertible to float
-                        if str(old_item.get('value')) != str(new_item.get('value')):
-                            differences.append({
-                                'code': code,
-                                'name': new_item.get('parameter_name', ''),
-                                'unit': new_item.get('unit', ''),
-                                'type': 'CHANGED',
-                                'old_value': old_item.get('value'),
-                                'new_value': new_item.get('value')
-                            })
+        else:
+            previous_sheet = SettingSheet.objects.filter(
+                relay=sheet.relay,
+                created_at__lt=sheet.created_at
+            ).order_by('-created_at').first()
             
-            # 2. Removed
-            for code, old_item in old_dict.items():
-                if code not in new_dict:
-                    differences.append({
-                        'code': code,
-                        'name': old_item.get('parameter_name', ''),
-                        'unit': old_item.get('unit', ''),
-                        'type': 'REMOVED',
-                        'old_value': old_item.get('value'),
-                        'new_value': None
-                    })
+            if previous_sheet:
+                has_previous = True
+                old_data = previous_sheet.extracted_data or []
+                new_data = display_data or []
+                
+                # Convert to dict for easier comparison by parameter_code
+                old_dict = {item.get('parameter_code'): item for item in old_data if item.get('parameter_code')}
+                new_dict = {item.get('parameter_code'): item for item in new_data if item.get('parameter_code')}
+                
+                # Compare
+                # 1. Added and Changed
+                for code, new_item in new_dict.items():
+                    if code not in old_dict:
+                        differences.append({
+                            'code': code,
+                            'name': new_item.get('parameter_name', ''),
+                            'unit': new_item.get('unit', ''),
+                            'type': 'ADDED',
+                            'old_value': None,
+                            'new_value': new_item.get('value')
+                        })
+                    else:
+                        old_item = old_dict[code]
+                        try:
+                            old_val = float(old_item.get('value', 0))
+                            new_val = float(new_item.get('value', 0))
+                            if old_val != new_val:
+                                differences.append({
+                                    'code': code,
+                                    'name': new_item.get('parameter_name', ''),
+                                    'unit': new_item.get('unit', ''),
+                                    'type': 'CHANGED',
+                                    'old_value': old_val,
+                                    'new_value': new_val
+                                })
+                        except (ValueError, TypeError):
+                            # In case values are not convertible to float
+                            if str(old_item.get('value')) != str(new_item.get('value')):
+                                differences.append({
+                                    'code': code,
+                                    'name': new_item.get('parameter_name', ''),
+                                    'unit': new_item.get('unit', ''),
+                                    'type': 'CHANGED',
+                                    'old_value': old_item.get('value'),
+                                    'new_value': new_item.get('value')
+                                })
+                
+                # 2. Removed
+                for code, old_item in old_dict.items():
+                    if code not in new_dict:
+                        differences.append({
+                            'code': code,
+                            'name': old_item.get('parameter_name', ''),
+                            'unit': old_item.get('unit', ''),
+                            'type': 'REMOVED',
+                            'old_value': old_item.get('value'),
+                            'new_value': None
+                        })
     
     # Calculate counts
     added_count = sum(1 for d in differences if d['type'] == 'ADDED')
@@ -600,6 +631,23 @@ def confirm_signature(request, pk):
             elif role == 'ADMIN' and sheet.status == 'PENDING_ADMIN_APPROVAL':
                 sheet.status = 'COMPLETED'
                 sheet.save()
+                
+                # Cập nhật thông số kỹ thuật mới từ phiếu hoàn thành vào RelaySetting
+                # (Logic đã có ở background task hoặc sẽ được thêm vào sau)
+                
+                # Khôi phục Auto Check nếu Rơ-le đang bị tạm ngưng (AUTO-CORRECT)
+                relay = sheet.relay
+                if relay and relay.is_paused_for_correction:
+                    relay.is_paused_for_correction = False
+                    if relay.paused_schedule_data:
+                        relay.check_interval_value = relay.paused_schedule_data.get('check_interval_value', 1)
+                        relay.check_interval_unit = relay.paused_schedule_data.get('check_interval_unit', 'h')
+                        relay.paused_schedule_data = None
+                        
+                    from django.utils import timezone
+                    relay.last_checked_at = timezone.now()
+                    relay.next_check_at = relay.calculate_next_check(from_time=relay.last_checked_at)
+                    relay.save()
                 
             tech_sig = sheet.signatures.filter(role='TECHNICIAN').first()
             sup_sig = sheet.signatures.filter(role='SUPERVISOR').first()

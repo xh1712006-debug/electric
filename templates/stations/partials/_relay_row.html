@@ -1,0 +1,84 @@
+{% load static %}
+<tr id="relay-row-{{ relay.id }}" class="hover:bg-slate-50 transition-colors group">
+    <td class="px-6 py-4">
+        <div class="font-bold text-slate-800">{{ relay.relay_code }}</div>
+        <div class="text-xs text-slate-500 truncate max-w-[200px] mt-0.5">{{ relay.relay_name|default:"-" }}</div>
+    </td>
+    <td class="px-6 py-4">
+        <div class="font-semibold text-slate-700">{{ relay.bay.station.station_code }} - {{ relay.bay.station.station_name }}</div>
+        <div class="text-xs text-slate-500 mt-0.5">Ngăn lộ: <strong class="text-slate-600">{{ relay.bay.bay_code }}</strong></div>
+    </td>
+    <td class="px-6 py-4">
+        {% if relay.is_paused_for_correction %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                <i class="fas fa-exclamation-triangle mr-1.5 animate-pulse"></i> Tạm ngưng (Lỗi)
+            </span>
+        {% elif relay.auto_check_enabled %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200 shadow-sm">
+                <i class="fas fa-satellite-dish mr-1.5 animate-pulse"></i> Đang bật
+            </span>
+        {% else %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 shadow-sm">
+                <i class="fas fa-power-off mr-1.5"></i> Đã tắt
+            </span>
+        {% endif %}
+    </td>
+    <td class="px-6 py-4 text-center">
+        {% if relay.auto_check_enabled %}
+            {% if relay.check_interval_unit != 'e' %}
+            <span class="font-bold text-slate-700">{{ relay.check_interval_value }}</span> 
+            <span class="text-xs font-medium text-slate-500 uppercase">
+                {% if relay.check_interval_unit == 's' %}Giây
+                {% elif relay.check_interval_unit == 'm' %}Phút
+                {% elif relay.check_interval_unit == 'h' %}Giờ
+                {% elif relay.check_interval_unit == 'd' %}Ngày
+                {% elif relay.check_interval_unit == 'M' %}Tháng
+                {% elif relay.check_interval_unit == 'y' %}Năm
+                {% endif %}
+            </span>
+            {% else %}
+            <span class="font-bold text-slate-700 text-sm">1 LẦN</span>
+            {% endif %}
+        {% else %}
+            <span class="text-slate-300 font-medium">-</span>
+        {% endif %}
+    </td>
+    <td class="px-6 py-4">
+        {% if relay.auto_check_enabled %}
+            {% if relay.next_check_at %}
+                <div class="font-bold text-blue-600">{{ relay.next_check_at|date:"H:i:s" }}</div>
+                <div class="text-xs text-slate-500 font-medium mt-0.5">{{ relay.next_check_at|date:"d/m/Y" }}</div>
+            {% else %}
+                <span class="text-xs text-amber-500 bg-amber-50 px-2 py-1 rounded-md font-medium"><i class="fas fa-spinner fa-spin mr-1"></i> Chờ...</span>
+            {% endif %}
+        {% else %}
+            <span class="text-xs text-slate-400">-</span>
+        {% endif %}
+    </td>
+    <td class="px-6 py-4 text-right flex justify-end gap-2">
+        <button type="button" 
+            hx-get="{% url 'update_relay_schedule' relay.id %}" 
+            hx-target="#schedule-modal-content"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('schedule-modal').classList.remove('hidden'); document.getElementById('schedule-modal-content').innerHTML='<div class=\'flex justify-center text-slate-400 py-4\'><i class=\'fas fa-circle-notch animate-spin text-2xl\'></i></div>';"
+            class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-600 hover:bg-indigo-100 transition-colors shadow-sm" title="Cấu hình lịch hẹn giờ">
+            <i class="fas fa-cog text-sm"></i>
+        </button>
+        <button type="button" 
+            hx-get="{% url 'run_autocheck_now' relay.id %}" 
+            hx-target="#result-modal-content"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('result-modal').classList.remove('hidden'); document.getElementById('result-modal-content').innerHTML='<div class=\'flex flex-col items-center justify-center text-slate-400 py-12\'><i class=\'fas fa-circle-notch animate-spin text-4xl mb-4 text-blue-500\'></i><p>Đang tải kết quả...</p></div>';"
+            class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 hover:bg-emerald-100 transition-colors shadow-sm" title="Xem kết quả đối chiếu">
+            <i class="fas fa-eye text-sm"></i>
+        </button>
+        <button type="button" 
+            hx-post="{% url 'run_autocheck_now' relay.id %}" 
+            hx-target="#result-modal-content"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('result-modal').classList.remove('hidden'); document.getElementById('result-modal-content').innerHTML='<div class=\'flex flex-col items-center justify-center text-slate-400 py-12\'><i class=\'fas fa-circle-notch animate-spin text-4xl mb-4 text-blue-500\'></i><p>Đang lấy dữ liệu và đối chiếu...</p></div>';"
+            class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100 transition-colors shadow-sm" title="Chạy kiểm tra ngay">
+            <i class="fas fa-sync-alt text-sm"></i>
+        </button>
+    </td>
+</tr>

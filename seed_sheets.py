@@ -59,7 +59,10 @@ def create_mock_data():
             relay=relay,
             station=relay.bay.station if relay.bay else None,
             created_at=now - timedelta(days=random.randint(1, 10)),
-            extracted_data={"I>": "1.5", "t>": "0.5"}
+            extracted_data=[
+                {"parameter_code": "I>", "parameter_name": "Dòng cắt", "unit": "A", "value": "1.5", "original_value": "1.5", "confidence": 98.5},
+                {"parameter_code": "t>", "parameter_name": "Thời gian cắt", "unit": "s", "value": "0.5", "original_value": "0.5", "confidence": 95.0}
+            ]
         )
         
         # Add workflow specific data based on status

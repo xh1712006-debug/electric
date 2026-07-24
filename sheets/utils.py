@@ -21,7 +21,16 @@ def update_has_parameters_changed_for_sheet(sheet):
         has_diff = False
     else:
         old_data = previous_sheet.extracted_data or []
+        if isinstance(old_data, dict):
+            old_data = [{'parameter_code': k, 'value': v} for k, v in old_data.items()]
+        elif not isinstance(old_data, list):
+            old_data = []
+            
         new_data = sheet.extracted_data or []
+        if isinstance(new_data, dict):
+            new_data = [{'parameter_code': k, 'value': v} for k, v in new_data.items()]
+        elif not isinstance(new_data, list):
+            new_data = []
         
         old_dict = {item.get('parameter_code'): item for item in old_data if item.get('parameter_code')}
         new_dict = {item.get('parameter_code'): item for item in new_data if item.get('parameter_code')}

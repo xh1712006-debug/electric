@@ -63,7 +63,11 @@
         <!-- Tabs Header -->
         <div class="flex space-x-1 bg-slate-200/50 p-1 rounded-lg mb-4 shrink-0">
             <button @click="activeTab = 'ocr'" :class="activeTab === 'ocr' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200">
+                {% if 'AUTO-CORRECT' in sheet.sheet_code %}
+                <i class="fas fa-database mr-1"></i> Dữ liệu Hệ thống
+                {% else %}
                 <i class="fas fa-magic mr-1"></i> Dữ liệu OCR
+                {% endif %}
             </button>
             <button @click="activeTab = 'process'" :class="activeTab === 'process' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200">
                 <i class="fas fa-tasks mr-1"></i> Xử lý & Ký số
@@ -247,7 +251,11 @@
                                 <i class="fas fa-times-circle text-xs"></i>
                             </button>
                         </div>
+                        {% if 'AUTO-CORRECT' in sheet.sheet_code %}
+                        <span class="text-xs text-green-600 font-medium px-2 py-1 bg-green-50 rounded border border-green-200 hidden sm:inline-block">Dữ liệu Hệ thống <i class="fas fa-check-circle ml-1"></i></span>
+                        {% else %}
                         <span class="text-xs text-primary font-medium px-2 py-1 bg-blue-50 rounded hidden sm:inline-block">AI OCR <i class="fas fa-magic ml-1"></i></span>
+                        {% endif %}
                     </div>
                 </div>
                 
@@ -265,7 +273,13 @@
                                 <!-- Table Header -->
                                 <div class="grid grid-cols-12 gap-3 p-3 bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
                                     <div class="col-span-8">Thông số Cài đặt</div>
-                                    <div class="col-span-4 text-center">Giá trị (Thiết kế)</div>
+                                    <div class="col-span-4 text-center">
+                                        {% if 'AUTO-CORRECT' in sheet.sheet_code %}
+                                        Dữ liệu Hệ thống (RMS)
+                                        {% else %}
+                                        Giá trị (Thiết kế)
+                                        {% endif %}
+                                    </div>
                                 </div>
                                 
                                 <!-- Table Body -->
@@ -279,9 +293,11 @@
                                         <div class="col-span-8 flex flex-col justify-center">
                                             <div class="flex items-center gap-2">
                                                 <span class="text-sm font-bold text-slate-800">{{ item.parameter_code }}</span>
+                                                {% if 'AUTO-CORRECT' not in sheet.sheet_code %}
                                                 <span class="text-[9px] {% if item.confidence > 95 %}bg-green-100 text-green-700{% elif item.confidence > 90 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %} px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
                                                     {{ item.confidence }}% AI
                                                 </span>
+                                                {% endif %}
                                             </div>
                                             <p class="text-xs text-slate-500 truncate" title="{{ item.parameter_name }}">{{ item.parameter_name }}</p>
                                         </div>
@@ -510,11 +526,19 @@
                                                         {{ diff.old_value }} <span class="text-xs text-slate-400 ml-1.5 font-normal">{{ diff.unit }}</span> <i class="fas fa-times ml-2 text-red-400 opacity-50 no-underline"></i>
                                                     </span>
                                                 {% else %}
-                                                    <div class="inline-flex items-center gap-3 bg-slate-50 px-4 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-                                                        <span class="text-slate-500 line-through decoration-slate-400 decoration-2">{{ diff.old_value }}</span>
-                                                        <i class="fas fa-arrow-right text-amber-500 animate-pulse"></i>
-                                                        <span class="text-blue-700 font-black text-base">{{ diff.new_value }}</span>
-                                                        <span class="text-xs text-slate-500 font-medium">{{ diff.unit }}</span>
+                                                    <div class="inline-flex flex-col items-center bg-slate-50 px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
+                                                        <div class="flex items-center gap-3">
+                                                            <span class="text-slate-500 line-through decoration-slate-400 decoration-2">{{ diff.old_value }}</span>
+                                                            <i class="fas fa-arrow-right text-amber-500 animate-pulse"></i>
+                                                            <span class="text-blue-700 font-black text-base">{{ diff.new_value }}</span>
+                                                            <span class="text-xs text-slate-500 font-medium">{{ diff.unit }}</span>
+                                                        </div>
+                                                        {% if 'AUTO-CORRECT' in sheet.sheet_code %}
+                                                        <div class="flex items-center justify-between w-full mt-1.5 pt-1.5 border-t border-slate-200/60 px-1">
+                                                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 px-1.5 py-0.5 rounded">Thiết bị</span>
+                                                            <span class="text-[9px] font-bold text-blue-500 uppercase tracking-wider bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">Hệ thống</span>
+                                                        </div>
+                                                        {% endif %}
                                                     </div>
                                                 {% endif %}
                                             </td>

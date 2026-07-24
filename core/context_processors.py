@@ -44,15 +44,11 @@ def notification_badges(request):
             
     # 4. SUPERVISOR
     if user.groups.filter(name='SUPERVISOR').exists():
-        if hasattr(user, 'userprofile') and user.userprofile.station:
-            station = user.userprofile.station
-            base_qs = SettingSheet.objects.filter(
-                Q(station=station) | Q(relay__bay__station=station)
-            ).distinct()
-            
-            badges['supervisor_transferred'] = base_qs.filter(status='TRANSFERRED').count()
-            badges['supervisor_received'] = base_qs.filter(status='RECEIVED').count()
-            badges['supervisor_pending_admin'] = base_qs.filter(status='PENDING_ADMIN_APPROVAL').count()
+        base_qs = SettingSheet.objects.filter(supervisor_assigned=user)
+        
+        badges['supervisor_transferred'] = base_qs.filter(status='TRANSFERRED').count()
+        badges['supervisor_received'] = base_qs.filter(status='RECEIVED').count()
+        badges['supervisor_pending_admin'] = base_qs.filter(status='PENDING_ADMIN_APPROVAL').count()
         
     # 5. TECHNICIAN
     if user.groups.filter(name='TECHNICIAN').exists():

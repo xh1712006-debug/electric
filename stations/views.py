@@ -467,8 +467,11 @@ def run_autocheck_now(request, relay_id):
         # Refresh relay từ DB để lấy trạng thái mới nhất
         relay.refresh_from_db()
     
-    # Cả GET và POST đều trả về kết quả
-    return render(request, 'stations/partials/_autocheck_results.html', {'relay': relay})
+    response = render(request, 'stations/partials/_autocheck_results.html', {'relay': relay})
+    if request.method == 'POST':
+        import json
+        response["HX-Trigger"] = json.dumps({f"refreshRow-{relay.id}": ""})
+    return response
 
 @login_required
 @user_passes_test(is_admin)

@@ -1,5 +1,9 @@
 {% load static %}
-<tr id="relay-row-{{ relay.id }}" class="hover:bg-slate-50 transition-colors group">
+<tr id="relay-row-{{ relay.id }}" 
+    hx-get="{% url 'autocheck_row' relay.id %}" 
+    hx-trigger="refreshRow-{{ relay.id }} from:body" 
+    hx-swap="outerHTML"
+    class="hover:bg-slate-50 transition-colors group">
     <td class="px-6 py-4">
         <div class="font-bold text-slate-800">{{ relay.relay_code }}</div>
         <div class="text-xs text-slate-500 truncate max-w-[200px] mt-0.5">{{ relay.relay_name|default:"-" }}</div>

@@ -219,7 +219,9 @@
                     <i class="fas fa-file-signature nav-icon text-violet-400"></i>
                     <span>Chờ Duyệt Ban hành</span>
                     {% if badges.pending_admin > 0 %}
-                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.pending_admin }}</span>
+                    <span id="badge-pending-admin" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.pending_admin }}</span>
+                    {% else %}
+                    <span id="badge-pending-admin" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">0</span>
                     {% endif %}
                 </a>
                 <a href="{{ url_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' and request.path == url_sheets %}active-emerald{% endif %}">
@@ -268,7 +270,7 @@
                 <p class="nav-section-label">Nghiệp vụ Điều phối</p>
                 <a href="{% url 'sheet_create' %}" class="nav-item {% if request.path == '/sheets/create/' %}active-amber{% endif %}">
                     <i class="fas fa-wand-magic-sparkles nav-icon text-amber-400"></i>
-                    <span>Khởi tạo Phiếu (OCR)</span>
+                    <span>Trích xuất Phiếu (OCR)</span>
                 </a>
 
                 <hr class="nav-separator">
@@ -277,7 +279,9 @@
                     <i class="fas fa-magnifying-glass nav-icon text-amber-400"></i>
                     <span>Phiếu Chờ Rà soát</span>
                     {% if badges.issued > 0 %}
-                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.issued }}</span>
+                    <span id="badge-issued" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.issued }}</span>
+                    {% else %}
+                    <span id="badge-issued" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">0</span>
                     {% endif %}
                 </a>
 
@@ -287,7 +291,9 @@
                     <i class="fas fa-helmet-safety nav-icon"></i>
                     <span>Trạm Đang Xử Lý</span>
                     {% if badges.dispatcher_in_progress > 0 %}
-                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.dispatcher_in_progress }}</span>
+                    <span id="badge-dispatcher_in_progress" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.dispatcher_in_progress }}</span>
+                    {% else %}
+                    <span id="badge-dispatcher_in_progress" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">0</span>
                     {% endif %}
                 </a>
 
@@ -556,9 +562,31 @@
                     const ws = new WebSocket(`${protocol}//${window.location.host}/ws/notifications/`);
                     ws.onmessage = (e) => {
                         const data = JSON.parse(e.data);
-                        this.addNotification(data.title, data.message, data.type || 'info');
+                        window.dispatchEvent(new CustomEvent('ws-message', { detail: data }));
+                        
+                        if (data.event_type === 'update_badges') {
+                            this.fetchBadges();
+                            return;
+                        }
+                        
+                        if (!data.event_type || data.event_type === 'notification') {
+                            this.addNotification(data.title, data.message, data.level || data.type || 'info');
+                        }
                     };
                     {% endif %}
+                },
+                fetchBadges() {
+                    fetch('/system/api/badges/')
+                        .then(res => res.json())
+                        .then(data => {
+                            for (const [key, value] of Object.entries(data)) {
+                                const el = document.getElementById(`badge-${key}`);
+                                if (el) {
+                                    el.innerText = value;
+                                    el.style.display = value > 0 ? 'flex' : 'none';
+                                }
+                            }
+                        });
                 },
                 initDjangoMessages() {
                     // Render Django messages as toast

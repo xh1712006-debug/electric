@@ -1,0 +1,365 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Trích Xuất Dữ Liệu Hàng Loạt (Test) | EVN RMS{% endblock %}
+
+{% block header_title %}
+    <div class="flex items-center gap-3">
+        <i class="fas fa-layer-group text-blue-500 text-xl"></i>
+        <span>Trích Xuất Dữ Liệu Hàng Loạt (Test)</span>
+    </div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6" x-data="bulkCreateApp()" @ws-message.window="handleWsMessage($event.detail)">
+    
+    <!-- Info Banner -->
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg flex items-start gap-3">
+        <i class="fas fa-info-circle text-blue-500 mt-1"></i>
+        <div class="text-sm text-blue-900 leading-relaxed">
+            <strong class="block mb-1">Xử lý hàng loạt file (Background Task):</strong>
+            Hệ thống cho phép bạn kéo thả nhiều file PDF/Ảnh cùng lúc. Tiến trình sẽ tạo phiếu tự động, chọn ngẫu nhiên Trạm và Rơ-le (do đây là chế độ test), sau đó chạy ngầm OCR cho tất cả các file.
+        </div>
+    </div>
+    
+    <!-- Form Card -->
+    <div class="page-card p-6">
+        <h2 class="text-lg font-bold text-slate-800 border-b pb-3 mb-6">Tải lên Bản scan</h2>
+        
+        <form @submit.prevent="submitTask" class="space-y-5">
+            <div class="h-64 flex justify-center items-center px-6 pt-5 pb-6 border-2 border-dashed rounded-2xl transition-all relative overflow-hidden group"
+                 @dragover.prevent="isDragging = true" 
+                 @dragleave.prevent="isDragging = false" 
+                 @drop.prevent="handleDrop($event)"
+                 :class="isDragging ? 'border-blue-500 bg-blue-50' : 'border-slate-300 bg-slate-50'"
+                 x-show="!isProcessing && files.length === 0">
+                
+                <div class="space-y-3 text-center transition-transform group-hover:scale-105 pointer-events-none">
+                    <div class="w-16 h-16 mx-auto bg-white rounded-full shadow-sm flex items-center justify-center transition-transform">
+                        <i class="fas fa-cloud-upload-alt text-2xl text-blue-600"></i>
+                    </div>
+                    <div class="flex flex-col text-sm text-slate-600 justify-center">
+                        <div><span class="font-bold text-blue-600">Tải file lên</span> hoặc kéo thả nhiều file vào đây</div>
+                        <div class="text-xs text-slate-500 mt-1">Hỗ trợ PDF, PNG, JPG (Giữ phím Ctrl/Shift để chọn nhiều file)</div>
+                    </div>
+                </div>
+                
+                <input x-ref="fileInput" @change="handleFiles($event.target.files)" type="file" multiple accept=".pdf,image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+            </div>
+
+            <!-- Header when files are selected or processing -->
+            <div x-show="files.length > 0" class="flex justify-between items-center bg-slate-100 px-4 py-3 rounded-lg">
+                <div class="font-bold text-slate-700" x-show="!isProcessing">
+                    Đã chọn <span class="text-blue-600" x-text="files.length"></span> file
+                </div>
+                <div class="font-bold text-slate-700" x-show="isProcessing">
+                    Tiến độ xử lý: <span class="text-blue-600 text-lg" x-text="processedCount"></span><span class="text-slate-500">/<span x-text="totalCount"></span></span>
+                </div>
+                <button type="button" @click="clearFiles()" x-show="!isProcessing" class="text-sm font-semibold text-slate-500 hover:text-red-500 transition-colors">
+                    <i class="fas fa-trash-alt mr-1"></i> Xóa tất cả
+                </button>
+            </div>
+
+            <!-- List of selected files -->
+            <div x-show="files.length > 0" x-cloak class="min-h-[256px] max-h-[500px] overflow-y-auto border border-slate-200 rounded-lg bg-white shadow-inner p-2 space-y-1">
+                <template x-for="(file, index) in files" :key="index">
+                    <div class="flex items-center justify-between text-sm py-2 px-3 border rounded transition-colors"
+                         :class="{
+                             'bg-slate-50 border-slate-100': file.status === 'pending',
+                             'bg-blue-50 border-blue-200': file.status === 'processing',
+                             'bg-emerald-50 border-emerald-200': file.status === 'success',
+                             'bg-red-50 border-red-200': file.status === 'failed'
+                         }">
+                        <div class="flex items-center gap-3 truncate">
+                            <!-- Status Icons -->
+                            <i class="fas fa-circle-notch animate-spin text-blue-500" x-show="file.status === 'processing'"></i>
+                            <i class="fas fa-check-circle text-emerald-500" x-show="file.status === 'success'"></i>
+                            <i class="fas fa-times-circle text-red-500" x-show="file.status === 'failed'"></i>
+                            <i class="far fa-circle text-slate-300" x-show="file.status === 'pending'"></i>
+                            
+                            <span class="truncate font-medium" 
+                                  :class="{
+                                      'text-slate-700': file.status === 'pending',
+                                      'text-blue-700': file.status === 'processing',
+                                      'text-emerald-700': file.status === 'success',
+                                      'text-red-700': file.status === 'failed'
+                                  }" x-text="file.name"></span>
+                        </div>
+                        <button type="button" @click="removeFile(index)" x-show="!isProcessing" class="text-slate-400 hover:text-red-500 p-1 transition-colors">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <span x-show="isProcessing && file.status !== 'pending'" class="text-xs font-semibold px-2 py-1 rounded"
+                              :class="{
+                                  'bg-blue-100 text-blue-700': file.status === 'processing',
+                                  'bg-emerald-100 text-emerald-700': file.status === 'success',
+                                  'bg-red-100 text-red-700': file.status === 'failed'
+                              }" x-text="file.status === 'processing' ? 'Đang xử lý' : file.status === 'success' ? 'Hoàn thành' : 'Thất bại'">
+                        </span>
+                    </div>
+                </template>
+            </div>
+            
+            <!-- Actions -->
+            <div class="pt-4 flex items-center justify-end gap-3 border-t">
+                <a href="{% url 'sheet_list' %}" class="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" :class="{'opacity-50 pointer-events-none': isProcessing}">
+                    Hủy bỏ
+                </a>
+                <button type="submit" :disabled="loading || isProcessing || files.length === 0"
+                        class="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-spinner animate-spin" x-show="loading || isProcessing" x-cloak></i>
+                    <i class="fas fa-rocket" x-show="!loading && !isProcessing"></i>
+                    <span x-text="isProcessing ? 'Đang xử lý ngầm...' : loading ? 'Đang tải lên...' : 'Bắt đầu Trích Xuất Hàng Loạt'"></span>
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Status Display -->
+    <div x-show="serverMessage" x-transition x-cloak class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-start gap-3">
+        <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-check text-emerald-600"></i>
+        </div>
+        <div>
+            <h4 class="font-bold text-emerald-800 text-sm">Đã đưa vào hàng đợi</h4>
+            <p class="text-sm text-emerald-700 mt-0.5" x-text="serverMessage"></p>
+            <p class="text-xs text-emerald-600 font-semibold mt-2">
+                <i class="fas fa-eye mr-1"></i> Bạn có thể tắt trang này, hoặc giữ trang để xem tiến độ trực tiếp.
+            </p>
+        </div>
+    </div>
+    
+    <!-- Recent Sheets List -->
+    <div id="recent-sheets-container">
+    {% if recent_sheets %}
+    <div class="page-card p-6 mt-6">
+        <div class="flex justify-between items-center border-b pb-3 mb-4">
+            <h2 class="text-lg font-bold text-slate-800">Phiếu vừa tải lên (24h qua)</h2>
+            <span class="text-xs font-semibold px-2 py-1 bg-slate-100 text-slate-600 rounded">Tổng số: {{ total_recent }}</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200">
+                        <th class="px-4 py-3">Mã phiếu</th>
+                        <th class="px-4 py-3">Tên file</th>
+                        <th class="px-4 py-3">Trạm & Rơ-le</th>
+                        <th class="px-4 py-3">Thời gian</th>
+                        <th class="px-4 py-3 text-right">Trạng thái</th>
+                    </tr>
+                </thead>
+                <tbody class="text-sm divide-y divide-slate-100">
+                    {% for sheet in recent_sheets %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-4 py-3 font-semibold text-blue-600">
+                            <a href="{% url 'sheet_detail' sheet.pk %}" class="hover:underline">{{ sheet.sheet_code }}</a>
+                        </td>
+                        <td class="px-4 py-3 text-slate-700 max-w-[200px] truncate" title="{{ sheet.title }}">
+                            {{ sheet.title }}
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="text-slate-800 font-medium">{{ sheet.station.name|default:"Trạm ngẫu nhiên" }}</div>
+                            <div class="text-xs text-slate-500">{{ sheet.relay.name|default:"Rơ-le ngẫu nhiên" }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-slate-500 text-xs">
+                            {{ sheet.created_at|date:"H:i d/m/Y" }}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            {% if sheet.status == 'DRAFT' %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+                                <i class="far fa-clock"></i> Đang chờ
+                            </span>
+                            {% elif sheet.status == 'ISSUED' %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+                                <i class="fas fa-check-circle"></i> Đã xử lý
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                                <i class="fas fa-circle"></i> {{ sheet.get_status_display }}
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination Controls -->
+        {% if recent_sheets.has_other_pages %}
+        <div class="mt-4 flex items-center justify-between border-t pt-4">
+            <span class="text-xs text-slate-500 font-medium">
+                Hiển thị {{ recent_sheets.start_index }}-{{ recent_sheets.end_index }} của {{ total_recent }}
+            </span>
+            <div class="flex gap-1 bg-white rounded-lg p-1 border border-slate-200 shadow-sm">
+                {% if recent_sheets.has_previous %}
+                <a href="?page={{ recent_sheets.previous_page_number }}" class="px-3 py-1.5 rounded text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                {% endif %}
+                
+                {% for i in recent_sheets.paginator.page_range %}
+                    {% if recent_sheets.number == i %}
+                    <span class="px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-bold shadow-sm">{{ i }}</span>
+                    {% elif i > recent_sheets.number|add:'-3' and i < recent_sheets.number|add:'3' %}
+                    <a href="?page={{ i }}" class="px-3 py-1.5 rounded text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+                        {{ i }}
+                    </a>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if recent_sheets.has_next %}
+                <a href="?page={{ recent_sheets.next_page_number }}" class="px-3 py-1.5 rounded text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+    </div>
+    {% endif %}
+    </div>
+    
+</div>
+
+<script>
+    function generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('bulkCreateApp', () => ({
+            isDragging: false,
+            files: [],
+            loading: false,
+            isProcessing: false,
+            processedCount: 0,
+            totalCount: 0,
+            serverMessage: '',
+            
+            handleDrop(event) {
+                this.isDragging = false;
+                if(!this.isProcessing) {
+                    this.handleFiles(event.dataTransfer.files);
+                }
+            },
+            
+            handleFiles(fileList) {
+                for (let i = 0; i < fileList.length; i++) {
+                    this.files.push({
+                        fileObj: fileList[i],
+                        name: fileList[i].name,
+                        status: 'pending' // pending, processing, success, failed
+                    });
+                }
+                this.$refs.fileInput.value = '';
+                this.totalCount = this.files.length;
+            },
+            
+            removeFile(index) {
+                this.files.splice(index, 1);
+                this.totalCount = this.files.length;
+            },
+            
+            clearFiles() {
+                this.files = [];
+                this.totalCount = 0;
+            },
+            
+            handleWsMessage(data) {
+                if(data.event_type === 'bulk_progress') {
+                    // Update progress counter
+                    if(data.status === 'success' || data.status === 'failed') {
+                        this.processedCount = data.processed_count;
+                    }
+                    
+                    // Update file status in list
+                    const index = this.files.findIndex(f => f.name === data.file_name && (f.status === 'pending' || f.status === 'processing'));
+                    if(index !== -1) {
+                        this.files[index].status = data.status;
+                    }
+                    
+                    if(data.status === 'success') {
+                        // Live update the recent sheets table using socket event trigger after EACH file finishes
+                        fetch(window.location.href)
+                            .then(res => res.text())
+                            .then(html => {
+                                const doc = new DOMParser().parseFromString(html, 'text/html');
+                                const newContainer = doc.getElementById('recent-sheets-container');
+                                if(newContainer) {
+                                    document.getElementById('recent-sheets-container').innerHTML = newContainer.innerHTML;
+                                }
+                            });
+                    }
+                    
+                    if(this.processedCount >= this.totalCount && this.totalCount > 0) {
+                        // Finished all
+                        this.serverMessage = 'Hoàn tất trích xuất ' + this.totalCount + ' file.';
+                        this.isProcessing = false;
+                        setTimeout(() => {
+                            this.clearFiles();
+                        }, 1500);
+                    }
+                }
+            },
+            
+            async submitTask() {
+                if(this.loading || this.files.length === 0 || this.isProcessing) return;
+                this.loading = true;
+                this.serverMessage = '';
+                
+                const idempotencyKey = 'bulk_' + generateUUID();
+                const formData = new FormData();
+                formData.append('idempotency_key', idempotencyKey);
+                
+                for (let i = 0; i < this.files.length; i++) {
+                    formData.append('scan_files', this.files[i].fileObj);
+                }
+                
+                try {
+                    const response = await fetch("{% url 'bulk_create_execute' %}", {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if(response.ok) {
+                        this.serverMessage = result.message;
+                        this.isProcessing = true;
+                        this.loading = false;
+                        
+                        // Live update table immediately after upload so new files appear as Pending
+                        fetch(window.location.href)
+                            .then(res => res.text())
+                            .then(html => {
+                                const doc = new DOMParser().parseFromString(html, 'text/html');
+                                const newContainer = doc.getElementById('recent-sheets-container');
+                                if(newContainer) {
+                                    document.getElementById('recent-sheets-container').innerHTML = newContainer.innerHTML;
+                                }
+                            });
+                    } else {
+                        window.dispatchEvent(new CustomEvent('notify', {
+                            detail: { title: 'Lỗi', message: result.error || result.message || "Đã xảy ra lỗi hệ thống.", type: 'error'}
+                        }));
+                        this.loading = false;
+                    }
+                } catch(e) {
+                    console.error(e);
+                    window.dispatchEvent(new CustomEvent('notify', {
+                        detail: { title: 'Lỗi', message: "Không thể kết nối đến máy chủ.", type: 'error'}
+                    }));
+                    this.loading = false;
+                }
+            }
+        }));
+    });
+</script>
+{% endblock %}

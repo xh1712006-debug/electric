@@ -65,3 +65,10 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         except Exception:
             # Bỏ qua lỗi nếu kết nối đã đóng
             pass
+
+    async def bulk_progress(self, event):
+        # Chuyển tiếp toàn bộ data tiến trình từ Celery sang Frontend
+        try:
+            await self.send(text_data=json.dumps(event))
+        except Exception:
+            pass

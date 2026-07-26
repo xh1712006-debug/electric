@@ -1,7 +1,17 @@
 {% extends "base.html" %}
+{% load auth_extras %}
 
-{% block title %}Tạo Phiếu Mới | RMS{% endblock %}
-{% block header_title %}Tạo Phiếu Chỉnh định Mới{% endblock %}
+{% block title %}Trích xuất Dữ liệu | RMS{% endblock %}
+{% block header_title %}
+    <div class="flex items-center gap-3">
+        <span>Trích xuất Dữ liệu Phiếu</span>
+        {% if request.user.is_superuser or request.user|has_group:'DISPATCHER' %}
+        <a href="{% url 'bulk_create_ui' %}" class="inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg border border-slate-200 transition-colors ml-4">
+            <i class="fas fa-layer-group text-slate-500 text-xs"></i> Trích Xuất Hàng Loạt (Test)
+        </a>
+        {% endif %}
+    </div>
+{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6">
@@ -9,9 +19,9 @@
         <div class="px-8 py-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between">
             <div>
                 <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <i class="fas fa-file-invoice text-primary"></i> Khởi tạo Phiếu Chỉnh định
+                    <i class="fas fa-file-invoice text-primary"></i> Trích xuất Thông tin Phiếu
                 </h2>
-                <p class="text-sm text-slate-500 mt-1">Vui lòng điền thông tin mã phiếu, Rơ-le và tải lên bản scan (PDF).</p>
+                <p class="text-sm text-slate-500 mt-1">Vui lòng điền thông tin mã phiếu, Rơ-le và tải lên bản scan (PDF) để hệ thống tự động trích xuất OCR.</p>
             </div>
         </div>
 
@@ -132,7 +142,7 @@
                     Trở về
                 </a>
                 <button type="submit" class="px-6 py-2.5 text-sm font-semibold text-white bg-primary rounded-xl hover:bg-blue-700 transition-all shadow-sm flex items-center gap-2 hover:shadow-md transform hover:-translate-y-0.5">
-                    <i class="fas fa-magic"></i> Tạo Phiếu Ngay
+                    <i class="fas fa-magic"></i> Bắt đầu Trích xuất
                 </button>
             </div>
         </form>

@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import views_bulk
 
 urlpatterns = [
     path('', views.sheet_list, name='sheet_list'),
@@ -14,4 +15,8 @@ urlpatterns = [
     path('<int:pk>/save-actual-data/', views.sheet_save_actual_data, name='sheet_save_actual_data'),
     path('<int:pk>/route-to-station/', views.sheet_route_to_station, name='sheet_route_to_station'),
     path('updated/', views.updated_sheets, name='updated_sheets'),
+    
+    # Bulk create (Test Utility)
+    path('bulk-create/', views_bulk.bulk_create_ui, name='bulk_create_ui'),
+    path('bulk-create/execute/', views_bulk.bulk_create_execute, name='bulk_create_execute'),
 ]

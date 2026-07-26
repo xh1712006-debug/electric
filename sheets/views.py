@@ -182,6 +182,10 @@ def updated_sheets(request):
 @login_required
 def sheet_create(request):
     """View upload PDF và tạo phiếu."""
+    if not request.user.is_superuser and not request.user.groups.filter(name='DISPATCHER').exists():
+        messages.error(request, "Bạn không có quyền truy cập chức năng trích xuất thông tin.")
+        return redirect('sheet_list')
+
     if request.method == 'POST':
         sheet_code = request.POST.get('sheet_code')
         title = request.POST.get('title', '')

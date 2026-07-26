@@ -2,9 +2,16 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.models import User, Group, Permission
 from django.contrib.contenttypes.models import ContentType
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from sheets.models import SettingSheet
+
+@login_required
+def get_badges_api(request):
+    """API endpoint to get badge counts for real-time updates."""
+    from core.context_processors import notification_badges
+    data = notification_badges(request)
+    return JsonResponse(data['badges'])
 
 @login_required
 def dashboard(request):

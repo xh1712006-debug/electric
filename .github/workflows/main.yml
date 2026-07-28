@@ -70,9 +70,17 @@ jobs:
       # 5. Giao tiếp qua mạng LAN: Ra lệnh cho Windows tự Build và Restart
       - name: Build and Restart App directly on Windows Docker
         run: |
-          echo "Đang ra lệnh cho Windows tự động Build và Restart qua Docker Compose..."
-          # Gom chung lệnh build và up vào một lệnh duy nhất của Compose để tránh lỗi EOF của Docker CLI
-          docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 compose up -d --build --force-recreate --no-deps web
+          echo "1. Đang dọn dẹp __pycache__..."
+          find . -type d -name "__pycache__" -exec rm -rf {} +
+          
+          echo "2. Đang ra lệnh cho Windows tắt các container cũ..."
+          docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 compose down
+          
+          echo "3. Đang ra lệnh cho Windows build lại image không dùng cache..."
+          docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 compose build --no-cache
+          
+          echo "4. Đang ra lệnh cho Windows khởi động lại các container..."
+          docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 compose up -d
             
           # Dọn dẹp bộ nhớ Docker dư thừa trên Windows
           docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 image prune -f

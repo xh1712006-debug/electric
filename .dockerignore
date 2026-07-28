@@ -34,5 +34,5 @@ db.sqlite3
 .vscode/
 
 # Media/Static overrides locally
-# media/
-# !media/.gitkeep
+media/
+!media/.gitkeep

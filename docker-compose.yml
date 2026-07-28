@@ -46,6 +46,26 @@ services:
       - DB_HOST=db
       - DB_PORT=5440
       - REDIS_URL=redis://redis:6379/1
+
+  celery:
+    image: electric-web:latest
+    build: .
+    container_name: rms_celery
+    restart: always
+    command: celery -A rms_project worker --pool=solo -l info
+    volumes:
+      - static_volume:/app/static
+      - media_volume:/app/media
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5440
+      - REDIS_URL=redis://redis:6379/1
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared_tunnel

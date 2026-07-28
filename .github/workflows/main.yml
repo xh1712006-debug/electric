@@ -77,7 +77,7 @@ jobs:
           # vì Docker Desktop trên Windows hay bị lỗi sập kết nối (EOF ở _ping) 
           # nếu gửi quá nhiều lệnh compose liên tiếp qua mạng TCP.
           echo "2. Đang ra lệnh cho Windows tự build và khởi động lại..."
-          docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 compose up -d --build --force-recreate
+          docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 compose up -d --build --force-recreate --no-deps web celery
             
           # Dọn dẹp bộ nhớ Docker dư thừa trên Windows
           docker -H tcp://${{ env.WINDOWS_HOST_IP }}:2375 image prune -f

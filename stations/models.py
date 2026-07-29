@@ -1,26 +1,111 @@
 from django.db import models
 
 class Station(models.Model):
-    station_code = models.CharField(max_length=50, unique=True)
-    station_name = models.CharField(max_length=200)
-    location = models.CharField(max_length=255)
+    station_code = models.CharField(max_length=50, unique=True, verbose_name="Mã (MA)")
+    station_name = models.CharField(max_length=200, verbose_name="Tên (TEN)")
+    location = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Các trường bổ sung từ Danh mục Trạm
+    id_tba = models.CharField(max_length=100, blank=True, null=True, verbose_name="ID TBA (ID_TBA)")
+    id_tinh = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Tỉnh (ID_TINH)")
+    tinh = models.CharField(max_length=100, blank=True, null=True, verbose_name="Tỉnh (TINH)")
+    id_quan = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Quận (ID_QUAN)")
+    quan = models.CharField(max_length=100, blank=True, null=True, verbose_name="Quận (QUAN)")
+    id_phuong = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Phường (ID_PHUONG)")
+    phuong = models.CharField(max_length=100, blank=True, null=True, verbose_name="Phường (PHUONG)")
+    
+    id_capda = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Cấp điện áp (ID_CAPDA)")
+    id_ttvh = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Trạng thái vận hành (ID_TTVH)")
+    
+    kieu_tram = models.CharField(max_length=100, blank=True, null=True, verbose_name="Kiểu trạm (KIEU_TRAM)")
+    id_kieu_tram = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Kiểu trạm (ID_KIEU_TRAM)")
+    
+    loai_tram = models.CharField(max_length=100, blank=True, null=True, verbose_name="Loại trạm (LOAI_TRAM)")
+    id_loai_tram = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Loại trạm (ID_LOAI_TRAM)")
+    
+    ngay_vh = models.DateTimeField(blank=True, null=True, verbose_name="Ngày vận hành (NGAY_VH)")
+    ngay_ld = models.DateTimeField(blank=True, null=True, verbose_name="Ngày lắp đặt (NGAY_LD)")
+    
+    id_dvi = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Đơn vị (ID_DVI)")
+    id_vung = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Vùng (ID_VUNG)")
+    vung = models.CharField(max_length=100, blank=True, null=True, verbose_name="Vùng (VUNG)")
+    
+    id_sohuu = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Sở hữu (ID_SOHUU)")
+    
+    kieu_ht_dk = models.CharField(max_length=100, blank=True, null=True, verbose_name="Kiểu HT ĐK (KIEU_HT_DK)")
+    id_kieu_ht_dk = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Kiểu HT ĐK (ID_KIEU_HT_DK)")
+    
+    sort_order = models.IntegerField(blank=True, null=True, verbose_name="Sắp xếp (SAPXEP)")
+
+    class Meta:
+        verbose_name = "Danh mục Trạm"
+        verbose_name_plural = "Danh mục Trạm"
+
+    @property
+    def code(self):
+        return self.station_code
+
+    @property
+    def name(self):
+        return self.station_name
 
     def __str__(self):
         return f"{self.station_code} - {self.station_name}"
 
 class Bay(models.Model):
-    station = models.ForeignKey(Station, related_name='bays', on_delete=models.CASCADE)
-    bay_code = models.CharField(max_length=50)
-    bay_name = models.CharField(max_length=100)
+    station = models.ForeignKey(Station, related_name='bays', on_delete=models.CASCADE, null=True, blank=True)
+    bay_code = models.CharField(max_length=50, verbose_name="Mã (MA)")
+    bay_name = models.CharField(max_length=255, verbose_name="Tên (TEN)")
+    
+    # Các trường bổ sung từ Danh mục Ngăn lộ
+    ten_tram = models.CharField(max_length=255, blank=True, null=True, verbose_name="Tên trạm (TEN_TRAM)")
+    id_capda = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Cấp điện áp (ID_CAPDA)")
+    id_ttvh = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Trạng thái vận hành (ID_TTVH)")
+    ngay_vh = models.DateTimeField(blank=True, null=True, verbose_name="Ngày vận hành (NGAY_VH)")
+    id_dvi = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Đơn vị (ID_DVI)")
+    id_nlo = models.CharField(max_length=100, blank=True, null=True, verbose_name="ID Ngăn lộ (ID_NLO)")
+    id_tba = models.CharField(max_length=100, blank=True, null=True, verbose_name="ID TBA (ID_TBA)")
+    id_sohuu = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Sở hữu (ID_SOHUU)")
+    sort_order = models.IntegerField(blank=True, null=True, verbose_name="Sắp xếp (SAPXEP)")
+    
+    u_dm = models.CharField(max_length=50, blank=True, null=True, verbose_name="U_DM")
+    i_dm = models.CharField(max_length=50, blank=True, null=True, verbose_name="I_DM")
+    sdm = models.CharField(max_length=50, blank=True, null=True, verbose_name="SDM")
+
+    @property
+    def code(self):
+        return self.bay_code
+
+    @property
+    def name(self):
+        return self.bay_name
 
     def __str__(self):
-        return f"{self.bay_code} ({self.station.station_code})"
+        return f"{self.bay_code} - {self.bay_name}"
 
 class Relay(models.Model):
-    bay = models.ForeignKey(Bay, related_name='relays', on_delete=models.CASCADE)
-    relay_code = models.CharField(max_length=50)
-    relay_name = models.CharField(max_length=100)
-    manufacturer = models.CharField(max_length=100)
+    bay = models.ForeignKey(Bay, related_name='relays', on_delete=models.CASCADE, null=True, blank=True)
+    relay_code = models.CharField(max_length=50, verbose_name="Mã (MA)")
+    relay_name = models.CharField(max_length=255, verbose_name="Tên (TEN)")
+    manufacturer = models.CharField(max_length=100, blank=True, null=True)
+
+    # Các trường bổ sung từ Danh mục Thiết bị (Rơ le)
+    id_tbi = models.CharField(max_length=100, blank=True, null=True, verbose_name="ID Thiết bị (ID_TBI)")
+    id_capda = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Cấp điện áp (ID_CAPDA)")
+    id_ttvh = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Trạng thái vận hành (ID_TTVH)")
+    id_hang_sx = models.CharField(max_length=100, blank=True, null=True, verbose_name="ID Hãng sản xuất (ID_HANG_SX)")
+    id_nuoc_sx = models.CharField(max_length=100, blank=True, null=True, verbose_name="ID Nước sản xuất (ID_NUOC_SX)")
+    
+    id_loai_tb = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Loại thiết bị (ID_LOAI_TB)")
+    id_loai_dt = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Loại đối tượng (ID_LOAI_DT)")
+    id_doituong = models.CharField(max_length=100, blank=True, null=True, verbose_name="ID Đối tượng (ID_DOITUONG)")
+    
+    id_dvi = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Đơn vị (ID_DVI)")
+    id_sohuu = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Sở hữu (ID_SOHUU)")
+    
+    id_vtri_dat = models.CharField(max_length=100, blank=True, null=True, verbose_name="ID Vị trí đặt (ID_VTRI_DAT)")
+    ngay_vh = models.DateTimeField(blank=True, null=True, verbose_name="Ngày vận hành (NGAY_VH)")
+    sort_order = models.IntegerField(blank=True, null=True, verbose_name="Sắp xếp (SAPXEP)")
 
     # Lịch trình tự động kiểm tra API
     UNIT_CHOICES = [
@@ -76,6 +161,14 @@ class Relay(models.Model):
                 return from_time.replace(year=from_time.year + val, day=28)
         
         return from_time + datetime.timedelta(hours=1)
+
+    @property
+    def code(self):
+        return self.relay_code
+
+    @property
+    def name(self):
+        return self.relay_name
 
     def __str__(self):
         return f"{self.relay_code} - {self.relay_name}"

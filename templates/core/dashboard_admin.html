@@ -1,64 +1,166 @@
 {% extends "base.html" %}
-{% block header_title %}Tổng quan Hệ thống (Admin){% endblock %}
+{% block title %}Tổng quan Hệ thống | RMS{% endblock %}
+{% block header_title %}Tổng quan Hệ thống{% endblock %}
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <div class="bg-gradient-to-br from-white to-slate-50 rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center justify-between hover:-translate-y-1 transition-all">
-        <div><p class="text-sm font-medium text-slate-500 mb-1">Tổng Số Phiếu</p><h3 class="text-3xl font-black">{{ total_sheets }}</h3></div>
-        <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-xl"><i class="fas fa-file-alt"></i></div>
+
+<!-- ===== ROW 1: KPI CARDS ===== -->
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+    <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl p-4 text-white shadow-lg shadow-blue-200 col-span-1">
+        <p class="text-blue-100 text-xs font-medium mb-1">Tổng Phiếu</p>
+        <h3 class="text-2xl font-black">{{ total_sheets }}</h3>
+        <p class="text-blue-200 text-xs mt-1.5"><i class="fas fa-file-alt mr-1"></i> chỉnh định</p>
     </div>
-    <div class="bg-gradient-to-br from-white to-slate-50 rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center justify-between hover:-translate-y-1 transition-all">
-        <div><p class="text-sm font-medium text-slate-500 mb-1">Tài Khoản</p><h3 class="text-3xl font-black">{{ total_users }}</h3></div>
-        <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-xl"><i class="fas fa-users"></i></div>
+    <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-2xl p-4 text-white shadow-lg shadow-emerald-200">
+        <p class="text-emerald-100 text-xs font-medium mb-1">Tài Khoản</p>
+        <h3 class="text-2xl font-black">{{ total_users }}</h3>
+        <p class="text-emerald-200 text-xs mt-1.5"><i class="fas fa-users mr-1"></i> người dùng</p>
     </div>
-    <div class="bg-gradient-to-br from-white to-slate-50 rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center justify-between hover:-translate-y-1 transition-all">
-        <div><p class="text-sm font-medium text-slate-500 mb-1">Trạm Điện</p><h3 class="text-3xl font-black">{{ total_stations }}</h3></div>
-        <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center text-xl"><i class="fas fa-industry"></i></div>
+    <div class="bg-gradient-to-br from-yellow-500 to-amber-600 rounded-2xl p-4 text-white shadow-lg shadow-amber-200">
+        <p class="text-yellow-100 text-xs font-medium mb-1">Trạm điện</p>
+        <h3 class="text-2xl font-black">{{ total_stations }}</h3>
+        <p class="text-yellow-200 text-xs mt-1.5"><i class="fas fa-bolt mr-1"></i> biến áp</p>
     </div>
-    <div class="bg-gradient-to-br from-white to-slate-50 rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center justify-between hover:-translate-y-1 transition-all">
-        <div><p class="text-sm font-medium text-slate-500 mb-1">Đang chờ A0 duyệt</p><h3 class="text-3xl font-black text-amber-600">{{ pending_review }}</h3></div>
-        <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center text-xl"><i class="fas fa-stamp"></i></div>
+    <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-2xl p-4 text-white shadow-lg shadow-violet-200">
+        <p class="text-violet-100 text-xs font-medium mb-1">Đường dây</p>
+        <h3 class="text-2xl font-black">{{ total_lines|default:"0" }}</h3>
+        <p class="text-violet-200 text-xs mt-1.5"><i class="fas fa-route mr-1"></i> đường dây</p>
+    </div>
+    <div class="bg-gradient-to-br from-rose-500 to-rose-700 rounded-2xl p-4 text-white shadow-lg shadow-rose-200">
+        <p class="text-rose-100 text-xs font-medium mb-1">Vị trí</p>
+        <h3 class="text-2xl font-black">{{ total_locations|default:"0" }}</h3>
+        <p class="text-rose-200 text-xs mt-1.5"><i class="fas fa-map-pin mr-1"></i> cột điện</p>
+    </div>
+    <div class="bg-gradient-to-br from-orange-400 to-amber-500 rounded-2xl p-4 text-white shadow-lg shadow-orange-200">
+        <p class="text-orange-100 text-xs font-medium mb-1">Chờ Admin duyệt</p>
+        <h3 class="text-2xl font-black text-white">{{ PENDING_ADMIN_APPROVAL }}</h3>
+        <p class="text-orange-200 text-xs mt-1.5"><i class="fas fa-stamp mr-1"></i> phiếu</p>
     </div>
 </div>
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+<!-- ===== ROW 2: Chart + Activity ===== -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Chart -->
     <div class="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-            <h3 class="text-lg font-bold">{{ chart_title|default:"Lưu lượng tạo Phiếu" }}</h3>
-            
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+            <div>
+                <h3 class="text-base font-bold text-slate-800">{{ chart_title|default:"Lưu lượng tạo Phiếu" }}</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Thống kê phiếu chỉnh định theo thời gian</p>
+            </div>
             <form id="chartFilterForm" method="GET" class="flex flex-wrap items-center gap-2">
-                <select name="period" id="periodSelect" class="text-sm border-slate-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 py-1.5" onchange="toggleCustomDates()">
+                <select name="period" id="periodSelect"
+                        class="text-xs border-slate-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 py-1.5 bg-slate-50"
+                        onchange="toggleCustomDates()">
                     <option value="7days" {% if period == '7days' %}selected{% endif %}>7 Ngày qua</option>
                     <option value="this_month" {% if period == 'this_month' %}selected{% endif %}>Tháng này</option>
                     <option value="this_year" {% if period == 'this_year' %}selected{% endif %}>Năm nay</option>
                     <option value="custom" {% if period == 'custom' %}selected{% endif %}>Tùy chọn...</option>
                 </select>
-                
                 <div id="customDateContainer" class="{% if period != 'custom' %}hidden{% endif %} flex items-center gap-2">
-                    <input type="date" name="start_date" value="{{ start_date }}" class="text-sm border-slate-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 py-1.5" required>
-                    <span class="text-slate-400">-</span>
-                    <input type="date" name="end_date" value="{{ end_date }}" class="text-sm border-slate-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 py-1.5" required>
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">Lọc</button>
+                    <input type="date" name="start_date" value="{{ start_date }}" class="text-xs border-slate-200 rounded-lg focus:ring-blue-500 py-1.5">
+                    <span class="text-slate-400 text-xs">–</span>
+                    <input type="date" name="end_date" value="{{ end_date }}" class="text-xs border-slate-200 rounded-lg focus:ring-blue-500 py-1.5">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium">Lọc</button>
                 </div>
             </form>
         </div>
-        <canvas id="barChart" height="100"></canvas>
+        <canvas id="barChart" height="90"></canvas>
     </div>
+
+    <!-- Activity Feed -->
     <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-        <h3 class="text-lg font-bold mb-4">Hoạt động Hệ thống</h3>
-        <div class="space-y-4">
+        <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <i class="fas fa-activity text-blue-500 text-sm"></i> Hoạt động Hệ thống
+        </h3>
+        <div class="space-y-3">
             {% for act in recent_activities %}
             <div class="flex items-start gap-3">
-                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xs mt-1"><i class="fas fa-signature"></i></div>
-                <div>
-                    <p class="text-sm font-semibold">{{ act.signer_name }}</p>
-                    <p class="text-xs text-slate-500">Ký phiếu #{{ act.sheet.sheet_code }}</p>
-                    <p class="text-xs text-slate-400 mt-1">{{ act.signed_at|timesince }} trước</p>
+                <div class="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 text-xs flex-shrink-0 mt-0.5">
+                    <i class="fas fa-pen-nib"></i>
                 </div>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-slate-700 truncate">{{ act.signer_name }}</p>
+                    <p class="text-xs text-slate-500 truncate">Ký phiếu #{{ act.sheet.sheet_code }}</p>
+                    <p class="text-xs text-slate-400 mt-0.5">{{ act.signed_at|timesince }} trước</p>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-6 text-slate-300">
+                <i class="fas fa-inbox text-3xl mb-2 block"></i>
+                <p class="text-sm">Chưa có hoạt động</p>
             </div>
             {% endfor %}
         </div>
     </div>
 </div>
+
+<!-- ===== ROW 3: Asset Status Cards ===== -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Quick Links -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+        <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <i class="fas fa-link text-slate-400 text-sm"></i> Truy cập Nhanh
+        </h3>
+        <div class="grid grid-cols-2 gap-2">
+            <a href="{% url 'station_list' %}"
+               class="flex items-center gap-3 p-3 bg-yellow-50 hover:bg-yellow-100 rounded-xl transition-colors border border-yellow-100">
+                <i class="fas fa-bolt text-yellow-500 w-4"></i>
+                <span class="text-sm font-semibold text-yellow-700">Trạm biến áp</span>
+            </a>
+            <a href="{% url 'asset_line_list' %}"
+               class="flex items-center gap-3 p-3 bg-sky-50 hover:bg-sky-100 rounded-xl transition-colors border border-sky-100">
+                <i class="fas fa-route text-sky-500 w-4"></i>
+                <span class="text-sm font-semibold text-sky-700">Đường dây</span>
+            </a>
+            <a href="{% url 'asset_location_list' %}"
+               class="flex items-center gap-3 p-3 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors border border-rose-100">
+                <i class="fas fa-map-pin text-rose-500 w-4"></i>
+                <span class="text-sm font-semibold text-rose-700">Vị trí / Cột</span>
+            </a>
+            <a href="{% url 'asset_project_list' %}"
+               class="flex items-center gap-3 p-3 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors border border-indigo-100">
+                <i class="fas fa-building-columns text-indigo-500 w-4"></i>
+                <span class="text-sm font-semibold text-indigo-700">Công trình</span>
+            </a>
+            <a href="{% url 'sheet_list' %}?status=PENDING_ADMIN_APPROVAL"
+               class="flex items-center gap-3 p-3 bg-violet-50 hover:bg-violet-100 rounded-xl transition-colors border border-violet-100">
+                <i class="fas fa-file-signature text-violet-500 w-4"></i>
+                <span class="text-sm font-semibold text-violet-700">Chờ phê duyệt</span>
+            </a>
+            <a href="{% url 'category_dashboard' %}"
+               class="flex items-center gap-3 p-3 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors border border-amber-100">
+                <i class="fas fa-list-ul text-amber-500 w-4"></i>
+                <span class="text-sm font-semibold text-amber-700">Từ điển DL</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- System Health -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+        <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <i class="fas fa-heart-pulse text-emerald-500 text-sm"></i> Trạng thái Hệ thống
+        </h3>
+        <div class="space-y-3">
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <span class="text-sm text-slate-600 flex items-center gap-2"><i class="fas fa-database text-slate-400 w-4"></i> Cơ sở dữ liệu</span>
+                <span class="text-xs font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1"><i class="fas fa-circle text-[8px]"></i> Online</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <span class="text-sm text-slate-600 flex items-center gap-2"><i class="fas fa-plug-circle-bolt text-slate-400 w-4"></i> Phiếu Chờ duyệt</span>
+                <span class="text-xs font-bold {% if PENDING_ADMIN_APPROVAL > 0 %}text-orange-600 bg-orange-100{% else %}text-emerald-600 bg-emerald-100{% endif %} px-2 py-0.5 rounded-full">{{ PENDING_ADMIN_APPROVAL }}</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <span class="text-sm text-slate-600 flex items-center gap-2"><i class="fas fa-bolt text-slate-400 w-4"></i> Dữ liệu Trạm</span>
+                <span class="text-xs font-bold {% if total_stations > 0 %}text-emerald-600 bg-emerald-100{% else %}text-slate-400 bg-slate-100{% endif %} px-2 py-0.5 rounded-full">{{ total_stations }} trạm</span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <span class="text-sm text-slate-600 flex items-center gap-2"><i class="fas fa-route text-slate-400 w-4"></i> Dữ liệu Đường dây</span>
+                <span class="text-xs font-bold {% if total_lines > 0 %}text-emerald-600 bg-emerald-100{% else %}text-amber-600 bg-amber-100{% endif %} px-2 py-0.5 rounded-full">{{ total_lines|default:"0" }} đường dây</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     function toggleCustomDates() {
         const period = document.getElementById('periodSelect').value;
@@ -67,7 +169,6 @@
             customContainer.classList.remove('hidden');
         } else {
             customContainer.classList.add('hidden');
-            // Auto submit when standard period is selected
             document.getElementById('chartFilterForm').submit();
         }
     }
@@ -80,8 +181,16 @@
                 label: 'Số phiếu mới',
                 data: {{ chart_data|safe }},
                 backgroundColor: 'rgba(37, 99, 235, 0.8)',
-                borderRadius: 4
+                borderRadius: 6,
+                borderSkipped: false,
             }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { precision: 0 } },
+                x: { grid: { display: false } }
+            }
         }
     });
 </script>

@@ -10,5 +10,12 @@ urlpatterns = [
     path('roles/update/', views.role_matrix_update, name='role_matrix_update'),
     path('dispatcher/routed-relays/', views.dispatcher_routed_relays, name='dispatcher_routed_relays'),
     path('profile/', views.profile, name='profile'),
+    path('api-config/', views.system_config_view, name='system_config'),
+    path('api-config/create/', views.system_config_create, name='system_config_create'),
+    path('api-config/bulk-create/', views.system_config_bulk_create, name='system_config_bulk_create'),
+    path('api-config/update/', views.system_config_update, name='system_config_update'),
+    path('api-config/delete/<int:config_id>/', views.system_config_delete, name='system_config_delete'),
+    path('api-config/row/<int:config_id>/', views.system_config_row, name='system_config_row'),
+    path('api-config/sync/', views.api_sync_endpoint, name='api_sync_endpoint'),
     path('api/badges/', views.get_badges_api, name='get_badges_api'),
 ]

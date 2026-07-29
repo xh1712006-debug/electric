@@ -22,6 +22,10 @@ app.conf.beat_schedule = {
         'task': 'stations.tasks.schedule_due_autochecks',
         'schedule': crontab(minute='*'),  # Run every minute
     },
+    'auto-sync-api-every-minute': {
+        'task': 'core.tasks.check_and_run_auto_sync',
+        'schedule': crontab(minute='*'),  # Run every minute to check if interval has elapsed
+    },
 }
 
 @app.task(bind=True, ignore_result=True)

@@ -1,0 +1,70 @@
+<div class="overflow-x-auto">
+    <table class="w-full text-sm text-left text-slate-600">
+        <thead class="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+            <tr>
+                <th scope="col" class="px-6 py-4 font-semibold">Mã</th>
+                <th scope="col" class="px-6 py-4 font-semibold">Tên</th>
+                <th scope="col" class="px-6 py-4 font-semibold">Mô tả</th>
+                <th scope="col" class="px-6 py-4 font-semibold">Ngày tạo</th>
+                <th scope="col" class="px-6 py-4 font-semibold text-right">Thao tác</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for item in page_obj %}
+            <tr class="hover:bg-blue-50/50 transition-colors">
+                <td class="px-6 py-3 font-medium text-slate-900 whitespace-nowrap">{{ item.code }}</td>
+                <td class="px-6 py-3 font-semibold text-blue-600">{{ item.name }}</td>
+                <td class="px-6 py-3">{{ item.description|default:"-"|truncatechars:50 }}</td>
+                <td class="px-6 py-3 text-slate-400">{{ item.created_at|date:"d/m/Y H:i" }}</td>
+                <td class="px-6 py-3 text-right space-x-2">
+                    <button hx-get="{% url 'category_edit' category_id item.id %}" hx-target="#modal-container" hx-swap="innerHTML" class="text-slate-400 hover:text-blue-600 transition-colors" title="Sửa">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button hx-post="{% url 'category_delete' category_id item.id %}" hx-confirm="Bạn có chắc chắn muốn xóa {{ item.name }}?" class="text-slate-400 hover:text-red-600 transition-colors" title="Xóa">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="px-6 py-8 text-center text-slate-500">
+                    <div class="flex flex-col items-center justify-center">
+                        <i class="fas fa-inbox text-4xl text-slate-300 mb-3"></i>
+                        <p>Chưa có dữ liệu nào.</p>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<div class="p-4 border-t border-slate-200 bg-white flex items-center justify-between">
+    <span class="text-sm text-slate-500">
+        Đang xem <span class="font-semibold text-slate-900">{{ page_obj.start_index }}</span> đến <span class="font-semibold text-slate-900">{{ page_obj.end_index }}</span> trong tổng số <span class="font-semibold text-slate-900">{{ page_obj.paginator.count }}</span> mục
+    </span>
+    <div class="flex items-center space-x-1">
+        {% if page_obj.has_previous %}
+        <button hx-get="{% url 'category_list' category_id %}?page={{ page_obj.previous_page_number }}&q={{ q }}" hx-target="#category-list-container" class="px-3 py-1 text-sm border border-slate-300 rounded hover:bg-slate-50 text-slate-600 transition-colors">
+            Trước
+        </button>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <button class="px-3 py-1 text-sm bg-blue-600 text-white rounded font-medium shadow-sm">{{ num }}</button>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <button hx-get="{% url 'category_list' category_id %}?page={{ num }}&q={{ q }}" hx-target="#category-list-container" class="px-3 py-1 text-sm border border-slate-300 rounded hover:bg-slate-50 text-slate-600 transition-colors">{{ num }}</button>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <button hx-get="{% url 'category_list' category_id %}?page={{ page_obj.next_page_number }}&q={{ q }}" hx-target="#category-list-container" class="px-3 py-1 text-sm border border-slate-300 rounded hover:bg-slate-50 text-slate-600 transition-colors">
+            Sau
+        </button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

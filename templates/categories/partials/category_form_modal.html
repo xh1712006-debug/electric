@@ -1,0 +1,63 @@
+<div id="category-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm" x-data="{ open: true }" x-show="open" x-cloak>
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden transform transition-all flex flex-col max-h-[90vh]"
+         @click.away="open = false; setTimeout(() => document.getElementById('category-modal').remove(), 300)">
+        
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 flex-shrink-0">
+            <h3 class="text-lg font-bold text-slate-800">
+                {% if instance %}Cập nhật {{ category_name }}{% else %}Thêm mới {{ category_name }}{% endif %}
+            </h3>
+            <button @click="open = false; setTimeout(() => document.getElementById('category-modal').remove(), 300)" class="text-slate-400 hover:text-slate-600 transition-colors">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Form -->
+        <form hx-post="{% if instance %}{% url 'category_edit' category_id instance.id %}{% else %}{% url 'category_create' category_id %}{% endif %}" 
+              hx-target="#modal-container"
+              class="flex flex-col overflow-hidden">
+            
+            {% csrf_token %}
+            
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                    {% for field in form %}
+                    <div>
+                        <label for="{{ field.id_for_label }}" class="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+                            {{ field.label }} {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+                        </label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <p class="text-sm text-red-500 mt-1">{{ field.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3 flex-shrink-0">
+                <button type="button" @click="open = false; setTimeout(() => document.getElementById('category-modal').remove(), 300)" class="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200">
+                    Hủy bỏ
+                </button>
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/30 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <i class="fas fa-save mr-2"></i> Lưu lại
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Xóa modal khi submit thành công (nhận sự kiện categoryListChanged)
+    document.body.addEventListener("categoryListChanged", function() {
+        const modal = document.getElementById("category-modal");
+        if (modal) {
+            modal.remove();
+        }
+        // Nếu không có container của danh sách cơ bản, nghĩa là đang ở trang quản lý tài sản lớn (có panel) -> tải lại trang
+        if (!document.getElementById("category-list-container")) {
+            window.location.reload();
+        }
+    });
+</script>

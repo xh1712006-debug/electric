@@ -1,0 +1,331 @@
+{% extends 'base.html' %}
+
+{% block title %}Cấu hình Hệ thống - EVN RMS{% endblock %}
+
+{% block header_title %}
+<span class="text-slate-800 font-semibold">Cấu hình Hệ thống (API)</span>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" 
+     x-data="{ 
+         editingId: null, 
+         editKey: '',
+         editValue: '', 
+         editDescription: '',
+         editAuthHeader: '',
+         editAutoSync: false,
+         editSyncInterval: 1440,
+         syncValue: 1,
+         syncUnit: 1440,
+         createOpen: false,
+         bulkOpen: false,
+         setEdit(id, key, val, desc, auth, autoSync, syncInterval) {
+             this.editingId = id;
+             this.editKey = key;
+             this.editValue = val;
+             this.editDescription = desc;
+             this.editAuthHeader = auth;
+             this.editAutoSync = autoSync === 'True' || autoSync === true;
+             
+             let interval = parseInt(syncInterval) || 1440;
+             this.editSyncInterval = interval;
+             
+             if (interval >= 525600 && interval % 525600 === 0) {
+                 this.syncUnit = 525600;
+                 this.syncValue = interval / 525600;
+             } else if (interval >= 43200 && interval % 43200 === 0) {
+                 this.syncUnit = 43200;
+                 this.syncValue = interval / 43200;
+             } else if (interval >= 1440 && interval % 1440 === 0) {
+                 this.syncUnit = 1440;
+                 this.syncValue = interval / 1440;
+             } else if (interval >= 60 && interval % 60 === 0) {
+                 this.syncUnit = 60;
+                 this.syncValue = interval / 60;
+             } else {
+                 this.syncUnit = 1;
+                 this.syncValue = interval;
+             }
+             
+             setTimeout(() => {
+                 const form = document.getElementById('editConfigForm');
+                 if(form) {
+                     form.setAttribute('hx-target', '#config-row-' + id);
+                     form.setAttribute('hx-swap', 'innerHTML');
+                     htmx.process(form);
+                 }
+             }, 50);
+         }
+     }"
+     @open-edit.window="setEdit($event.detail.id, $event.detail.key, $event.detail.value, $event.detail.description, $event.detail.auth_header, $event.detail.auto_sync, $event.detail.sync_interval)">
+     
+    <div class="p-6 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+            <h2 class="text-lg font-bold text-slate-800 mb-1">Cấu hình Endpoint API</h2>
+            <p class="text-sm text-slate-500">Quản lý các đường dẫn API động được sử dụng trong toàn bộ hệ thống.</p>
+        </div>
+        <div class="flex gap-2 flex-shrink-0">
+            <button @click="bulkOpen = true" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 shadow-md flex items-center font-semibold text-sm transition-colors">
+                <i class="fas fa-layer-group mr-2"></i> Thêm Hàng loạt
+            </button>
+            <button @click="createOpen = true" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md flex items-center font-semibold text-sm transition-colors">
+                <i class="fas fa-plus mr-2"></i> Thêm API
+            </button>
+        </div>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left text-slate-600">
+            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                <tr>
+                    <th scope="col" class="px-6 py-4 font-semibold w-1/4">Mã cấu hình</th>
+                    <th scope="col" class="px-6 py-4 font-semibold w-2/5">Giá trị (Endpoint)</th>
+                    <th scope="col" class="px-6 py-4 font-semibold">Mô tả</th>
+                    <th scope="col" class="px-6 py-4 font-semibold">Tự động đồng bộ</th>
+                    <th scope="col" class="px-6 py-4 font-semibold text-right min-w-[150px]">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for config in configs %}
+                <tr id="config-row-{{ config.id }}" class="hover:bg-blue-50/50 transition-colors group"
+                    {% if config.auto_sync_enabled or config.is_syncing %}
+                    hx-get="{% url 'system_config_row' config.id %}"
+                    hx-trigger="every 10s"
+                    hx-swap="outerHTML"
+                    {% endif %}>
+                    <td class="px-6 py-3 font-medium text-slate-900">{{ config.key }}</td>
+                    <td class="px-6 py-3">
+                        <div class="text-blue-600 font-mono text-sm break-all">{{ config.value }}</div>
+                        <div id="sync-result-{{ config.id }}"></div>
+                    </td>
+                    <td class="px-6 py-3 text-slate-500">{{ config.description }}</td>
+                    <td class="px-6 py-3">
+                        {% if config.is_syncing %}
+                            <div class="inline-flex items-center px-2 py-1 bg-amber-50 text-amber-700 text-xs font-medium rounded border border-amber-200 mb-1">
+                                <i class="fas fa-sync-alt fa-spin mr-1"></i> Đang đồng bộ...
+                            </div>
+                            <div class="text-[10px] text-blue-500 mt-1 font-semibold">Đã đồng bộ: {{ config.sync_count }} lần</div>
+                        {% else %}
+                            {% if config.auto_sync_enabled %}
+                                <div class="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded border border-emerald-200 mb-1">
+                                    <i class="fas fa-clock mr-1"></i> Bật (Mỗi 
+                                    {% if config.sync_interval_minutes >= 525600 and config.sync_interval_minutes|divisibleby:525600 %}
+                                        {% widthratio config.sync_interval_minutes 525600 1 %} năm
+                                    {% elif config.sync_interval_minutes >= 43200 and config.sync_interval_minutes|divisibleby:43200 %}
+                                        {% widthratio config.sync_interval_minutes 43200 1 %} tháng
+                                    {% elif config.sync_interval_minutes >= 1440 and config.sync_interval_minutes|divisibleby:1440 %}
+                                        {% widthratio config.sync_interval_minutes 1440 1 %} ngày
+                                    {% elif config.sync_interval_minutes >= 60 and config.sync_interval_minutes|divisibleby:60 %}
+                                        {% widthratio config.sync_interval_minutes 60 1 %} giờ
+                                    {% else %}
+                                        {{ config.sync_interval_minutes }} phút
+                                    {% endif %}
+                                    )
+                                </div>
+                                {% if config.last_sync_time %}
+                                    <div class="text-[10px] text-slate-500 mt-1" title="{{ config.last_sync_status|default:'' }}">Lần cuối: {{ config.last_sync_time|date:"d/m/Y H:i" }}</div>
+                                {% endif %}
+                            {% else %}
+                                <div class="inline-flex items-center px-2 py-1 bg-slate-50 text-slate-500 text-xs font-medium rounded border border-slate-200">
+                                    <i class="fas fa-power-off mr-1"></i> Tắt
+                                </div>
+                                {% if config.last_sync_time %}
+                                    <div class="text-[10px] text-slate-500 mt-1" title="{{ config.last_sync_status|default:'' }}">Lần cuối: {{ config.last_sync_time|date:"d/m/Y H:i" }}</div>
+                                {% endif %}
+                            {% endif %}
+                            <div class="text-[10px] text-blue-500 mt-1 font-semibold">Đã đồng bộ: {{ config.sync_count }} lần</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-3 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            {% if config.is_syncing %}
+                                <button type="button" disabled class="group text-xs font-semibold text-slate-400 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 cursor-not-allowed flex items-center shadow-sm" title="Đang đồng bộ ngầm">
+                                    <i class="fas fa-sync-alt fa-spin mr-1"></i> Đang đồng bộ...
+                                </button>
+                            {% else %}
+                                <button type="button" 
+                                        hx-post="{% url 'api_sync_endpoint' %}" 
+                                        hx-vals='{"config_id": "{{ config.id }}"}'
+                                        hx-target="#sync-result-{{ config.id }}"
+                                        hx-swap="outerHTML"
+                                        class="group text-xs font-semibold text-emerald-600 hover:text-white hover:bg-emerald-500 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200 transition-colors flex items-center shadow-sm" title="Đồng bộ ngay">
+                                    <i class="fas fa-sync-alt mr-1 group-[.htmx-request]:animate-spin"></i> <span class="group-[.htmx-request]:hidden">Đồng bộ</span><span class="hidden group-[.htmx-request]:inline ml-1">Đang tải...</span>
+                                </button>
+                            {% endif %}
+                            <button type="button" onclick="openEditModal({{ config.id }}, '{{ config.key|escapejs }}', '{{ config.value|escapejs }}', '{{ config.description|escapejs }}', '{{ config.auth_header|escapejs }}', '{{ config.auto_sync_enabled }}', {{ config.sync_interval_minutes|default:'1440' }})" class="text-slate-400 hover:text-blue-600 transition-colors p-1" title="Sửa">
+                                <i class="fas fa-edit text-base"></i>
+                            </button>
+                            <button type="button" 
+                                    hx-post="{% url 'system_config_delete' config.id %}" 
+                                    hx-confirm="Bạn có chắc chắn muốn xoá cấu hình API này?"
+                                    hx-target="#config-row-{{ config.id }}"
+                                    hx-swap="outerHTML"
+                                    class="text-slate-400 hover:text-red-500 transition-colors p-1" title="Xoá">
+                                <i class="fas fa-trash-alt text-base"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Edit Modal -->
+    <div x-show="editingId !== null" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm" x-transition>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" @click.away="editingId = null">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h3 class="text-lg font-bold text-slate-800">Sửa cấu hình</h3>
+                <button @click="editingId = null" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <form id="editConfigForm" hx-post="{% url 'system_config_update' %}" 
+                  class="p-6 space-y-4"
+                  @submit="setTimeout(() => { editingId = null; }, 100)">
+                {% csrf_token %}
+                <input type="hidden" name="config_id" x-model="editingId">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Mã cấu hình</label>
+                    <input type="text" name="key" x-model="editKey" required class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm font-mono uppercase bg-slate-50">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Giá trị mới (URL)</label>
+                    <input type="text" name="value" x-model="editValue" required class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm font-mono">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Mô tả</label>
+                    <input type="text" name="description" x-model="editDescription" class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Header/Token xác thực</label>
+                    <input type="text" name="auth_header" x-model="editAuthHeader" placeholder="VD: Bearer eyJhbGciOiJIUzI1..." class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm font-mono text-emerald-600">
+                </div>
+                
+                <div class="p-5 bg-blue-50/50 rounded-xl border border-blue-100 mt-4 space-y-4 shadow-inner">
+                    <h4 class="text-sm font-bold text-blue-800 mb-2 pb-2 flex items-center gap-2">
+                        <div class="bg-blue-100 p-1.5 rounded-lg text-blue-600"><i class="fas fa-robot"></i></div>
+                        Cấu hình Tự động Đồng bộ
+                    </h4>
+                    
+                    <div class="flex items-center mb-4">
+                        <label class="flex items-center cursor-pointer group">
+                            <div class="relative">
+                                <input type="checkbox" name="auto_sync_enabled" x-model="editAutoSync" class="sr-only">
+                                <div class="block w-11 h-6 rounded-full transition-colors duration-300 shadow-inner" :class="editAutoSync ? 'bg-blue-600' : 'bg-slate-300'"></div>
+                                <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 shadow" :class="editAutoSync ? 'transform translate-x-5' : ''"></div>
+                            </div>
+                            <div class="ml-3 text-sm font-semibold transition-colors duration-300" :class="editAutoSync ? 'text-blue-700' : 'text-slate-600'">Kích hoạt Tự động đồng bộ ngầm</div>
+                        </label>
+                    </div>
+                    
+                    <div class="mt-2 p-4 bg-white rounded-lg border border-blue-100 shadow-sm" :class="editAutoSync ? '' : 'opacity-70'">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Chu kỳ đồng bộ</label>
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                            <input type="hidden" name="sync_interval_minutes" :value="syncValue * syncUnit">
+                            <div class="flex items-center w-full sm:w-auto">
+                                <input type="number" x-model="syncValue" min="1" :disabled="!editAutoSync" class="w-full sm:w-24 rounded-l-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm font-medium text-center z-10 disabled:bg-slate-50 disabled:text-slate-700 disabled:border-slate-200 transition-colors">
+                                <select x-model="syncUnit" :disabled="!editAutoSync" class="rounded-r-lg border-l-0 border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm font-medium bg-slate-50 hover:bg-slate-100 cursor-pointer text-slate-700 transition-colors disabled:bg-slate-50 disabled:text-slate-700 disabled:border-slate-200 disabled:cursor-not-allowed">
+                                    <option value="1">Phút</option>
+                                    <option value="60">Giờ</option>
+                                    <option value="1440">Ngày</option>
+                                    <option value="43200">Tháng</option>
+                                    <option value="525600">Năm</option>
+                                </select>
+                            </div>
+                            <span class="text-xs text-slate-400 italic">Hệ thống sẽ chạy ngầm sau mỗi <span x-text="syncValue"></span> <span x-text="syncUnit == 1 ? 'phút' : syncUnit == 60 ? 'giờ' : syncUnit == 1440 ? 'ngày' : syncUnit == 43200 ? 'tháng' : 'năm'"></span>.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 flex justify-end gap-3">
+                    <button type="button" @click="editingId = null" class="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">Hủy</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-500/30">
+                        <i class="fas fa-save mr-2"></i> Lưu lại
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Modal -->
+    <div x-show="createOpen" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm" x-transition>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" @click.away="createOpen = false">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h3 class="text-lg font-bold text-slate-800">Thêm cấu hình API mới</h3>
+                <button @click="createOpen = false" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <form action="{% url 'system_config_create' %}" method="POST" class="p-6 space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Mã cấu hình (Key)</label>
+                    <input type="text" name="key" placeholder="(Tự động tạo nếu bỏ trống)" class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm font-mono uppercase">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Đường dẫn API (Value)</label>
+                    <input type="url" name="value" required placeholder="http://..." class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm font-mono">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Mô tả</label>
+                    <input type="text" name="description" placeholder="(Không bắt buộc)" class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Header/Token xác thực</label>
+                    <input type="text" name="auth_header" placeholder="VD: Bearer eyJhbGciOiJIUzI1..." class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm font-mono text-emerald-600">
+                </div>
+                <div class="pt-4 flex justify-end gap-3">
+                    <button type="button" @click="createOpen = false" class="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">Hủy</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-500/30">
+                        <i class="fas fa-plus mr-2"></i> Thêm mới
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Bulk Create Modal -->
+    <div x-show="bulkOpen" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm" x-transition>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl mx-4 overflow-hidden" @click.away="bulkOpen = false">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50/50">
+                <h3 class="text-lg font-bold text-emerald-800">Thêm API Hàng loạt</h3>
+                <button @click="bulkOpen = false" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <form action="{% url 'system_config_bulk_create' %}" method="POST" class="p-6 space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Danh sách đường dẫn (Mỗi URL một dòng)</label>
+                    <p class="text-xs text-slate-500 mb-2">Hệ thống sẽ tự động tạo mã ngẫu nhiên cho từng URL.</p>
+                    <textarea name="urls" required rows="8" placeholder="http://api1.example.com&#10;http://api2.example.com" class="w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 text-sm font-mono whitespace-pre"></textarea>
+                </div>
+                <div class="pt-4 flex justify-end gap-3">
+                    <button type="button" @click="bulkOpen = false" class="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">Hủy</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-lg shadow-emerald-500/30">
+                        <i class="fas fa-layer-group mr-2"></i> Thêm hàng loạt
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openEditModal(id, key, val, desc, auth) {
+        window.dispatchEvent(new CustomEvent('open-edit', { detail: { id: id, key: key, value: val, description: desc, auth_header: auth } }));
+    }
+
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.successful) {
+            if (evt.detail.elt.hasAttribute('hx-post') && evt.detail.elt.id === 'editConfigForm') {
+                window.dispatchEvent(new CustomEvent('ws-message', {
+                    detail: { title: "Cập nhật thành công", message: "Cấu hình hệ thống đã được lưu.", level: "success" }
+                }));
+            }
+        }
+    });
+</script>
+{% endblock %}

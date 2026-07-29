@@ -173,7 +173,9 @@ INSTALLED_APPS = [
     'stations',
     'sheets',
     'checks',
+    'categories',
     'django_celery_beat',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
@@ -313,3 +315,12 @@ X_FRAME_OPTIONS = 'SAMEORIGIN'
 # Media files (Uploaded files)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': (
+        'core.api_renderers.CustomXMLRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ),
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+}

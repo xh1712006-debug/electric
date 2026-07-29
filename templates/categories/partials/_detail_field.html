@@ -1,0 +1,11 @@
+{% if value and value != "None" %}
+<div class="bg-slate-50 rounded-lg p-2.5 border border-slate-100">
+    <p class="text-[10px] text-slate-400 mb-0.5 uppercase tracking-wide font-medium">{{ label }}</p>
+    <p class="text-sm font-medium text-slate-700">{{ value }}</p>
+</div>
+{% else %}
+<div class="bg-slate-50 rounded-lg p-2.5 border border-slate-100 opacity-50">
+    <p class="text-[10px] text-slate-400 mb-0.5 uppercase tracking-wide font-medium">{{ label }}</p>
+    <p class="text-sm text-slate-300">—</p>
+</div>
+{% endif %}

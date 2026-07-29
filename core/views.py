@@ -122,12 +122,20 @@ def dashboard(request):
         recent_activities = SignatureRecord.objects.select_related('sheet').order_by('-signed_at')[:5]
         _ = list(recent_activities)
         
+        from categories.models import Line, Location, Project
+        from stations.models import Bay, Relay
+        
         context = {
             'total_sheets': total_sheets, 'total_users': total_users, 'total_stations': total_stations, 'PENDING_ADMIN_APPROVAL': PENDING_ADMIN_APPROVAL,
             'chart_labels': chart_labels, 'chart_data': chart_data, 'recent_activities': recent_activities,
             'chart_title': chart_title, 'period': period,
             'start_date': start_date_str if period == 'custom' else '',
             'end_date': end_date_str if period == 'custom' else '',
+            'total_lines': Line.objects.count(),
+            'total_locations': Location.objects.count(),
+            'total_projects': Project.objects.count(),
+            'total_bays': Bay.objects.count(),
+            'total_relays': Relay.objects.count(),
             '_template_name': 'core/dashboard_admin.html'
         }
         
@@ -498,3 +506,273 @@ def dispatcher_routed_relays(request):
 def profile(request):
     """Trang xem thông tin tài khoản cá nhân."""
     return render(request, 'core/profile.html')
+
+@login_required
+@permission_required('sheets.can_manage_users', raise_exception=True)
+def system_config_view(request):
+    """Trang cấu hình hệ thống (API Endpoints động)."""
+    from .models import SystemConfig
+    
+    # Init default configs if they don't exist
+    default_configs = [
+        ('API_DANH_MUC_DON_VI_QUAN_LY', 'http://localhost:8000/api/v1/categories/management-units/', 'Endpoint API Đơn vị quản lý'),
+        ('API_DANH_MUC_NUOC_SAN_XUAT', 'http://localhost:8000/api/v1/categories/manufacturing-countries/', 'Endpoint API Nước sản xuất'),
+        ('API_DANH_MUC_HANG_SAN_XUAT', 'http://localhost:8000/api/v1/categories/manufacturers/', 'Endpoint API Hãng sản xuất'),
+        ('API_DANH_MUC_SO_HUU', 'http://localhost:8000/api/v1/categories/ownerships/', 'Endpoint API Sở hữu'),
+        ('API_DANH_MUC_CAP_DIEN_AP', 'http://localhost:8000/api/v1/categories/voltage-levels/', 'Endpoint API Cấp điện áp'),
+        ('API_DANH_MUC_LOAI_THIET_BI', 'http://localhost:8000/api/v1/categories/equipment-types/', 'Endpoint API Loại thiết bị'),
+        ('API_DANH_MUC_TRANG_THAI', 'http://localhost:8000/api/v1/categories/operational-statuses/', 'Endpoint API Trạng thái vận hành'),
+        ('API_DANH_MUC_DUONG_DAY', 'http://localhost:8000/api/v1/categories/lines/', 'Endpoint API Đường dây'),
+        ('API_DANH_MUC_CONG_TRINH', 'http://localhost:8000/api/v1/categories/projects/', 'Endpoint API Công trình'),
+        ('API_DANH_MUC_VI_TRI', 'http://localhost:8000/api/v1/categories/locations/', 'Endpoint API Vị trí'),
+        ('API_TRAM', 'http://localhost:8000/api/v1/categories/stations/', 'Endpoint API Trạm'),
+        ('API_NGAN_LO', 'http://localhost:8000/api/v1/categories/bays/', 'Endpoint API Ngăn lộ'),
+        ('API_THIET_BI', 'http://localhost:8000/api/v1/categories/equipments/', 'Endpoint API Thiết bị (Relay)'),
+    ]
+    
+    for key, val, desc in default_configs:
+        SystemConfig.objects.get_or_create(key=key, defaults={'value': val, 'description': desc})
+        
+    configs = SystemConfig.objects.all().order_by('-id')
+    return render(request, 'core/system_config.html', {'configs': configs})
+
+@login_required
+@permission_required('sheets.can_manage_users', raise_exception=True)
+def system_config_create(request):
+    if request.method == 'POST':
+        from .models import SystemConfig
+        import time
+        key = request.POST.get('key', '').strip()
+        value = request.POST.get('value', '').strip()
+        description = request.POST.get('description', '')
+        auth_header = request.POST.get('auth_header', '').strip()
+        
+        if not key:
+            key = f"API_AUTO_{int(time.time())}"
+            
+        if value:
+            SystemConfig.objects.create(
+                key=key.upper(),
+                value=value,
+                description=description,
+                auth_header=auth_header
+            )
+            messages.success(request, f"Đã thêm API mới: {key.upper()}")
+        return redirect('system_config')
+    return redirect('system_config')
+
+@login_required
+@permission_required('sheets.can_manage_users', raise_exception=True)
+def system_config_bulk_create(request):
+    if request.method == 'POST':
+        from .models import SystemConfig
+        import time
+        urls_text = request.POST.get('urls', '')
+        urls = [u.strip() for u in urls_text.split('\n') if u.strip().startswith('http')]
+        count = 0
+        for idx, url in enumerate(urls):
+            key = f"API_AUTO_{int(time.time())}_{idx}"
+            SystemConfig.objects.create(key=key, value=url, description="Bulk imported")
+            count += 1
+        if count > 0:
+            messages.success(request, f"Đã thêm hàng loạt {count} API thành công!")
+        else:
+            messages.warning(request, "Không tìm thấy URL hợp lệ nào.")
+        return redirect('system_config')
+    return redirect('system_config')
+
+def render_system_config_row(config):
+    from django.urls import reverse
+    sync_url = reverse('api_sync_endpoint')
+    delete_url = reverse('system_config_delete', args=[config.id])
+    
+    val_esc = (config.value or "").replace("'", "\\'")
+    key_esc = (config.key or "").replace("'", "\\'")
+    desc_esc = (config.description or "").replace("'", "\\'")
+    auth_esc = (config.auth_header or "").replace("'", "\\'")
+    
+    last_sync_html = f'<div class="text-[10px] text-slate-500 mt-1" title="{config.last_sync_status}">Lần cuối: {config.last_sync_time.strftime("%d/%m/%Y %H:%M")}</div>' if config.last_sync_time else ''
+    sync_count_html = f'<div class="text-[10px] text-blue-500 mt-1 font-semibold">Đã đồng bộ: {config.sync_count} lần</div>'
+    
+    sync_interval = config.sync_interval_minutes
+    if sync_interval >= 525600 and sync_interval % 525600 == 0:
+        interval_str = f"{sync_interval // 525600} năm"
+    elif sync_interval >= 43200 and sync_interval % 43200 == 0:
+        interval_str = f"{sync_interval // 43200} tháng"
+    elif sync_interval >= 1440 and sync_interval % 1440 == 0:
+        interval_str = f"{sync_interval // 1440} ngày"
+    elif sync_interval >= 60 and sync_interval % 60 == 0:
+        interval_str = f"{sync_interval // 60} giờ"
+    else:
+        interval_str = f"{sync_interval} phút"
+
+    if config.is_syncing:
+        sync_col_html = f'''
+            <div class="inline-flex items-center px-2 py-1 bg-amber-50 text-amber-700 text-xs font-medium rounded border border-amber-200 mb-1">
+                <i class="fas fa-sync-alt fa-spin mr-1"></i> Đang đồng bộ...
+            </div>
+            {sync_count_html}
+        '''
+    else:
+        sync_col_html = f'''
+            <div class="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded border border-emerald-200 mb-1">
+                <i class="fas fa-clock mr-1"></i> Bật (Mỗi {interval_str})
+            </div>
+            {last_sync_html}
+            {sync_count_html}
+        ''' if config.auto_sync_enabled else f'''
+            <div class="inline-flex items-center px-2 py-1 bg-slate-50 text-slate-500 text-xs font-medium rounded border border-slate-200">
+                <i class="fas fa-power-off mr-1"></i> Tắt
+            </div>
+            {last_sync_html}
+            {sync_count_html}
+        '''
+
+    sync_btn_html = f'''
+        <button type="button" disabled class="group text-xs font-semibold text-slate-400 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 cursor-not-allowed flex items-center shadow-sm" title="Đang đồng bộ ngầm">
+            <i class="fas fa-sync-alt fa-spin mr-1"></i> Đang đồng bộ...
+        </button>
+    ''' if config.is_syncing else f'''
+        <button type="button" 
+                hx-post="{sync_url}" 
+                hx-vals='{{"config_id": "{config.id}"}}'
+                hx-target="#sync-result-{config.id}"
+                hx-swap="outerHTML"
+                class="group text-xs font-semibold text-emerald-600 hover:text-white hover:bg-emerald-500 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200 transition-colors flex items-center shadow-sm" title="Đồng bộ ngay">
+            <i class="fas fa-sync-alt mr-1 group-[.htmx-request]:animate-spin"></i> <span class="group-[.htmx-request]:hidden">Đồng bộ</span><span class="hidden group-[.htmx-request]:inline ml-1">Đang tải...</span>
+        </button>
+    '''
+
+    return f'''
+    <td class="px-6 py-3 font-medium text-slate-900">{config.key}</td>
+    <td class="px-6 py-3">
+        <div class="text-blue-600 font-mono text-sm break-all">{config.value}</div>
+        <div id="sync-result-{config.id}"></div>
+    </td>
+    <td class="px-6 py-3 text-slate-500">{config.description}</td>
+    <td class="px-6 py-3">
+        {sync_col_html}
+    </td>
+    <td class="px-6 py-3 text-right">
+        <div class="flex items-center justify-end gap-2">
+            {sync_btn_html}
+            <button type="button" onclick="openEditModal({config.id}, '{key_esc}', '{val_esc}', '{desc_esc}', '{auth_esc}', '{config.auto_sync_enabled}', {config.sync_interval_minutes})" class="text-slate-400 hover:text-blue-600 transition-colors p-1" title="Sửa">
+                <i class="fas fa-edit text-base"></i>
+            </button>
+            <button type="button" 
+                    hx-post="{delete_url}" 
+                    hx-confirm="Bạn có chắc chắn muốn xoá cấu hình API này?"
+                    hx-target="#config-row-{config.id}"
+                    hx-swap="outerHTML"
+                    class="text-slate-400 hover:text-red-500 transition-colors p-1" title="Xoá">
+                <i class="fas fa-trash-alt text-base"></i>
+            </button>
+        </div>
+    </td>
+    '''
+
+@login_required
+@permission_required('sheets.can_manage_users', raise_exception=True)
+def system_config_delete(request, config_id):
+    if request.method in ['POST', 'DELETE']:
+        from .models import SystemConfig
+        SystemConfig.objects.filter(id=config_id).delete()
+        return HttpResponse("")
+    return HttpResponseForbidden()
+
+@login_required
+@permission_required('sheets.can_manage_users', raise_exception=True)
+def system_config_update(request):
+    if request.method == 'POST':
+        from .models import SystemConfig
+        config_id = request.POST.get('config_id')
+        new_value = request.POST.get('value')
+        new_key = request.POST.get('key')
+        new_desc = request.POST.get('description')
+        new_auth = request.POST.get('auth_header')
+        
+        auto_sync_enabled = request.POST.get('auto_sync_enabled') == 'on'
+        sync_interval_minutes = request.POST.get('sync_interval_minutes')
+        
+        try:
+            config = SystemConfig.objects.get(id=config_id)
+            if new_value is not None:
+                config.value = new_value.strip()
+            if new_key:
+                config.key = new_key.strip().upper()
+            if new_desc is not None:
+                config.description = new_desc.strip()
+            if new_auth is not None:
+                config.auth_header = new_auth.strip()
+                
+            config.auto_sync_enabled = auto_sync_enabled
+            if sync_interval_minutes:
+                try:
+                    config.sync_interval_minutes = int(sync_interval_minutes)
+                except ValueError:
+                    pass
+                    
+            config.save()
+            return HttpResponse(render_system_config_row(config))
+        except SystemConfig.DoesNotExist:
+            return HttpResponseForbidden("Not found")
+            
+@login_required
+@permission_required('sheets.can_manage_users', raise_exception=True)
+def system_config_row(request, config_id):
+    from .models import SystemConfig
+    try:
+        config = SystemConfig.objects.get(id=config_id)
+        return HttpResponse(render_system_config_row(config))
+    except SystemConfig.DoesNotExist:
+        return HttpResponseForbidden("Not found")
+@login_required
+def api_sync_endpoint(request):
+    import json
+    import urllib.request
+    from categories.models import ManagementUnit, ManufacturingCountry, Manufacturer, Ownership, VoltageLevel, EquipmentType, OperationalStatus, Line, Project, Location
+    from core.utils.xml_converter import json_to_xml
+    import logging
+    from core.models import SystemConfig
+    from django.http import HttpResponse, HttpResponseForbidden
+    
+    if not (request.user.is_superuser or request.user.groups.filter(name='ADMIN').exists()):
+        return HttpResponseForbidden("Access Denied")
+        
+    logger = logging.getLogger(__name__)
+
+    if request.method == 'POST':
+        config_id = request.POST.get('config_id')
+        try:
+            config = SystemConfig.objects.get(id=config_id)
+            from core.utils.api_sync import run_api_sync
+            success, count, error_message = run_api_sync(config_id=config_id)
+            
+            # Increment count for manual syncs too
+            config.sync_count += 1
+            config.save(update_fields=['sync_count'])
+            
+            if not success:
+                return HttpResponse(f'''
+                <div id="sync-result-{config_id}" class="text-xs text-red-600 font-medium mt-2 p-2 bg-red-50 border border-red-100 rounded">
+                    <i class="fas fa-exclamation-circle mr-1"></i> {error_message}
+                </div>
+                ''', status=200)
+                
+            return HttpResponse(f'''
+            <div id="sync-result-{config.id}" class="text-xs text-emerald-600 font-medium mt-2 p-2 bg-emerald-50 border border-emerald-100 rounded flex items-center justify-between">
+                <div><i class="fas fa-check-circle mr-1"></i> Đã đồng bộ <b>{count}</b> bản ghi.</div>
+                <span class="text-[10px] text-emerald-500 bg-white px-2 py-0.5 rounded border border-emerald-200">XML Exported</span>
+            </div>
+            ''')
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            error_msg = str(e).replace('<', '&lt;').replace('>', '&gt;')
+            return HttpResponse(f'''
+            <div id="sync-result-{config_id}" class="text-xs text-red-600 font-medium mt-2 p-2 bg-red-50 border border-red-100 rounded">
+                <i class="fas fa-exclamation-circle mr-1"></i> Lỗi đồng bộ: {error_msg}
+            </div>
+            ''', status=200)
+    return HttpResponse("Invalid request", status=400)

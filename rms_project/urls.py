@@ -12,6 +12,7 @@ urlpatterns = [
     path('stations/', include('stations.urls')),
     path('system/', include('core.urls')),
     path('accounts/', include('django.contrib.auth.urls')),
+    path('api/v1/categories/', include('categories.urls')),
 ]
 
 if settings.DEBUG:

@@ -32,7 +32,9 @@ def station_list(request):
     return render(request, 'stations/station_list.html', {
         'stations': stations,
         'q': q,
-        'is_search': is_search
+        'is_search': is_search,
+        'total_bays': Bay.objects.count(),
+        'total_relays': Relay.objects.count(),
     })
 
 @login_required

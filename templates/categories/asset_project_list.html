@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% load auth_extras %}
+{% block title %}Quản lý Công trình | RMS{% endblock %}
+{% block header_title %}🏛️ Danh mục Công trình{% endblock %}
+
+{% block content %}
+<div x-data="{
+    slideOpen: {% if detail_obj %}true{% else %}false{% endif %},
+    selectedId: {% if detail_obj %}{{ detail_obj.pk }}{% else %}null{% endif %},
+    openDetail(id) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('detail', id);
+        window.history.replaceState({}, '', url.toString());
+        this.selectedId = id;
+        htmx.ajax('GET', '?detail=' + id + '&_panel=1', {target: '#detail-panel-content', swap: 'innerHTML'});
+        this.slideOpen = true;
+    },
+    closeDetail() {
+        this.slideOpen = false; this.selectedId = null;
+        const url = new URL(window.location.href);
+        url.searchParams.delete('detail');
+        window.history.replaceState({}, '', url.toString());
+    }
+}" class="flex gap-0 h-full relative">
+
+    <div class="flex-1 min-w-0 transition-all duration-300" :class="slideOpen ? 'mr-[480px]' : ''">
+        <div class="flex items-center justify-between mb-5">
+            <div>
+                <h1 class="text-xl font-bold text-slate-800">Công trình</h1>
+                <p class="text-sm text-slate-500 mt-0.5">Tổng cộng <span class="font-semibold text-indigo-600">{{ total_count }}</span> công trình trong hệ thống</p>
+            </div>
+            {% if request.user.is_superuser or request.user|has_group:'ADMIN' %}
+            <a href="{% url 'category_create' 'project' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm">
+                <i class="fas fa-plus text-xs"></i> Thêm Công trình
+            </a>
+            {% endif %}
+        </div>
+
+        <form method="GET" class="bg-white rounded-xl border border-slate-200 p-4 mb-4 flex flex-wrap gap-3 shadow-sm">
+            <div class="relative flex-1 min-w-[220px]">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="text" name="q" value="{{ q }}" placeholder="Tìm kiếm theo mã, tên công trình..."
+                       class="w-full pl-8 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:border-indigo-500 focus:bg-white outline-none transition-colors">
+            </div>
+            <select name="capda" class="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none min-w-[160px]">
+                <option value="">-- Cấp điện áp --</option>
+                {% for vl in voltage_levels %}<option value="{{ vl.code }}" {% if filter_capda == vl.code %}selected{% endif %}>{{ vl.name }}</option>{% endfor %}
+            </select>
+            <select name="ttvh" class="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none min-w-[180px]">
+                <option value="">-- Trạng thái vận hành --</option>
+                {% for st in op_statuses %}<option value="{{ st.code }}" {% if filter_ttvh == st.code %}selected{% endif %}>{{ st.name }}</option>{% endfor %}
+            </select>
+            <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors"><i class="fas fa-filter mr-1"></i> Lọc</button>
+            {% if q or filter_capda or filter_ttvh %}
+            <a href="{% url 'asset_project_list' %}" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors flex items-center gap-1"><i class="fas fa-xmark text-xs"></i> Xóa lọc</a>
+            {% endif %}
+        </form>
+
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200">
+                            <th class="sticky left-0 bg-slate-50 z-10 text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap border-r border-slate-200 min-w-[130px]">Mã CT</th>
+                            <th class="sticky left-[130px] bg-slate-50 z-10 text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap border-r border-slate-200 min-w-[230px]">Tên Công trình</th>
+                            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap">Cấp ĐA</th>
+                            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap">Công trình cha</th>
+                            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap">Năm XD</th>
+                            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap">Ngày VH</th>
+                            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap">Sở hữu</th>
+                            <th class="text-center px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for obj in page_obj %}
+                        <tr class="hover:bg-indigo-50/50 transition-colors cursor-pointer group"
+                            :class="selectedId == {{ obj.pk }} ? 'bg-indigo-50 ring-1 ring-inset ring-indigo-200' : ''"
+                            @click="if (!$event.target.closest('button, a')) openDetail({{ obj.pk }})">
+                            <td class="sticky left-0 bg-white group-hover:bg-indigo-50/40 z-10 px-4 py-3 border-r border-slate-100 font-mono text-xs font-semibold text-indigo-700 whitespace-nowrap" :class="selectedId == {{ obj.pk }} ? '!bg-indigo-50' : ''">{{ obj.code }}</td>
+                            <td class="sticky left-[130px] bg-white group-hover:bg-indigo-50/40 z-10 px-4 py-3 border-r border-slate-100 font-medium text-slate-800 whitespace-nowrap max-w-[260px] truncate" :class="selectedId == {{ obj.pk }} ? '!bg-indigo-50' : ''" title="{{ obj.name }}">{{ obj.name }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap">{% if obj.id_capda %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">{{ obj.id_capda }}</span>{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+                            <td class="px-4 py-3 text-slate-600 text-xs whitespace-nowrap max-w-[180px] truncate">{{ obj.ten_ct_cha|default:"—" }}</td>
+                            <td class="px-4 py-3 text-slate-600 text-xs text-center">{{ obj.nam_xd|default:"—" }}</td>
+                            <td class="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{% if obj.ngay_vh %}{{ obj.ngay_vh|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+                            <td class="px-4 py-3 text-slate-500 text-xs">{{ obj.id_sohuu|default:"—" }}</td>
+                            <td class="px-4 py-3 text-center">
+                                <div class="flex items-center justify-center gap-1">
+                                    <button @click="openDetail({{ obj.pk }})" class="w-7 h-7 flex items-center justify-center rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"><i class="fas fa-eye text-xs"></i></button>
+                                    {% if request.user.is_superuser or request.user|has_group:'ADMIN' %}
+                                    <button hx-get="{% url 'category_edit' 'project' obj.pk %}" hx-target="#modal-container" hx-swap="innerHTML" class="w-7 h-7 flex items-center justify-center rounded text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors" title="Chỉnh sửa">
+                                        <i class="fas fa-pen text-xs"></i>
+                                    </button>{% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="px-4 py-16 text-center"><i class="fas fa-building-columns text-4xl text-slate-300 mb-3 block"></i><p class="text-slate-500 font-medium">Chưa có dữ liệu Công trình</p></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if page_obj.has_other_pages %}
+            <div class="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+                <p class="text-xs text-slate-500">Hiển thị {{ page_obj.start_index }}–{{ page_obj.end_index }} / {{ page_obj.paginator.count }} bản ghi</p>
+                <div class="flex items-center gap-1">
+                    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}" class="w-8 h-8 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100"><i class="fas fa-chevron-left text-xs"></i></a>{% endif %}
+                    <span class="px-3 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 rounded">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}" class="w-8 h-8 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100"><i class="fas fa-chevron-right text-xs"></i></a>{% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ===== SLIDE-OVER PANEL ===== -->
+    <div class="fixed top-0 right-0 h-screen w-[480px] bg-white shadow-2xl border-l border-slate-200 z-40 flex flex-col transform transition-transform duration-300 ease-out translate-x-full"
+         :class="slideOpen ? 'translate-x-0' : 'translate-x-full'" x-cloak>
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50 flex-shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center"><i class="fas fa-building-columns text-indigo-600 text-sm"></i></div>
+                <div><h3 class="font-bold text-slate-800 text-sm">Chi tiết Công trình</h3><p class="text-xs text-slate-400 mt-0.5">Thông tin đầy đủ từ hệ thống</p></div>
+            </div>
+            <button @click="closeDetail()" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="flex-1 overflow-y-auto" id="detail-panel-content">
+            {% if detail_obj %}
+            {% include "categories/partials/project_detail_panel.html" with obj=detail_obj %}
+            {% else %}
+            <div class="flex flex-col items-center justify-center h-full text-slate-400"><i class="fas fa-hand-pointer text-4xl mb-3 opacity-40"></i><p class="text-sm font-medium">Chọn một dòng để xem chi tiết</p></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

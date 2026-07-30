@@ -18,15 +18,7 @@ def sheet_list(request):
     status_filter = request.GET.get('status', '')
     page_number = request.GET.get('page', 1)
     
-    cache_version = cache.get('sheet_list_version', 1)
-    key_string = f"sheet_list_v{cache_version}_user_{request.user.id}_q_{search_query}_s_{status_filter}_p_{page_number}"
-    cache_key = hashlib.md5(key_string.encode('utf-8')).hexdigest()
-    
-    cached_html = cache.get(cache_key)
-    if cached_html and isinstance(cached_html, str):
-        from django.http import HttpResponse
-        return HttpResponse(cached_html)
-        
+
     sheets = SettingSheet.objects.select_related('created_by', 'relay', 'relay__bay', 'relay__bay__station', 'station').all().order_by('-created_at')
     
     # Filter for DISPATCHER (chỉ xem phiếu mình tạo)
@@ -77,13 +69,7 @@ def sheet_list(request):
         'status_filter': status_filter,
         'list_title': list_title
     }
-    
-    from django.template.loader import render_to_string
-    from django.http import HttpResponse
-    html = render_to_string('sheets/sheet_list.html', context, request=request)
-    cache.set(cache_key, html, timeout=86400)
-    
-    return HttpResponse(html)
+    return render(request, 'sheets/sheet_list.html', context)
 
 @login_required
 def my_sheets(request):
@@ -91,15 +77,6 @@ def my_sheets(request):
     search_query = request.GET.get('q', '')
     status_filter = request.GET.get('status', '')
     page_number = request.GET.get('page', 1)
-    
-    cache_version = cache.get('sheet_list_version', 1)
-    key_string = f"my_sheets_v{cache_version}_user_{request.user.id}_q_{search_query}_s_{status_filter}_p_{page_number}"
-    cache_key = hashlib.md5(key_string.encode('utf-8')).hexdigest()
-    
-    cached_html = cache.get(cache_key)
-    if cached_html and isinstance(cached_html, str):
-        from django.http import HttpResponse
-        return HttpResponse(cached_html)
 
     # Lấy các phiếu do mình tạo hoặc được assign cho mình
     from django.db.models import Q
@@ -126,13 +103,7 @@ def my_sheets(request):
         'status_filter': status_filter,
         'list_title': 'Phiếu của tôi'
     }
-    
-    from django.template.loader import render_to_string
-    from django.http import HttpResponse
-    html = render_to_string('sheets/sheet_list.html', context, request=request)
-    cache.set(cache_key, html, timeout=86400)
-    
-    return HttpResponse(html)
+    return render(request, 'sheets/sheet_list.html', context)
 
 @login_required
 def updated_sheets(request):
@@ -140,15 +111,6 @@ def updated_sheets(request):
     search_query = request.GET.get('q', '')
     status_filter = request.GET.get('status', '')
     page_number = request.GET.get('page', 1)
-    
-    cache_version = cache.get('sheet_list_version', 1)
-    key_string = f"updated_sheets_v{cache_version}_user_{request.user.id}_q_{search_query}_s_{status_filter}_p_{page_number}"
-    cache_key = hashlib.md5(key_string.encode('utf-8')).hexdigest()
-    
-    cached_html = cache.get(cache_key)
-    if cached_html and isinstance(cached_html, str):
-        from django.http import HttpResponse
-        return HttpResponse(cached_html)
 
     sheets = SettingSheet.objects.select_related('created_by', 'relay', 'relay__bay', 'relay__bay__station', 'station').filter(has_parameters_changed=True).order_by('-created_at')
 
@@ -171,13 +133,7 @@ def updated_sheets(request):
         'status_filter': status_filter,
         'list_title': 'Phiếu Có Thay Đổi Thông Số (Cần Lưu Ý)'
     }
-    
-    from django.template.loader import render_to_string
-    from django.http import HttpResponse
-    html = render_to_string('sheets/sheet_list.html', context, request=request)
-    cache.set(cache_key, html, timeout=86400)
-    
-    return HttpResponse(html)
+    return render(request, 'sheets/sheet_list.html', context)
 
 @login_required
 def sheet_create(request):

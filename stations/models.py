@@ -28,6 +28,7 @@ class Station(models.Model):
     
     id_dvi = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Đơn vị (ID_DVI)")
     id_vung = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Vùng (ID_VUNG)")
+    updated_at = models.DateTimeField(auto_now=True)
     vung = models.CharField(max_length=100, blank=True, null=True, verbose_name="Vùng (VUNG)")
     
     id_sohuu = models.CharField(max_length=50, blank=True, null=True, verbose_name="ID Sở hữu (ID_SOHUU)")
@@ -72,6 +73,7 @@ class Bay(models.Model):
     i_dm = models.CharField(max_length=50, blank=True, null=True, verbose_name="I_DM")
     sdm = models.CharField(max_length=50, blank=True, null=True, verbose_name="SDM")
 
+    updated_at = models.DateTimeField(auto_now=True)
     @property
     def code(self):
         return self.bay_code
@@ -178,6 +180,8 @@ class Relay(models.Model):
         # Lấy phiếu hoàn thành (đang có hiệu lực) mới nhất
         completed = self.settingsheet_set.filter(status='COMPLETED').order_by('-created_at').first()
         return completed if completed else self.settingsheet_set.first()
+        
+    updated_at = models.DateTimeField(auto_now=True)
 
 class RelaySetting(models.Model):
     relay = models.ForeignKey(Relay, related_name='settings', on_delete=models.CASCADE)
@@ -222,6 +226,7 @@ class CorrectionTicket(models.Model):
     log = models.ForeignKey(RelayAutoCheckLog, on_delete=models.SET_NULL, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DISPATCHER')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

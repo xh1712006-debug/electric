@@ -15,7 +15,7 @@ class UserProfile(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
     station = models.ForeignKey('stations.Station', on_delete=models.SET_NULL, null=True, blank=True, related_name='users')
     phone_number = models.CharField(max_length=20, null=True, blank=True)
-
+    updated_at = models.DateTimeField(auto_now=True)
     def __str__(self):
         return self.user.username
 

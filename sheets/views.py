@@ -474,6 +474,13 @@ def sheet_assign(request, pk):
     """View để Dispatcher phân công phiếu cho KTV và Giám sát."""
     if request.method == 'POST':
         sheet = get_object_or_404(SettingSheet, pk=pk)
+        
+        # OCC
+        original_updated_at = request.POST.get('_original_updated_at')
+        if original_updated_at and str(sheet.updated_at.timestamp()) != original_updated_at:
+            messages.error(request, "Dữ liệu phiếu này đã bị thay đổi bởi một người khác trong khi bạn đang xem. Hãy tải lại trang để xem nội dung mới nhất.")
+            return redirect('sheet_detail', pk=pk)
+            
         assignee_id = request.POST.get('assignee_id')
         supervisor_id = request.POST.get('supervisor_id')
         new_status = request.POST.get('status')
@@ -534,6 +541,12 @@ def sheet_route_to_station(request, pk):
     sheet = get_object_or_404(SettingSheet, pk=pk)
     
     if request.method == 'POST':
+        # OCC
+        original_updated_at = request.POST.get('_original_updated_at')
+        if original_updated_at and str(sheet.updated_at.timestamp()) != original_updated_at:
+            messages.error(request, "Dữ liệu phiếu này đã bị thay đổi bởi một người khác trong khi bạn đang thao tác. Hãy tải lại trang để xem nội dung mới nhất.")
+            return redirect('sheet_detail', pk=pk)
+            
         # Check permissions: Dispatcher
         has_perm = request.user.groups.filter(name='DISPATCHER').exists()
         
@@ -797,6 +810,12 @@ def sheet_save_actual_data(request, pk):
     """View cho phép KTV lưu thông số thực tế và Điều phối sửa lỗi OCR."""
     if request.method == 'POST':
         sheet = get_object_or_404(SettingSheet, pk=pk)
+        
+        # Optimistic Concurrency Control
+        original_updated_at = request.POST.get('_original_updated_at')
+        if original_updated_at and str(sheet.updated_at.timestamp()) != original_updated_at:
+            messages.error(request, "Dữ liệu phiếu này đã bị thay đổi bởi một người khác trong khi bạn đang xem. Hãy tải lại trang để xem nội dung mới nhất trước khi chỉnh sửa.")
+            return redirect('sheet_detail', pk=pk)
         
         if sheet.status not in ['DRAFT', 'ISSUED']:
             messages.error(request, "Phiếu đã được duyệt và chuyển trạm. Không thể sửa đổi thông số OCR nữa.")

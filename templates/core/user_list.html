@@ -100,6 +100,7 @@
                                     <div x-show="showEditModal_{{ u.id }}" class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle w-full max-w-lg">
                                         <form method="post" action="{% url 'user_update' u.id %}">
                                             {% csrf_token %}
+                                            <input type="hidden" name="_original_updated_at" value="{{ u.userprofile.updated_at.timestamp|default_if_none:'' }}">
                                             <div class="bg-white px-6 pt-6 pb-6">
                                                 <div class="flex items-center justify-between mb-5">
                                                     <h3 class="text-lg font-bold text-slate-800">Chỉnh sửa Tài khoản: {{ u.username }}</h3>

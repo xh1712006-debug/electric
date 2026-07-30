@@ -175,7 +175,16 @@ def category_form(request, category_id, pk=None):
 
     if request.method == 'POST':
         form = FormClass(request.POST, instance=instance)
-        if form.is_valid():
+        
+        has_conflict = False
+        if instance and hasattr(instance, 'updated_at'):
+            original_updated_at = request.POST.get('_original_updated_at')
+            if original_updated_at and str(instance.updated_at.timestamp()) != original_updated_at:
+                has_conflict = True
+                
+        if has_conflict:
+            form.add_error(None, "Dữ liệu này đã bị thay đổi bởi một người khác trong khi bạn đang thao tác. Hãy Hủy bỏ và mở lại để xem nội dung mới nhất.")
+        elif form.is_valid():
             form.save()
             return HttpResponse(status=204, headers={'HX-Trigger': 'categoryListChanged'})
     else:
@@ -185,7 +194,8 @@ def category_form(request, category_id, pk=None):
         'form': form,
         'category_id': category_id,
         'category_name': name,
-        'instance': instance
+        'instance': instance,
+        'original_updated_at': str(instance.updated_at.timestamp()) if instance and hasattr(instance, 'updated_at') else None
     })
 
 @login_required

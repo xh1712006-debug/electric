@@ -16,17 +16,19 @@
          editAuthHeader: '',
          editAutoSync: false,
          editSyncInterval: 1440,
+         editUpdatedAt: '',
          syncValue: 1,
          syncUnit: 1440,
          createOpen: false,
          bulkOpen: false,
-         setEdit(id, key, val, desc, auth, autoSync, syncInterval) {
+         setEdit(id, key, val, desc, auth, autoSync, syncInterval, updatedAt) {
              this.editingId = id;
              this.editKey = key;
              this.editValue = val;
              this.editDescription = desc;
              this.editAuthHeader = auth;
              this.editAutoSync = autoSync === 'True' || autoSync === true;
+             this.editUpdatedAt = updatedAt;
              
              let interval = parseInt(syncInterval) || 1440;
              this.editSyncInterval = interval;
@@ -58,7 +60,7 @@
              }, 50);
          }
      }"
-     @open-edit.window="setEdit($event.detail.id, $event.detail.key, $event.detail.value, $event.detail.description, $event.detail.auth_header, $event.detail.auto_sync, $event.detail.sync_interval)">
+     @open-edit.window="setEdit($event.detail.id, $event.detail.key, $event.detail.value, $event.detail.description, $event.detail.auth_header, $event.detail.auto_sync, $event.detail.sync_interval, $event.detail.updated_at)">
      
     <div class="p-6 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -153,7 +155,7 @@
                                     <i class="fas fa-sync-alt mr-1 group-[.htmx-request]:animate-spin"></i> <span class="group-[.htmx-request]:hidden">Đồng bộ</span><span class="hidden group-[.htmx-request]:inline ml-1">Đang tải...</span>
                                 </button>
                             {% endif %}
-                            <button type="button" onclick="openEditModal({{ config.id }}, '{{ config.key|escapejs }}', '{{ config.value|escapejs }}', '{{ config.description|escapejs }}', '{{ config.auth_header|escapejs }}', '{{ config.auto_sync_enabled }}', {{ config.sync_interval_minutes|default:'1440' }})" class="text-slate-400 hover:text-blue-600 transition-colors p-1" title="Sửa">
+                            <button type="button" onclick="openEditModal({{ config.id }}, '{{ config.key|escapejs }}', '{{ config.value|escapejs }}', '{{ config.description|escapejs }}', '{{ config.auth_header|escapejs }}', '{{ config.auto_sync_enabled }}', {{ config.sync_interval_minutes|default:'1440' }}, '{{ config.updated_at.timestamp }}')" class="text-slate-400 hover:text-blue-600 transition-colors p-1" title="Sửa">
                                 <i class="fas fa-edit text-base"></i>
                             </button>
                             <button type="button" 
@@ -186,6 +188,7 @@
                   @submit="setTimeout(() => { editingId = null; }, 100)">
                 {% csrf_token %}
                 <input type="hidden" name="config_id" x-model="editingId">
+                <input type="hidden" name="_original_updated_at" x-model="editUpdatedAt">
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1">Mã cấu hình</label>
                     <input type="text" name="key" x-model="editKey" required class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm font-mono uppercase bg-slate-50">
@@ -314,8 +317,8 @@
 </div>
 
 <script>
-    function openEditModal(id, key, val, desc, auth) {
-        window.dispatchEvent(new CustomEvent('open-edit', { detail: { id: id, key: key, value: val, description: desc, auth_header: auth } }));
+    function openEditModal(id, key, val, desc, auth, autoSync, syncInterval, updatedAt) {
+        window.dispatchEvent(new CustomEvent('open-edit', { detail: { id: id, key: key, value: val, description: desc, auth_header: auth, auto_sync: autoSync, sync_interval: syncInterval, updated_at: updatedAt } }));
     }
 
     document.body.addEventListener('htmx:afterRequest', function(evt) {

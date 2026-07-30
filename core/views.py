@@ -291,14 +291,15 @@ def user_list(request):
     for g in groups:
         g.vi_name = GROUP_NAMES_VI.get(g.name, g.name)
         
-    for u in users:
-        for g in u.groups.all():
-            g.vi_name = GROUP_NAMES_VI.get(g.name, g.name)
     from django.core.paginator import Paginator
     from stations.models import Station
     paginator = Paginator(users, 30)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
+    
+    for u in page_obj:
+        for g in u.groups.all():
+            g.vi_name = GROUP_NAMES_VI.get(g.name, g.name)
             
     return render(request, 'core/user_list.html', {
         'users': page_obj,
@@ -346,6 +347,15 @@ def user_update(request, user_id):
     if request.method == 'POST':
         from django.shortcuts import get_object_or_404
         user = get_object_or_404(User, id=user_id)
+        
+        # OCC
+        from core.models import UserProfile
+        profile, created = UserProfile.objects.get_or_create(user=user)
+        original_updated_at = request.POST.get('_original_updated_at')
+        if original_updated_at and str(profile.updated_at.timestamp()) != original_updated_at:
+            messages.error(request, "Dữ liệu tài khoản này đã bị thay đổi bởi Admin khác trong khi bạn đang xem. Hãy tải lại trang để xem nội dung mới nhất.")
+            return redirect('user_list')
+
         email = request.POST.get('email')
         first_name = request.POST.get('first_name')
         password = request.POST.get('password')
@@ -696,6 +706,12 @@ def system_config_update(request):
         
         try:
             config = SystemConfig.objects.get(id=config_id)
+            
+            # OCC
+            original_updated_at = request.POST.get('_original_updated_at')
+            if original_updated_at and str(config.updated_at.timestamp()) != original_updated_at:
+                return HttpResponseForbidden("Dữ liệu đã bị thay đổi bởi người khác. Vui lòng tải lại trang.")
+
             if new_value is not None:
                 config.value = new_value.strip()
             if new_key:

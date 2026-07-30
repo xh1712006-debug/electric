@@ -21,17 +21,17 @@ def notification_badges(request):
     }
     
     # 1. ADMIN - Chờ Duyệt Ban hành
-    if user.is_superuser or user.groups.filter(name='ADMIN').exists():
+    if user.is_superuser or user.has_perm('sheets.can_approve_sheet'):
         badges['pending_admin'] = SettingSheet.objects.filter(status='PENDING_ADMIN_APPROVAL').count()
         
-    # 2. DISPATCHER
-    if user.groups.filter(name='DISPATCHER').exists():
+    # 2. DISPATCHER / CREATOR
+    if user.has_perm('sheets.can_create_sheet') or user.has_perm('sheets.can_dispatch_sheet'):
         base_qs = SettingSheet.objects.filter(created_by=user) if not user.is_superuser else SettingSheet.objects.all()
         badges['issued'] = base_qs.filter(status='ISSUED').count()
         badges['dispatcher_in_progress'] = base_qs.filter(status__in=['ROUTED_TO_STATION', 'TRANSFERRED', 'RECEIVED']).count()
         
-    # 3. STATION_LEADER
-    if user.groups.filter(name='STATION_LEADER').exists():
+    # 3. STATION_LEADER (Dispatch at station level)
+    if user.has_perm('sheets.can_dispatch_sheet'):
         if hasattr(user, 'userprofile') and user.userprofile.station:
             station = user.userprofile.station
             base_qs = SettingSheet.objects.filter(
@@ -43,7 +43,7 @@ def notification_badges(request):
             badges['station_pending_admin'] = base_qs.filter(status='PENDING_ADMIN_APPROVAL').count()
             
     # 4. SUPERVISOR
-    if user.groups.filter(name='SUPERVISOR').exists():
+    if user.has_perm('sheets.can_supervise_sheet'):
         base_qs = SettingSheet.objects.filter(supervisor_assigned=user)
         
         badges['supervisor_transferred'] = base_qs.filter(status='TRANSFERRED').count()
@@ -51,7 +51,7 @@ def notification_badges(request):
         badges['supervisor_pending_admin'] = base_qs.filter(status='PENDING_ADMIN_APPROVAL').count()
         
     # 5. TECHNICIAN
-    if user.groups.filter(name='TECHNICIAN').exists():
+    if user.has_perm('sheets.can_execute_sheet'):
         base_qs = SettingSheet.objects.filter(assigned_to=user)
         badges['transferred'] = base_qs.filter(status='TRANSFERRED').count()
         badges['technician_received'] = base_qs.filter(status='RECEIVED').count()

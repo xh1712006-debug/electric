@@ -53,12 +53,13 @@
                         <td class="px-3 py-3 text-center border-r border-slate-200 relative group-hover:bg-blue-50/40 transition-colors">
                             <div class="flex justify-center items-center relative">
                                 <input type="checkbox" 
+                                    name="action"
+                                    value="add"
                                     hx-post="{% url 'role_matrix_update' %}"
                                     hx-trigger="change"
-                                    hx-vals='js:{group_id: {{ group.id }}, perm_id: {{ perm.id }}, action: event.target.checked ? "add" : "remove"}'
+                                    hx-vals='{"group_id": {{ group.id }}, "perm_id": {{ perm.id }}}'
                                     hx-target="#indicator-{{ group.id }}-{{ perm.id }}"
                                     class="w-5 h-5 text-evn-blue bg-white border-slate-300 rounded focus:ring-evn-blue focus:ring-2 cursor-pointer transition-all shadow-sm"
-                                    {% if perm.id in matrix|dictsort:group.id|default_if_none:"" %}checked{% endif %}
                                     {% for g_id, p_ids in matrix.items %}{% if g_id == group.id %}{% if perm.id in p_ids %}checked{% endif %}{% endif %}{% endfor %}
                                 >
                                 <div id="indicator-{{ group.id }}-{{ perm.id }}" class="absolute -right-2 -top-2 opacity-100 transition-opacity duration-500 text-xs text-green-500 font-bold z-10">

@@ -9,7 +9,7 @@ from .models import Station, Bay, Relay
 from django.db.models import Q
 
 def is_admin(user):
-    return user.is_superuser or user.groups.filter(name='ADMIN').exists()
+    return user.is_superuser or user.has_perm('sheets.can_manage_users')
 
 @login_required
 def station_list(request):

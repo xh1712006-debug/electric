@@ -379,240 +379,171 @@
                 {% url 'user_list' as url_users %}
                 {% url 'role_matrix' as url_roles %}
 
-                <!-- ===== ADMIN ===== -->
-                {% if request.user.is_superuser or request.user|has_group:'ADMIN' %}
-                    <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-chart-pie nav-icon"></i>
-                        <span>Tổng quan Hệ thống</span>
-                    </a>
+                <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-chart-pie nav-icon"></i>
+                    <span>Tổng quan (Bàn làm việc)</span>
+                </a>
 
-                    <hr class="nav-separator">
-                    <p class="nav-section-label">Nghiệp vụ Phê Duyệt</p>
-                    <a href="{{ url_sheets }}?status=PENDING_ADMIN_APPROVAL" class="nav-item {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-file-signature nav-icon text-violet-400"></i>
-                        <span>Chờ Duyệt Ban hành</span>
-                        {% if badges.pending_admin > 0 %}
-                        <span id="badge-pending-admin" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.pending_admin }}</span>
-                        {% else %}
-                        <span id="badge-pending-admin" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">0</span>
-                        {% endif %}
-                    </a>
-                    <a href="{{ url_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' and request.path == url_sheets %}active-emerald{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-check-double nav-icon text-emerald-400"></i>
-                        <span>Hồ sơ Đã Ban hành</span>
-                    </a>
+                {% if perms.sheets.can_create_sheet or perms.sheets.can_dispatch_sheet %}
+                <hr class="nav-separator">
+                <p class="nav-section-label">Nghiệp vụ Điều phối</p>
+                {% if perms.sheets.can_create_sheet %}
+                <a href="{% url 'sheet_create' %}" class="nav-item {% if request.path == '/sheets/create/' %}active-amber{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-wand-magic-sparkles nav-icon text-amber-400"></i>
+                    <span>Trích xuất Phiếu (OCR)</span>
+                </a>
+                {% endif %}
+                {% if perms.sheets.can_dispatch_sheet %}
+                <a href="{{ url_sheets }}?status=ISSUED" class="nav-item {% if request.GET.status == 'ISSUED' %}active-amber{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-magnifying-glass nav-icon text-amber-400"></i>
+                    <span>Phiếu Chờ Rà soát</span>
+                    {% if badges.issued > 0 %}
+                    <span id="badge-issued" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.issued }}</span>
+                    {% else %}
+                    <span id="badge-issued" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">0</span>
+                    {% endif %}
+                </a>
+                <a href="{{ url_sheets }}?status=ROUTED_TO_STATION" class="nav-item {% if request.GET.status == 'ROUTED_TO_STATION' %}active{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-user-plus nav-icon text-teal-400"></i>
+                    <span>Chờ Phân Công</span>
+                    {% if badges.routed > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.routed }}</span>
+                    {% endif %}
+                </a>
+                <a href="{{ url_sheets }}?status=TRANSFERRED,RECEIVED" class="nav-item {% if request.GET.status == 'TRANSFERRED,RECEIVED' %}active{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-helmet-safety nav-icon text-blue-400"></i>
+                    <span>Trạm Đang Xử Lý</span>
+                    {% if badges.station_in_progress > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.station_in_progress }}</span>
+                    {% endif %}
+                </a>
+                <a href="{% url 'dispatcher_routed_relays' %}" class="nav-item {% if '/dispatcher/routed-relays/' in request.path %}active{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-database nav-icon text-teal-400"></i>
+                    <span>Danh sách Rơ-le đã duyệt</span>
+                </a>
+                <a href="{{ url_updated_sheets }}" class="nav-item {% if request.path == url_updated_sheets %}active-red{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-circle-exclamation nav-icon text-red-400"></i>
+                    <span>Phiếu Có Thay Đổi</span>
+                </a>
+                {% endif %}
+                {% endif %}
 
-                    <hr class="nav-separator">
-                    <p class="nav-section-label">⚡ Tài sản Lưới điện</p>
-                    <a href="{{ url_stations }}" class="nav-item {% if request.path == url_stations %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-bolt nav-icon text-yellow-400"></i>
-                        <span>Trạm biến áp</span>
-                    </a>
-                    {% url 'asset_line_list' as url_lines %}
-                    <a href="{{ url_lines }}" class="nav-item {% if request.path == url_lines %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-route nav-icon text-sky-400"></i>
-                        <span>Đường dây</span>
-                    </a>
-                    {% url 'asset_location_list' as url_locations %}
-                    <a href="{{ url_locations }}" class="nav-item {% if request.path == url_locations %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-map-pin nav-icon text-rose-400"></i>
-                        <span>Vị trí / Cột điện</span>
-                    </a>
-                    {% url 'asset_project_list' as url_projects %}
-                    <a href="{{ url_projects }}" class="nav-item {% if request.path == url_projects %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-building-columns nav-icon text-indigo-400"></i>
-                        <span>Công trình</span>
-                    </a>
+                {% if perms.sheets.can_execute_sheet or perms.sheets.can_supervise_sheet %}
+                <hr class="nav-separator">
+                <p class="nav-section-label">Thi công & Giám sát</p>
+                {% if perms.sheets.can_execute_sheet %}
+                <a href="{{ url_my_sheets }}?status=TRANSFERRED" class="nav-item {% if request.GET.status == 'TRANSFERRED' %}active{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-file-arrow-down nav-icon text-blue-400"></i>
+                    <span>Tiếp Nhận Công Việc</span>
+                    {% if badges.transferred > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.transferred }}</span>
+                    {% endif %}
+                </a>
+                <a href="{{ url_my_sheets }}?status=RECEIVED" class="nav-item {% if request.GET.status == 'RECEIVED' %}active-amber{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-screwdriver-wrench nav-icon text-amber-400"></i>
+                    <span>Đang Thi Công & Ký</span>
+                    {% if badges.technician_received > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(245,158,11,0.7)] animate-pulse">{{ badges.technician_received }}</span>
+                    {% endif %}
+                </a>
+                {% endif %}
+                {% if perms.sheets.can_supervise_sheet %}
+                <a href="{{ url_my_sheets }}?status=TRANSFERRED" class="nav-item {% if request.GET.status == 'TRANSFERRED' %}active{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-file-import nav-icon text-blue-400"></i>
+                    <span>Phiếu KTV Sắp Làm</span>
+                    {% if badges.supervisor_transferred > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.supervisor_transferred }}</span>
+                    {% endif %}
+                </a>
+                <a href="{{ url_my_sheets }}?status=RECEIVED" class="nav-item {% if request.GET.status == 'RECEIVED' %}active-amber{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-file-signature nav-icon text-amber-400"></i>
+                    <span>Ký Nghiệm Thu</span>
+                    {% if badges.supervisor_received > 0 %}
+                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.supervisor_received }}</span>
+                    {% endif %}
+                </a>
+                {% endif %}
+                <a href="{{ url_my_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' %}active-emerald{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-clock-rotate-left nav-icon text-emerald-400"></i>
+                    <span>Lịch sử Thi Công</span>
+                </a>
+                {% endif %}
 
-                    <hr class="nav-separator">
-                    <p class="nav-section-label">🔌 Thiết bị</p>
-                    <a href="{{ url_sheets }}" class="nav-item {% if request.path == url_sheets and not request.GET.status %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-layer-group nav-icon"></i>
-                        <span>Phiếu Chỉnh định</span>
-                    </a>
-                    {% url 'autocheck_dashboard' as url_autocheck %}
-                    <a href="{{ url_autocheck }}" class="nav-item {% if request.path == url_autocheck %}active-amber{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-satellite-dish nav-icon text-blue-400"></i>
-                        <span>Lịch hẹn tự động</span>
-                    </a>
+                {% if perms.sheets.can_approve_sheet %}
+                <hr class="nav-separator">
+                <p class="nav-section-label">Nghiệp vụ Phê Duyệt</p>
+                <a href="{{ url_sheets }}?status=PENDING_ADMIN_APPROVAL" class="nav-item {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}active{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-file-signature nav-icon text-violet-400"></i>
+                    <span>Chờ Duyệt Ban hành</span>
+                    {% if badges.pending_admin > 0 %}
+                    <span id="badge-pending-admin" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.pending_admin }}</span>
+                    {% else %}
+                    <span id="badge-pending-admin" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">0</span>
+                    {% endif %}
+                </a>
+                <a href="{{ url_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' and request.path == url_sheets %}active-emerald{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-check-double nav-icon text-emerald-400"></i>
+                    <span>Hồ sơ Đã Ban hành</span>
+                </a>
+                {% endif %}
 
-                    <hr class="nav-separator">
-                    <p class="nav-section-label">📚 Từ điển Dữ liệu</p>
-                    {% url 'category_dashboard' as url_categories %}
-                    <a href="{{ url_categories }}" class="nav-item {% if '/categories/dashboard/' in request.path or '/categories/ui/' in request.path %}active-amber{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-list-ul nav-icon text-amber-400"></i>
-                        <span>Danh mục Hệ thống</span>
-                    </a>
+                {% if perms.sheets.can_view_stations %}
+                <hr class="nav-separator">
+                <p class="nav-section-label">⚡ Tài sản Lưới điện</p>
+                <a href="{{ url_stations }}" class="nav-item {% if request.path == url_stations %}active{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-bolt nav-icon text-yellow-400"></i>
+                    <span>Trạm biến áp</span>
+                </a>
+                {% url 'asset_line_list' as url_lines %}
+                <a href="{{ url_lines }}" class="nav-item {% if request.path == url_lines %}active{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-route nav-icon text-sky-400"></i>
+                    <span>Đường dây</span>
+                </a>
+                {% url 'asset_location_list' as url_locations %}
+                <a href="{{ url_locations }}" class="nav-item {% if request.path == url_locations %}active{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-map-pin nav-icon text-rose-400"></i>
+                    <span>Vị trí / Cột điện</span>
+                </a>
+                {% url 'asset_project_list' as url_projects %}
+                <a href="{{ url_projects }}" class="nav-item {% if request.path == url_projects %}active{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-building-columns nav-icon text-indigo-400"></i>
+                    <span>Công trình</span>
+                </a>
 
-                    <hr class="nav-separator">
-                    <p class="nav-section-label">Quản trị</p>
-                    <a href="{{ url_users }}" class="nav-item {% if request.path == url_users %}active-amber{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-users nav-icon text-amber-400"></i>
-                        <span>Danh sách Tài khoản</span>
-                    </a>
-                    <a href="{{ url_roles }}" class="nav-item {% if request.path == url_roles %}active-amber{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-shield-halved nav-icon text-amber-400"></i>
-                        <span>Ma trận Phân quyền</span>
-                    </a>
-                    {% url 'system_config' as url_system_config %}
-                    <a href="{{ url_system_config }}" class="nav-item {% if request.path == url_system_config %}active-amber{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-cogs nav-icon text-amber-400"></i>
-                        <span>Cấu hình API</span>
-                    </a>
+                <hr class="nav-separator">
+                <p class="nav-section-label">🔌 Thiết bị</p>
+                <a href="{{ url_sheets }}" class="nav-item {% if request.path == url_sheets and not request.GET.status %}active{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-layer-group nav-icon"></i>
+                    <span>Danh sách Phiếu Chỉnh định</span>
+                </a>
+                {% url 'autocheck_dashboard' as url_autocheck %}
+                <a href="{{ url_autocheck }}" class="nav-item {% if request.path == url_autocheck %}active-amber{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-satellite-dish nav-icon text-blue-400"></i>
+                    <span>Lịch hẹn tự động</span>
+                </a>
+                {% endif %}
 
-                <!-- ===== DISPATCHER ===== -->
-                {% elif request.user|has_group:'DISPATCHER' %}
-                    <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-house-laptop nav-icon"></i>
-                        <span>Bàn làm việc Điều phối</span>
-                    </a>
-
-                    <hr class="nav-separator">
-                    <p class="nav-section-label">Nghiệp vụ Điều phối</p>
-                    <a href="{% url 'sheet_create' %}" class="nav-item {% if request.path == '/sheets/create/' %}active-amber{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-wand-magic-sparkles nav-icon text-amber-400"></i>
-                        <span>Trích xuất Phiếu (OCR)</span>
-                    </a>
-
-                    <hr class="nav-separator">
-                    <p class="nav-section-label">Rà soát & Giao việc</p>
-                    <a href="{{ url_sheets }}?status=ISSUED" class="nav-item {% if request.GET.status == 'ISSUED' %}active-amber{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-magnifying-glass nav-icon text-amber-400"></i>
-                        <span>Phiếu Chờ Rà soát</span>
-                        {% if badges.issued > 0 %}
-                        <span id="badge-issued" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.issued }}</span>
-                        {% else %}
-                        <span id="badge-issued" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">0</span>
-                        {% endif %}
-                    </a>
-
-                    <hr class="nav-separator">
-                    <p class="nav-section-label">Giám sát Thi công</p>
-                    <a href="{{ url_sheets }}?status=ROUTED_TO_STATION,TRANSFERRED,RECEIVED" class="nav-item {% if request.GET.status == 'ROUTED_TO_STATION,TRANSFERRED,RECEIVED' %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-helmet-safety nav-icon"></i>
-                        <span>Trạm Đang Xử Lý</span>
-                        {% if badges.dispatcher_in_progress > 0 %}
-                        <span id="badge-dispatcher_in_progress" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.dispatcher_in_progress }}</span>
-                        {% else %}
-                        <span id="badge-dispatcher_in_progress" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">0</span>
-                        {% endif %}
-                    </a>
-
-                    <hr class="nav-separator">
-                    <p class="nav-section-label">Quản lý Dữ liệu</p>
-                    <a href="{% url 'dispatcher_routed_relays' %}" class="nav-item {% if '/dispatcher/routed-relays/' in request.path %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-database nav-icon text-teal-400"></i>
-                        <span>Danh sách Rơ-le đã duyệt</span>
-                    </a>
-                    <a href="{{ url_updated_sheets }}" class="nav-item {% if request.path == url_updated_sheets %}active-red{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-circle-exclamation nav-icon text-red-400"></i>
-                        <span>Phiếu Có Thay Đổi</span>
-                    </a>
-
-                <!-- ===== STATION_LEADER ===== -->
-                {% elif request.user|has_group:'STATION_LEADER' %}
-                    <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-building-user nav-icon"></i>
-                        <span>Trung tâm Điều hành Trạm</span>
-                    </a>
-
-                    <hr class="nav-separator">
-                    <p class="nav-section-label">Quản lý Phiếu tại Trạm</p>
-                    <a href="{{ url_sheets }}?status=ROUTED_TO_STATION" class="nav-item {% if request.GET.status == 'ROUTED_TO_STATION' %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-user-plus nav-icon text-teal-400"></i>
-                        <span>Chờ Phân Công</span>
-                        {% if badges.routed > 0 %}
-                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.routed }}</span>
-                        {% endif %}
-                    </a>
-                    <a href="{{ url_sheets }}?status=TRANSFERRED,RECEIVED" class="nav-item {% if request.GET.status == 'TRANSFERRED,RECEIVED' %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-screwdriver-wrench nav-icon text-blue-400"></i>
-                        <span>Đang Thi Công</span>
-                        {% if badges.station_in_progress > 0 %}
-                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.station_in_progress }}</span>
-                        {% endif %}
-                    </a>
-                    <a href="{{ url_sheets }}?status=PENDING_ADMIN_APPROVAL" class="nav-item {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-hourglass-half nav-icon text-orange-400"></i>
-                        <span>Chờ Admin Phê Duyệt</span>
-                        {% if badges.station_pending_admin > 0 %}
-                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-orange-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(249,115,22,0.7)] animate-pulse">{{ badges.station_pending_admin }}</span>
-                        {% endif %}
-                    </a>
-                    <a href="{{ url_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' %}active-emerald{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-box-archive nav-icon text-emerald-400"></i>
-                        <span>Hồ sơ Lưu Trữ</span>
-                    </a>
-
-                <!-- ===== SUPERVISOR ===== -->
-                {% elif request.user|has_group:'SUPERVISOR' %}
-                    <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-helmet-safety nav-icon"></i>
-                        <span>Không gian Giám sát</span>
-                    </a>
-
-                    <hr class="nav-separator">
-                    <p class="nav-section-label">Quản lý Công việc tại Trạm</p>
-                    <a href="{{ url_my_sheets }}?status=TRANSFERRED" class="nav-item {% if request.GET.status == 'TRANSFERRED' %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-file-import nav-icon text-blue-400"></i>
-                        <span>Phiếu KTV Sắp Làm</span>
-                        {% if badges.supervisor_transferred > 0 %}
-                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.supervisor_transferred }}</span>
-                        {% endif %}
-                    </a>
-                    <a href="{{ url_my_sheets }}?status=RECEIVED" class="nav-item {% if request.GET.status == 'RECEIVED' %}active-amber{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-file-signature nav-icon text-amber-400"></i>
-                        <span>Ký Nghiệm Thu</span>
-                        {% if badges.supervisor_received > 0 %}
-                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.supervisor_received }}</span>
-                        {% endif %}
-                    </a>
-                    <a href="{{ url_my_sheets }}?status=PENDING_ADMIN_APPROVAL" class="nav-item {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-hourglass-half nav-icon text-violet-400"></i>
-                        <span>Chờ Admin Phê Duyệt</span>
-                        {% if badges.supervisor_pending_admin > 0 %}
-                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-violet-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(139,92,246,0.7)] animate-pulse">{{ badges.supervisor_pending_admin }}</span>
-                        {% endif %}
-                    </a>
-                    <a href="{{ url_my_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' %}active-emerald{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-clock-rotate-left nav-icon text-emerald-400"></i>
-                        <span>Lịch sử Nghiệm thu</span>
-                    </a>
-
-                <!-- ===== TECHNICIAN ===== -->
-                {% elif request.user|has_group:'TECHNICIAN' %}
-                    <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-clipboard-list nav-icon"></i>
-                        <span>Bảng Công việc</span>
-                    </a>
-
-                    <hr class="nav-separator">
-                    <p class="nav-section-label">Phiếu Công tác</p>
-                    <a href="{{ url_my_sheets }}?status=TRANSFERRED" class="nav-item {% if request.GET.status == 'TRANSFERRED' %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-file-arrow-down nav-icon text-blue-400"></i>
-                        <span>Tiếp Nhận Công Việc</span>
-                        {% if badges.transferred > 0 %}
-                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.transferred }}</span>
-                        {% endif %}
-                    </a>
-                    <a href="{{ url_my_sheets }}?status=RECEIVED" class="nav-item {% if request.GET.status == 'RECEIVED' %}active-amber{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-screwdriver-wrench nav-icon text-amber-400"></i>
-                        <span>Đang Thi Công & Ký</span>
-                        {% if badges.technician_received > 0 %}
-                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(245,158,11,0.7)] animate-pulse">{{ badges.technician_received }}</span>
-                        {% endif %}
-                    </a>
-                    <a href="{{ url_my_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' %}active-emerald{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-clock-rotate-left nav-icon text-emerald-400"></i>
-                        <span>Lịch sử Thi Công</span>
-                    </a>
-
-                <!-- ===== FALLBACK ===== -->
-                {% else %}
-                    <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}" onclick="closeSidebar()">
-                        <i class="fas fa-home nav-icon"></i>
-                        <span>Trang chủ</span>
-                    </a>
+                {% if perms.sheets.can_manage_users %}
+                <hr class="nav-separator">
+                <p class="nav-section-label">Quản trị Hệ thống</p>
+                {% url 'category_dashboard' as url_categories %}
+                <a href="{{ url_categories }}" class="nav-item {% if '/categories/dashboard/' in request.path or '/categories/ui/' in request.path %}active-amber{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-list-ul nav-icon text-amber-400"></i>
+                    <span>Danh mục Hệ thống</span>
+                </a>
+                <a href="{{ url_users }}" class="nav-item {% if request.path == url_users %}active-amber{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-users nav-icon text-amber-400"></i>
+                    <span>Danh sách Tài khoản</span>
+                </a>
+                <a href="{{ url_roles }}" class="nav-item {% if request.path == url_roles %}active-amber{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-shield-halved nav-icon text-amber-400"></i>
+                    <span>Ma trận Phân quyền</span>
+                </a>
+                {% url 'system_config' as url_system_config %}
+                <a href="{{ url_system_config }}" class="nav-item {% if request.path == url_system_config %}active-amber{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-cogs nav-icon text-amber-400"></i>
+                    <span>Cấu hình API</span>
+                </a>
                 {% endif %}
             </nav>
             

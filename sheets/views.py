@@ -21,21 +21,23 @@ def sheet_list(request):
 
     sheets = SettingSheet.objects.select_related('created_by', 'relay', 'relay__bay', 'relay__bay__station', 'station').all().order_by('-created_at')
     
-    # Filter for DISPATCHER (chỉ xem phiếu mình tạo)
-    if request.user.groups.filter(name='DISPATCHER').exists() and not request.user.is_superuser:
-        sheets = sheets.filter(created_by=request.user)
-    
-    # Filter for STATION_LEADER
-    if request.user.groups.filter(name='STATION_LEADER').exists() and not request.user.is_superuser:
+    # PBAC Data Filtering
+    if request.user.is_superuser or request.user.has_perm('sheets.can_manage_users') or request.user.has_perm('sheets.can_approve_sheet'):
+        pass # Can see all sheets
+    else:
+        # Check if user is bound to a station
+        station = None
         try:
             station = request.user.userprofile.station
-            if station:
-                from django.db.models import Q
-                sheets = sheets.filter(Q(station=station) | Q(relay__bay__station=station)).distinct()
-            else:
-                sheets = sheets.none()
         except Exception:
             pass
+            
+        if station:
+            from django.db.models import Q
+            sheets = sheets.filter(Q(station=station) | Q(relay__bay__station=station)).distinct()
+        else:
+            # Fallback to creator scope for users not bound to a station
+            sheets = sheets.filter(created_by=request.user)
 
     from django.core.paginator import Paginator
 
@@ -138,7 +140,7 @@ def updated_sheets(request):
 @login_required
 def sheet_create(request):
     """View upload PDF và tạo phiếu."""
-    if not request.user.is_superuser and not request.user.groups.filter(name='DISPATCHER').exists():
+    if not request.user.is_superuser and not request.user.has_perm('sheets.can_create_sheet'):
         messages.error(request, "Bạn không có quyền truy cập chức năng trích xuất thông tin.")
         return redirect('sheet_list')
 
@@ -201,7 +203,7 @@ def sheet_detail(request, pk):
     dispatchers = User.objects.filter(groups__name='DISPATCHER')
     reviewers = User.objects.filter(groups__name='ADMIN')
     
-    if request.user.groups.filter(name='STATION_LEADER').exists() and not request.user.is_superuser:
+    if hasattr(request.user, 'userprofile') and request.user.userprofile.station and not request.user.is_superuser:
         try:
             station = request.user.userprofile.station
             technicians = User.objects.filter(groups__name='TECHNICIAN', userprofile__station=station)
@@ -504,7 +506,7 @@ def sheet_route_to_station(request, pk):
             return redirect('sheet_detail', pk=pk)
             
         # Check permissions: Dispatcher
-        has_perm = request.user.groups.filter(name='DISPATCHER').exists()
+        has_perm = request.user.has_perm('sheets.can_dispatch_sheet')
         
         if has_perm and sheet.status == 'ISSUED':
             if sheet.created_by != request.user and not request.user.is_superuser:
@@ -777,7 +779,7 @@ def sheet_save_actual_data(request, pk):
             messages.error(request, "Phiếu đã được duyệt và chuyển trạm. Không thể sửa đổi thông số OCR nữa.")
             return redirect('sheet_detail', pk=pk)
             
-        is_dispatcher = request.user.groups.filter(name='DISPATCHER').exists()
+        is_dispatcher = request.user.has_perm('sheets.can_create_sheet') or request.user.has_perm('sheets.can_dispatch_sheet')
         
         if is_dispatcher:
             if sheet.extracted_data:

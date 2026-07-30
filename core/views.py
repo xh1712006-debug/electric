@@ -29,23 +29,22 @@ def dashboard(request):
     user = request.user
     cache_version = cache.get('sheet_list_version', 1)
     
-    if user.is_superuser or user.groups.filter(name='ADMIN').exists():
+    if user.is_superuser or user.has_perm('sheets.can_manage_users'):
         role = 'admin'
         period = request.GET.get('period', '7days')
         start_date_str = request.GET.get('start_date', '')
         end_date_str = request.GET.get('end_date', '')
         key_string = f"dashboard_{role}_v{cache_version}_user_{user.id}_p_{period}_sd_{start_date_str}_ed_{end_date_str}"
-    elif user.groups.filter(name='DISPATCHER').exists():
+    elif hasattr(user, 'userprofile') and user.userprofile.station:
+        if user.has_perm('sheets.can_dispatch_sheet'):
+            role = 'station_leader'
+        elif user.has_perm('sheets.can_supervise_sheet'):
+            role = 'supervisor'
+        else:
+            role = 'technician'
+        key_string = f"dashboard_{role}_v{cache_version}_user_{user.id}"
+    elif user.has_perm('sheets.can_create_sheet') or user.has_perm('sheets.can_dispatch_sheet'):
         role = 'dispatcher'
-        key_string = f"dashboard_{role}_v{cache_version}_user_{user.id}"
-    elif user.groups.filter(name='STATION_LEADER').exists():
-        role = 'station_leader'
-        key_string = f"dashboard_{role}_v{cache_version}_user_{user.id}"
-    elif user.groups.filter(name='SUPERVISOR').exists():
-        role = 'supervisor'
-        key_string = f"dashboard_{role}_v{cache_version}_user_{user.id}"
-    elif user.groups.filter(name='TECHNICIAN').exists():
-        role = 'technician'
         key_string = f"dashboard_{role}_v{cache_version}_user_{user.id}"
     else:
         return render(request, 'core/dashboard.html', {})
@@ -427,7 +426,7 @@ def role_matrix(request):
         "can_view_stations": "Truy cập Quản lý Trạm",
         "can_view_checks": "Truy cập Kiểm tra Định kỳ",
         "can_manage_users": "Quản trị Hệ thống (Tài khoản & Phân quyền)",
-        "can_create_sheet": "Tạo Phiếu chỉnh định & Chạy AI OCR",
+        "can_create_sheet": "Trích xuất Phiếu và chạy AI OCR",
         "can_approve_sheet": "Nút: Phê duyệt Lệnh",
         "can_dispatch_sheet": "Nút: Chuyển Trạm / Phân công Đội",
         "can_execute_sheet": "Nút: Tiếp nhận & Ký Thực thi (KTV)",
@@ -482,7 +481,7 @@ def role_matrix_update(request):
 @login_required
 def dispatcher_routed_relays(request):
     """Trang xem tất cả các rơ-le có phiếu mới nhất đã được duyệt về trạm."""
-    if not request.user.groups.filter(name='DISPATCHER').exists() and not request.user.is_superuser:
+    if not request.user.has_perm('sheets.can_dispatch_sheet') and not request.user.is_superuser:
         from django.core.exceptions import PermissionDenied
         raise PermissionDenied
         
@@ -752,7 +751,7 @@ def api_sync_endpoint(request):
     from core.models import SystemConfig
     from django.http import HttpResponse, HttpResponseForbidden
     
-    if not (request.user.is_superuser or request.user.groups.filter(name='ADMIN').exists()):
+    if not (request.user.is_superuser or request.user.has_perm('sheets.can_manage_users')):
         return HttpResponseForbidden("Access Denied")
         
     logger = logging.getLogger(__name__)

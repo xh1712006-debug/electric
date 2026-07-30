@@ -9,7 +9,7 @@ from django.contrib import messages
 def bulk_create_ui(request):
     """Render the UI for Bulk Sheet Creation (Test Utility)"""
     # Only allow Dispatcher for testing
-    if not request.user.is_superuser and not request.user.groups.filter(name='DISPATCHER').exists():
+    if not request.user.is_superuser and not request.user.has_perm('sheets.can_create_sheet'):
         messages.error(request, "Bạn không có quyền truy cập tính năng Test này.")
         return redirect('sheet_list')
     from django.utils import timezone
@@ -37,7 +37,7 @@ def bulk_create_ui(request):
 @login_required
 def bulk_create_execute(request):
     """API endpoint to execute bulk creation logic via Celery with Idempotency"""
-    if not request.user.is_superuser and not request.user.groups.filter(name='DISPATCHER').exists():
+    if not request.user.is_superuser and not request.user.has_perm('sheets.can_create_sheet'):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
         
     if request.method != 'POST':

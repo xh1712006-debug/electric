@@ -8,6 +8,7 @@ from categories.models import ManagementUnit, ManufacturingCountry, Manufacturer
 from stations.models import Bay, Relay, Station
 from core.utils.xml_converter import json_to_xml
 import traceback
+from link_data import run_linking
 
 logger = logging.getLogger(__name__)
 
@@ -300,5 +301,13 @@ def run_api_sync(config_key=None, config_id=None):
     else:
         # Default generic mapping handler
         count = len(lst_data)
+        
+    # Tự động liên kết khóa ngoại sau khi đồng bộ
+    if config.key in ['API_TRAM', 'API_NGAN_LO', 'API_THIET_BI']:
+        try:
+            run_linking()
+            logger.info("Automatically linked Bays and Relays foreign keys.")
+        except Exception as e:
+            logger.error(f"Failed to link data: {e}")
         
     return True, count, ""

@@ -143,35 +143,6 @@
     </div>
     
     <!-- Pagination -->
-    {% if sheets.has_other_pages %}
-    <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
-        <span class="text-xs font-medium text-slate-500">
-            Trang <strong class="text-slate-800">{{ sheets.number }}</strong> trên <strong class="text-slate-800">{{ sheets.paginator.num_pages }}</strong>
-        </span>
-        <div class="flex gap-1 bg-white rounded-lg p-1 border border-slate-200 shadow-sm">
-            {% if sheets.has_previous %}
-            <a href="?page={{ sheets.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="px-3 py-1.5 rounded text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
-                <i class="fas fa-chevron-left"></i>
-            </a>
-            {% endif %}
-            
-            {% for i in sheets.paginator.page_range %}
-                {% if sheets.number == i %}
-                <span class="px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-bold shadow-sm">{{ i }}</span>
-                {% elif i > sheets.number|add:'-3' and i < sheets.number|add:'3' %}
-                <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="px-3 py-1.5 rounded text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
-                    {{ i }}
-                </a>
-                {% endif %}
-            {% endfor %}
-            
-            {% if sheets.has_next %}
-            <a href="?page={{ sheets.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="px-3 py-1.5 rounded text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
-                <i class="fas fa-chevron-right"></i>
-            </a>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
+    {% include 'partials/pagination.html' with page_obj=sheets rounded_b="true" %}
 </div>
 {% endblock %}

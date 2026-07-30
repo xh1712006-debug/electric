@@ -439,7 +439,7 @@
                     <hr class="nav-separator">
                     <p class="nav-section-label">📚 Từ điển Dữ liệu</p>
                     {% url 'category_dashboard' as url_categories %}
-                    <a href="{{ url_categories }}" class="nav-item {% if request.path == url_categories %}active-amber{% endif %}" onclick="closeSidebar()">
+                    <a href="{{ url_categories }}" class="nav-item {% if '/categories/dashboard/' in request.path or '/categories/ui/' in request.path %}active-amber{% endif %}" onclick="closeSidebar()">
                         <i class="fas fa-list-ul nav-icon text-amber-400"></i>
                         <span>Danh mục Hệ thống</span>
                     </a>

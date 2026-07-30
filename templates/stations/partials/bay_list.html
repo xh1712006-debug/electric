@@ -1,7 +1,7 @@
 {% load auth_extras %}
 {% for bay in bays %}
 <div class="ml-4 border-l-2 border-sky-200 pl-4 relative mb-3"
-     x-data="{ expanded: {% if is_search %}true{% else %}false{% endif %}, loaded: {% if is_search %}true{% else %}false{% endif %} }">
+     x-data="{ expanded: false, loaded: false }">
 
     <!-- Bay Header -->
     <div class="flex items-center justify-between py-2 group cursor-pointer"
@@ -23,9 +23,7 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <span class="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                {{ bay.relays.count }} rơ-le
-            </span>
+            <span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">{{ bay.relay_count }} Rơ-le</span>
             {% if request.user|has_group:'ADMIN' or request.user.is_superuser %}
             <div class="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
                 <button @click="activeBayId = {{ bay.id }}; showBulkModal = true;"
@@ -44,13 +42,9 @@
     <!-- Relay Container -->
     <div x-show="expanded" style="display:none;" class="mt-1 mb-2">
         <div id="relays-{{ bay.id }}" class="rounded-xl overflow-hidden border border-slate-100">
-            {% if is_search %}
-                {% include 'stations/partials/relay_list.html' with relays=bay.relays.all %}
-            {% else %}
-                <div class="text-center py-4 text-slate-300 text-xs">
-                    <i class="fas fa-spinner animate-spin mr-1"></i> Đang tải...
-                </div>
-            {% endif %}
+            <div class="text-center py-4 text-slate-300 text-xs">
+                <i class="fas fa-spinner animate-spin mr-1"></i> Đang tải...
+            </div>
         </div>
     </div>
 </div>

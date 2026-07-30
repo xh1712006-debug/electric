@@ -40,31 +40,4 @@
 </div>
 
 <!-- Pagination -->
-{% if page_obj.has_other_pages %}
-<div class="p-4 border-t border-slate-200 bg-white flex items-center justify-between">
-    <span class="text-sm text-slate-500">
-        Đang xem <span class="font-semibold text-slate-900">{{ page_obj.start_index }}</span> đến <span class="font-semibold text-slate-900">{{ page_obj.end_index }}</span> trong tổng số <span class="font-semibold text-slate-900">{{ page_obj.paginator.count }}</span> mục
-    </span>
-    <div class="flex items-center space-x-1">
-        {% if page_obj.has_previous %}
-        <button hx-get="{% url 'category_list' category_id %}?page={{ page_obj.previous_page_number }}&q={{ q }}" hx-target="#category-list-container" class="px-3 py-1 text-sm border border-slate-300 rounded hover:bg-slate-50 text-slate-600 transition-colors">
-            Trước
-        </button>
-        {% endif %}
-        
-        {% for num in page_obj.paginator.page_range %}
-            {% if page_obj.number == num %}
-            <button class="px-3 py-1 text-sm bg-blue-600 text-white rounded font-medium shadow-sm">{{ num }}</button>
-            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-            <button hx-get="{% url 'category_list' category_id %}?page={{ num }}&q={{ q }}" hx-target="#category-list-container" class="px-3 py-1 text-sm border border-slate-300 rounded hover:bg-slate-50 text-slate-600 transition-colors">{{ num }}</button>
-            {% endif %}
-        {% endfor %}
-
-        {% if page_obj.has_next %}
-        <button hx-get="{% url 'category_list' category_id %}?page={{ page_obj.next_page_number }}&q={{ q }}" hx-target="#category-list-container" class="px-3 py-1 text-sm border border-slate-300 rounded hover:bg-slate-50 text-slate-600 transition-colors">
-            Sau
-        </button>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
+{% include 'partials/pagination.html' with hx_target="#category-list-container" hx_indicator="#category-loading" hx_push_url="true" %}

@@ -13,10 +13,17 @@ def is_admin(user):
 
 @login_required
 def station_list(request):
+    from django.db.models import Count
+    from django.core.paginator import Paginator
+    
     q = request.GET.get('q', '').strip()
     
+    # Sử dụng annotate để đếm số ngăn lộ ngay từ database (Chống N+1 query)
+    stations_qs = Station.objects.annotate(bay_count=Count('bays', distinct=True))
+    
     if q:
-        stations = Station.objects.prefetch_related('bays__relays__settingsheet_set').filter(
+        # Tối ưu: Không dùng prefetch_related ở đây vì chúng ta không load sẵn cây nữa
+        stations_qs = stations_qs.filter(
             Q(station_code__icontains=q) | 
             Q(station_name__icontains=q) |
             Q(bays__bay_code__icontains=q) |
@@ -26,16 +33,29 @@ def station_list(request):
         ).distinct()
         is_search = True
     else:
-        stations = Station.objects.all()
         is_search = False
 
-    return render(request, 'stations/station_list.html', {
-        'stations': stations,
+    # Phân trang (20 trạm / trang)
+    paginator = Paginator(stations_qs.order_by('station_code'), 20)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    # Lấy tổng số lượng (Nên dùng cache trong thực tế, nhưng hiện tại gọi thẳng)
+    total_bays = Bay.objects.count()
+    total_relays = Relay.objects.count()
+
+    is_htmx = request.headers.get('HX-Request') == 'true'
+    context = {
+        'page_obj': page_obj,
         'q': q,
         'is_search': is_search,
-        'total_bays': Bay.objects.count(),
-        'total_relays': Relay.objects.count(),
-    })
+        'total_bays': total_bays,
+        'total_relays': total_relays,
+        'total_stations': paginator.count,
+        'is_htmx': is_htmx
+    }
+    
+    return render(request, 'stations/station_list.html', context)
 
 @login_required
 @user_passes_test(is_admin)
@@ -237,8 +257,10 @@ def relay_status_dashboard(request):
 
 @login_required
 def get_bays_htmx(request, station_id):
+    from django.db.models import Count
     station = get_object_or_404(Station, pk=station_id)
-    bays = station.bays.all()
+    # Tối ưu: Dùng annotate để đếm rơ-le chống N+1
+    bays = station.bays.annotate(relay_count=Count('relays'))
     return render(request, 'stations/partials/bay_list.html', {'bays': bays, 'station': station})
 
 @login_required

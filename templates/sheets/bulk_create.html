@@ -185,36 +185,7 @@
         </div>
         
         <!-- Pagination Controls -->
-        {% if recent_sheets.has_other_pages %}
-        <div class="mt-4 flex items-center justify-between border-t pt-4">
-            <span class="text-xs text-slate-500 font-medium">
-                Hiển thị {{ recent_sheets.start_index }}-{{ recent_sheets.end_index }} của {{ total_recent }}
-            </span>
-            <div class="flex gap-1 bg-white rounded-lg p-1 border border-slate-200 shadow-sm">
-                {% if recent_sheets.has_previous %}
-                <a href="?page={{ recent_sheets.previous_page_number }}" class="px-3 py-1.5 rounded text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
-                    <i class="fas fa-chevron-left"></i>
-                </a>
-                {% endif %}
-                
-                {% for i in recent_sheets.paginator.page_range %}
-                    {% if recent_sheets.number == i %}
-                    <span class="px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-bold shadow-sm">{{ i }}</span>
-                    {% elif i > recent_sheets.number|add:'-3' and i < recent_sheets.number|add:'3' %}
-                    <a href="?page={{ i }}" class="px-3 py-1.5 rounded text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
-                        {{ i }}
-                    </a>
-                    {% endif %}
-                {% endfor %}
-                
-                {% if recent_sheets.has_next %}
-                <a href="?page={{ recent_sheets.next_page_number }}" class="px-3 py-1.5 rounded text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors">
-                    <i class="fas fa-chevron-right"></i>
-                </a>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
+        {% include 'partials/pagination.html' with page_obj=recent_sheets rounded_b="true" %}
         
     </div>
     {% endif %}

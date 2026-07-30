@@ -103,16 +103,7 @@
                     </tbody>
                 </table>
             </div>
-            {% if page_obj.has_other_pages %}
-            <div class="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-                <p class="text-xs text-slate-500">Hiển thị {{ page_obj.start_index }}–{{ page_obj.end_index }} / {{ page_obj.paginator.count }} bản ghi</p>
-                <div class="flex items-center gap-1">
-                    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}" class="w-8 h-8 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 transition-colors"><i class="fas fa-chevron-left text-xs"></i></a>{% endif %}
-                    <span class="px-3 py-1 text-xs font-medium text-rose-600 bg-rose-50 rounded">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-                    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}" class="w-8 h-8 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 transition-colors"><i class="fas fa-chevron-right text-xs"></i></a>{% endif %}
-                </div>
-            </div>
-            {% endif %}
+            {% include 'partials/pagination.html' %}
         </div>
     </div>
 

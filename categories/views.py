@@ -110,6 +110,15 @@ def get_category_form(model_class):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             for field_name, field in self.fields.items():
+                # Tối ưu hóa: Tránh load toàn bộ dữ liệu (VD: 8600+ Ngăn lộ) vào dropdown
+                if isinstance(field, forms.ModelChoiceField):
+                    if field.queryset.count() > 500:
+                        if self.instance and getattr(self.instance, field_name, None):
+                            # Chỉ giữ lại giá trị hiện tại để dropdown hiển thị, không load 8600 mục khác
+                            field.queryset = field.queryset.filter(pk=getattr(self.instance, field_name).pk)
+                        else:
+                            field.queryset = field.queryset.none()
+                            
                 widget = field.widget
                 attrs = widget.attrs
                 attrs['class'] = 'w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-sm text-slate-800 bg-white transition-colors'
@@ -231,6 +240,10 @@ def asset_line_list(request):
     }
     if request.GET.get('_panel') == '1':
         return render(request, 'categories/partials/line_detail_panel.html', {'obj': detail_obj})
+    
+    if request.headers.get('HX-Request'):
+        return render(request, 'categories/partials/line_table.html', context)
+        
     return render(request, 'categories/asset_line_list.html', context)
 
 

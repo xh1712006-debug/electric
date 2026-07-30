@@ -1,0 +1,72 @@
+{% load auth_extras %}
+<!-- Advanced Table -->
+<div id="line-table-container" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden relative">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-slate-50 border-b border-slate-200">
+                    <th class="sticky left-0 bg-slate-50 z-10 text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap border-r border-slate-200 min-w-[120px]">Mã DZ</th>
+                    <th class="sticky left-[120px] bg-slate-50 z-10 text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap border-r border-slate-200 min-w-[200px]">Tên Đường dây</th>
+                    <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap">Cấp ĐA</th>
+                    <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap">TBA Cấp</th>
+                    <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap">TBA Nhận</th>
+                    <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap">Tổng CĐ (km)</th>
+                    <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap">Ngày VH</th>
+                    <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap">Sở hữu</th>
+                    <th class="text-center px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for obj in page_obj %}
+                <tr class="hover:bg-sky-50/50 transition-colors cursor-pointer group"
+                    :class="selectedId == {{ obj.pk }} ? 'bg-sky-50 ring-1 ring-inset ring-sky-200' : ''"
+                    @click="if (!$event.target.closest('button, a')) openDetail({{ obj.pk }})">
+                    <td class="sticky left-0 bg-white group-hover:bg-sky-50/50 z-10 px-4 py-3 border-r border-slate-100 font-mono text-xs font-semibold text-blue-700 whitespace-nowrap"
+                        :class="selectedId == {{ obj.pk }} ? '!bg-sky-50' : ''">
+                        {{ obj.code }}
+                    </td>
+                    <td class="sticky left-[120px] bg-white group-hover:bg-sky-50/50 z-10 px-4 py-3 border-r border-slate-100 font-medium text-slate-800 whitespace-nowrap max-w-[240px] truncate"
+                        :class="selectedId == {{ obj.pk }} ? '!bg-sky-50' : ''" title="{{ obj.name }}">
+                        {{ obj.name }}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        {% if obj.id_capda %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">{{ obj.id_capda }}</span>
+                        {% else %}<span class="text-slate-300">—</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-slate-600 text-xs whitespace-nowrap max-w-[160px] truncate" title="{{ obj.tba_cap }}">{{ obj.tba_cap|default:"—" }}</td>
+                    <td class="px-4 py-3 text-slate-600 text-xs whitespace-nowrap max-w-[160px] truncate" title="{{ obj.tba_nhan }}">{{ obj.tba_nhan|default:"—" }}</td>
+                    <td class="px-4 py-3 text-slate-700 whitespace-nowrap text-center">{{ obj.tong_cdai|default:"—" }}</td>
+                    <td class="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+                        {% if obj.ngay_vh %}{{ obj.ngay_vh|date:"d/m/Y" }}{% else %}—{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{{ obj.id_sohuu|default:"—" }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <button @click="openDetail({{ obj.pk }})" class="w-7 h-7 flex items-center justify-center rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Xem chi tiết">
+                                <i class="fas fa-eye text-xs"></i>
+                            </button>
+                            {% if request.user.is_superuser or request.user|has_group:'ADMIN' %}
+                            <button hx-get="{% url 'category_edit' 'line' obj.pk %}" hx-target="#modal-container" hx-swap="innerHTML" class="w-7 h-7 flex items-center justify-center rounded text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors" title="Chỉnh sửa">
+                                <i class="fas fa-pen text-xs"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="px-4 py-16 text-center">
+                        <i class="fas fa-route text-4xl text-slate-300 mb-3 block"></i>
+                        <p class="text-slate-500 font-medium">Chưa có dữ liệu Đường dây</p>
+                        <p class="text-slate-400 text-xs mt-1">Hãy nhập dữ liệu từ hệ thống EVN hoặc thêm thủ công.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% include 'partials/pagination.html' with hx_target="#line-table-container" hx_select="#line-table-container" hx_indicator="#loading-indicator" hx_push_url="true" %}
+</div>

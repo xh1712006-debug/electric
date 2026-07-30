@@ -1,0 +1,41 @@
+{% load auth_extras %}
+{% if page_obj.has_other_pages %}
+<div class="p-4 border-t border-slate-200 bg-white flex items-center justify-between {% if rounded_b %}rounded-b-xl{% endif %}">
+    <span class="text-sm text-slate-500">
+        Đang xem <span class="font-semibold text-slate-900">{{ page_obj.start_index }}</span> đến <span class="font-semibold text-slate-900">{{ page_obj.end_index }}</span> trong tổng số <span class="font-semibold text-slate-900">{{ page_obj.paginator.count }}</span> mục
+    </span>
+    <div class="flex items-center space-x-1">
+        {% if page_obj.has_previous %}
+        <a href="?{% url_replace 'page' page_obj.previous_page_number %}"
+           {% if hx_target %}hx-get="?{% url_replace 'page' page_obj.previous_page_number %}" hx-target="{{ hx_target }}" hx-select="{% if hx_select %}{{ hx_select }}{% else %}{{ hx_target }}{% endif %}" hx-swap="{% if hx_swap %}{{ hx_swap }}{% else %}outerHTML{% endif %}"{% endif %}
+           {% if hx_indicator %}hx-indicator="{{ hx_indicator }}"{% endif %}
+           {% if hx_push_url %}hx-push-url="true"{% endif %}
+           class="px-3 py-1 text-sm border border-slate-300 rounded hover:bg-slate-50 text-slate-600 transition-colors">
+            Trước
+        </a>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <span class="px-3 py-1 text-sm bg-blue-600 text-white rounded font-medium shadow-sm cursor-default">{{ num }}</span>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <a href="?{% url_replace 'page' num %}"
+               {% if hx_target %}hx-get="?{% url_replace 'page' num %}" hx-target="{{ hx_target }}" hx-select="{% if hx_select %}{{ hx_select }}{% else %}{{ hx_target }}{% endif %}" hx-swap="{% if hx_swap %}{{ hx_swap }}{% else %}outerHTML{% endif %}"{% endif %}
+               {% if hx_indicator %}hx-indicator="{{ hx_indicator }}"{% endif %}
+               {% if hx_push_url %}hx-push-url="true"{% endif %}
+               class="px-3 py-1 text-sm border border-slate-300 rounded hover:bg-slate-50 text-slate-600 transition-colors">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <a href="?{% url_replace 'page' page_obj.next_page_number %}"
+           {% if hx_target %}hx-get="?{% url_replace 'page' page_obj.next_page_number %}" hx-target="{{ hx_target }}" hx-select="{% if hx_select %}{{ hx_select }}{% else %}{{ hx_target }}{% endif %}" hx-swap="{% if hx_swap %}{{ hx_swap }}{% else %}outerHTML{% endif %}"{% endif %}
+           {% if hx_indicator %}hx-indicator="{{ hx_indicator }}"{% endif %}
+           {% if hx_push_url %}hx-push-url="true"{% endif %}
+           class="px-3 py-1 text-sm border border-slate-300 rounded hover:bg-slate-50 text-slate-600 transition-colors">
+            Sau
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

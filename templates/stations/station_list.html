@@ -4,7 +4,7 @@
 {% block header_title %}⚡ Trạm biến áp & Thiết bị{% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden p-6"
+<div id="station-list-container" class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden p-6"
      x-data="{ showStationModal: false, showBayModal: false, showRelayModal: false, showBulkModal: false, showGlobalBulkModal: false, activeStationId: null, activeBayId: null, viewMode: 'tree' }">
 
     <!-- Header -->
@@ -63,49 +63,22 @@
         <!-- Station Table -->
         <div class="rounded-xl border border-slate-200 overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full text-sm">
+                <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr class="bg-slate-50 border-b border-slate-200">
-                            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide">#</th>
-                            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap">Mã Trạm</th>
-                            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide whitespace-nowrap min-w-[200px]">Tên Trạm</th>
-                            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide">Cấp ĐA</th>
-                            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide">Trạng thái</th>
-                            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide">Kiểu trạm</th>
-                            <th class="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide">Tỉnh/TP</th>
-                            <th class="text-center px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide">Ngăn lộ</th>
-                            <th class="text-center px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide">Ngày VH</th>
+                        <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+                            <th class="px-4 py-3 font-semibold rounded-tl-xl w-16">#</th>
+                            <th class="px-4 py-3 font-semibold">Mã Trạm</th>
+                            <th class="px-4 py-3 font-semibold">Tên Trạm</th>
+                            <th class="px-4 py-3 font-semibold">Cấp Điện Áp</th>
+                            <th class="px-4 py-3 font-semibold">T.Tâm Điều Độ</th>
+                            <th class="px-4 py-3 font-semibold">Kiểu Trạm</th>
+                            <th class="px-4 py-3 font-semibold">Tỉnh</th>
+                            <th class="px-4 py-3 font-semibold text-center w-24">Ngăn lộ</th>
+                            <th class="px-4 py-3 font-semibold text-center rounded-tr-xl">Ngày V.Hành</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        {% for station in stations %}
-                        <tr class="hover:bg-yellow-50/40 transition-colors">
-                            <td class="px-4 py-3 text-slate-400 text-xs">{{ forloop.counter }}</td>
-                            <td class="px-4 py-3 font-mono text-xs font-bold text-yellow-700">{{ station.station_code }}</td>
-                            <td class="px-4 py-3 font-medium text-slate-800">{{ station.station_name }}</td>
-                            <td class="px-4 py-3">
-                                {% if station.id_capda %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">{{ station.id_capda }}</span>
-                                {% else %}<span class="text-slate-300 text-xs">—</span>{% endif %}
-                            </td>
-                            <td class="px-4 py-3">
-                                {% if station.id_ttvh %}<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">{{ station.id_ttvh }}</span>
-                                {% else %}<span class="text-slate-300 text-xs">—</span>{% endif %}
-                            </td>
-                            <td class="px-4 py-3 text-slate-500 text-xs">{{ station.kieu_tram|default:"—" }}</td>
-                            <td class="px-4 py-3 text-slate-500 text-xs">{{ station.tinh|default:"—" }}</td>
-                            <td class="px-4 py-3 text-center">
-                                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-sky-100 text-sky-700 text-xs font-bold">{{ station.bays.count }}</span>
-                            </td>
-                            <td class="px-4 py-3 text-center text-xs text-slate-400">
-                                {% if station.ngay_vh %}{{ station.ngay_vh|date:"d/m/Y" }}{% else %}—{% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="9" class="px-4 py-16 text-center text-slate-400">
-                            <i class="fas fa-database text-4xl mb-3 block opacity-30"></i>
-                            <p class="font-medium">Chưa có dữ liệu Trạm. Hãy nhập từ API hoặc Excel.</p>
-                        </td></tr>
-                        {% endfor %}
+                    <tbody id="station-table-body" class="divide-y divide-slate-100">
+                        {% include "stations/partials/_station_tree_page.html" with view_type="table" %}
                     </tbody>
                 </table>
             </div>
@@ -134,58 +107,16 @@
             {% endif %}
         </form>
 
-        <div class="space-y-3">
-            {% for station in stations %}
-            <div class="border border-slate-200 rounded-xl overflow-hidden transition-all duration-200 hover:border-blue-200"
-                 x-data="{ expandedStation: {% if is_search %}true{% else %}false{% endif %}, loaded: {% if is_search %}true{% else %}false{% endif %} }">
-
-                <div class="bg-gradient-to-r from-slate-50 to-white px-4 py-3 flex justify-between items-center cursor-pointer hover:from-blue-50/30 transition-all"
-                     @click="expandedStation = !expandedStation; if(!loaded) { htmx.ajax('GET', '{% url 'htmx_bays' station.id %}', {target: '#bays-{{ station.id }}', swap: 'innerHTML'}); loaded = true; }">
-                    <div class="flex items-center gap-3">
-                        <i class="fas fa-chevron-right text-slate-400 text-xs transition-transform duration-200" :class="expandedStation ? 'rotate-90' : ''"></i>
-                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center shadow-sm">
-                            <i class="fas fa-bolt text-white text-sm"></i>
-                        </div>
-                        <div>
-                            <h3 class="font-bold text-slate-800 text-sm">{{ station.station_name }}</h3>
-                            <p class="text-xs text-slate-400 mt-0.5">
-                                {{ station.station_code }}
-                                {% if station.id_capda %} · <span class="text-blue-500">{{ station.id_capda }}</span>{% endif %}
-                                {% if station.tinh %} · {{ station.tinh }}{% endif %}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full font-semibold">{{ station.bays.count }} NL</span>
-                        {% if request.user|has_group:'ADMIN' or request.user.is_superuser %}
-                        <button @click.stop="activeStationId = {{ station.pk }}; showBayModal = true"
-                                class="px-3 py-1.5 bg-white border border-slate-300 text-slate-600 hover:text-blue-600 hover:border-blue-400 rounded-lg text-xs font-semibold transition-colors">
-                            <i class="fas fa-plus mr-1"></i>Thêm NL
-                        </button>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <div class="bg-white" x-show="expandedStation" style="display:none;">
-                    <div id="bays-{{ station.id }}" class="p-4">
-                        {% if is_search %}
-                            {% include 'stations/partials/bay_list.html' with bays=station.bays.all %}
-                        {% else %}
-                            <div class="text-center py-4 text-slate-300 text-sm">
-                                <i class="fas fa-spinner fa-spin mr-1"></i> Đang tải...
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <div class="text-center py-16 text-slate-400">
-                <i class="fas fa-database text-5xl mb-4 block opacity-20"></i>
-                <p class="font-semibold text-lg">Chưa có dữ liệu Trạm</p>
-                <p class="text-sm mt-1">Nhập dữ liệu từ API hoặc file Excel để bắt đầu.</p>
-            </div>
-            {% endfor %}
+        <div class="space-y-3" id="station-tree-list">
+            {% include "stations/partials/_station_tree_page.html" with view_type="tree" %}
         </div>
+    </div>
+
+    <!-- ===== PAGINATION ===== -->
+    {% include 'partials/pagination.html' with hx_target="#station-list-container" hx_indicator="#page-loading" hx_push_url="true" rounded_b="true" %}
+
+    <div id="page-loading" class="htmx-indicator text-blue-500 text-sm font-medium mt-4 text-center pb-4">
+        <i class="fas fa-spinner fa-spin mr-1"></i> Đang tải dữ liệu...
     </div>
 
     <!-- ===== MODALS ===== -->

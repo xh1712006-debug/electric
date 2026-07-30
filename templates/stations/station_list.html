@@ -8,17 +8,17 @@
      x-data="{ showStationModal: false, showBayModal: false, showRelayModal: false, showBulkModal: false, showGlobalBulkModal: false, activeStationId: null, activeBayId: null, viewMode: 'tree' }">
 
     <!-- Header -->
-    <div class="mb-5 flex justify-between items-center">
+    <div class="mb-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-            <h1 class="text-xl font-bold text-slate-800">Trạm biến áp & Thiết bị Rơ-le</h1>
+            <h1 class="text-lg md:text-xl font-bold text-slate-800">Trạm biến áp & Thiết bị Rơ-le</h1>
             <p class="text-sm text-slate-500 mt-0.5">Quản lý phân cấp: Trạm → Ngăn lộ → Rơ-le bảo vệ</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
             {% if request.user|has_group:'ADMIN' or request.user.is_superuser %}
-            <button @click="showGlobalBulkModal = true" class="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 transition-colors shadow-sm">
-                <i class="fas fa-file-excel mr-1.5"></i> Nhập từ Excel
+            <button @click="showGlobalBulkModal = true" class="flex-1 sm:flex-none px-3 md:px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 transition-colors shadow-sm">
+                <i class="fas fa-file-excel mr-1.5"></i> Nhập Excel
             </button>
-            <button @click="showStationModal = true" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
+            <button @click="showStationModal = true" class="flex-1 sm:flex-none px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
                 <i class="fas fa-plus mr-1.5"></i> Thêm Trạm
             </button>
             {% endif %}
@@ -128,9 +128,9 @@
                        class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:border-blue-500 focus:bg-white outline-none transition-colors text-sm">
                 <datalist id="suggestions"></datalist>
             </div>
-            <button type="submit" class="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors">Tìm kiếm</button>
+            <button type="submit" class="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap">Tìm kiếm</button>
             {% if is_search %}
-            <a href="{% url 'station_list' %}" class="px-4 py-2.5 bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-300 transition-colors flex items-center">Xóa lọc</a>
+            <a href="{% url 'station_list' %}" class="px-3 py-2.5 bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-300 transition-colors flex items-center whitespace-nowrap">Xóa lọc</a>
             {% endif %}
         </form>
 
@@ -191,8 +191,8 @@
     <!-- ===== MODALS ===== -->
 
     <!-- Modal Thêm Trạm -->
-    <div x-show="showStationModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm" style="display:none;" x-cloak>
-        <div @click.away="showStationModal = false" class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" x-transition>
+    <div x-show="showStationModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-sm" style="display:none;" x-cloak>
+        <div @click.away="showStationModal = false" class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md overflow-hidden" x-transition>
             <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                 <h3 class="font-bold text-slate-800">Thêm Trạm Biến Áp Mới</h3>
                 <button @click="showStationModal = false" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
@@ -220,8 +220,8 @@
     </div>
 
     <!-- Modal Thêm Ngăn Lộ -->
-    <div x-show="showBayModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm" style="display:none;" x-cloak>
-        <div @click.away="showBayModal = false" class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" x-transition>
+    <div x-show="showBayModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-sm" style="display:none;" x-cloak>
+        <div @click.away="showBayModal = false" class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md overflow-hidden" x-transition>
             <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                 <h3 class="font-bold text-slate-800">Thêm Ngăn Lộ Mới</h3>
                 <button @click="showBayModal = false" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
@@ -245,8 +245,8 @@
     </div>
 
     <!-- Modal Thêm Rơ-le -->
-    <div x-show="showRelayModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm" style="display:none;" x-cloak>
-        <div @click.away="showRelayModal = false" class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" x-transition>
+    <div x-show="showRelayModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-sm" style="display:none;" x-cloak>
+        <div @click.away="showRelayModal = false" class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md overflow-hidden" x-transition>
             <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                 <h3 class="font-bold text-slate-800">Thêm Rơ-le Mới</h3>
                 <button @click="showRelayModal = false" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button>
@@ -274,8 +274,8 @@
     </div>
 
     <!-- Modal Nhập Liệu Toàn Cục (Excel) -->
-    <div x-show="showGlobalBulkModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm" style="display:none;" x-cloak>
-        <div @click.away="showGlobalBulkModal = false" class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]" x-transition>
+    <div x-show="showGlobalBulkModal" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-slate-900/50 backdrop-blur-sm" style="display:none;" x-cloak>
+        <div @click.away="showGlobalBulkModal = false" class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-4xl overflow-hidden flex flex-col max-h-[90vh]" x-transition>
             <div class="px-6 py-4 border-b border-slate-100 bg-amber-50 flex justify-between items-center flex-shrink-0">
                 <h3 class="font-bold text-amber-900"><i class="fas fa-file-excel text-amber-500 mr-2"></i> Nhập Liệu Toàn Cục (Master Data Import)</h3>
                 <button @click="showGlobalBulkModal = false" class="text-amber-700 hover:text-amber-900"><i class="fas fa-times"></i></button>

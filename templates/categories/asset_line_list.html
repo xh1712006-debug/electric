@@ -28,16 +28,16 @@
     <div class="flex-1 min-w-0 transition-all duration-300" :class="slideOpen ? 'mr-[480px]' : ''">
 
         <!-- Page Header -->
-        <div class="flex items-center justify-between mb-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-3">
             <div>
-                <h1 class="text-xl font-bold text-slate-800">Đường dây</h1>
+                <h1 class="text-lg md:text-xl font-bold text-slate-800">Đường dây</h1>
                 <p class="text-sm text-slate-500 mt-0.5">
                     Tổng cộng <span class="font-semibold text-blue-600">{{ total_count }}</span> đường dây trong hệ thống
                 </p>
             </div>
             {% if request.user.is_superuser or request.user|has_group:'ADMIN' %}
             <a href="{% url 'category_create' 'line' %}" 
-               class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm">
+               class="inline-flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm whitespace-nowrap">
                 <i class="fas fa-plus text-xs"></i> Thêm Đường dây
             </a>
             {% endif %}
@@ -167,12 +167,13 @@
     </div>
 
     <!-- ===== SLIDE-OVER PANEL ===== -->
-    <div class="fixed top-0 right-0 h-screen w-[480px] bg-white shadow-2xl border-l border-slate-200 z-40 flex flex-col transform transition-transform duration-300 ease-out translate-x-full"
+    <!-- Mobile: full screen; Desktop: 480px panel -->
+    <div class="fixed inset-0 sm:inset-auto sm:top-0 sm:right-0 sm:h-screen sm:w-[480px] bg-white shadow-2xl border-l border-slate-200 z-40 flex flex-col transform transition-transform duration-300 ease-out translate-x-full"
          :class="slideOpen ? 'translate-x-0' : 'translate-x-full'"
          x-cloak>
 
         <!-- Panel Header -->
-        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50 flex-shrink-0">
+        <div class="flex items-center justify-between px-4 md:px-5 py-4 border-b border-slate-100 bg-slate-50 flex-shrink-0">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center">
                     <i class="fas fa-route text-sky-600 text-sm"></i>

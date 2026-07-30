@@ -25,7 +25,7 @@ Bàn Làm Việc Của KTV -
     {% endif %}
 
     <!-- Thống kê tổng quan (KPIs) với Glassmorphism -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
         <!-- Card 1: Việc mới được giao -->
         <div class="relative overflow-hidden bg-gradient-to-br from-indigo-50/80 to-blue-100/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-white/60 group hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
             <div class="absolute -right-4 -top-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl group-hover:bg-indigo-500/20 transition-all duration-500"></div>
@@ -84,12 +84,12 @@ Bàn Làm Việc Của KTV -
 
     <!-- Danh sách công việc của tôi -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col mt-2">
-        <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+        <div class="px-4 md:px-6 py-4 md:py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <h3 class="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
                 <i class="fas fa-tasks text-indigo-600"></i> Danh sách Nhiệm Vụ Được Giao
             </h3>
-            <a href="{% url 'sheet_list' %}" class="text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline flex items-center gap-1">
-                Xem tất cả nhiệm vụ <i class="fas fa-arrow-right text-xs"></i>
+            <a href="{% url 'sheet_list' %}" class="text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline flex items-center gap-1 whitespace-nowrap">
+                Xem tất cả <i class="fas fa-arrow-right text-xs"></i>
             </a>
         </div>
         <div class="overflow-x-auto">

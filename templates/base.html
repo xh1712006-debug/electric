@@ -3,7 +3,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>{% block title %}EVN RMS - Hệ thống Quản lý Rơ-le{% endblock %}</title>
     
     <!-- TailwindCSS via CDN -->
@@ -53,6 +53,7 @@
             font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
             background-color: #f1f5f9;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
 
         /* === SCROLLBAR === */
@@ -61,10 +62,66 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-        /* === SIDEBAR === */
+        /* === SIDEBAR BASE === */
         #sidebar {
             background: linear-gradient(180deg, #0f172a 0%, #0d1526 100%);
             box-shadow: 4px 0 30px rgba(0,0,0,0.3);
+        }
+
+        /* ============================================
+           MOBILE LAYOUT (< 1024px)
+           Sidebar is HIDDEN from flow, slides in as overlay
+           ============================================ */
+        @media (max-width: 1023px) {
+            /* Hide sidebar from flex flow completely */
+            #sidebar {
+                display: none !important;
+                position: fixed !important;
+                top: 0;
+                left: 0;
+                height: 100% !important;
+                width: 280px !important;
+                z-index: 50;
+                transform: translateX(-100%);
+                transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            /* When open: show as fixed overlay with slide animation */
+            #sidebar.sidebar-open {
+                display: flex !important;
+                transform: translateX(0);
+            }
+            /* Backdrop overlay */
+            #sidebar-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.55);
+                z-index: 49;
+                -webkit-backdrop-filter: blur(2px);
+                backdrop-filter: blur(2px);
+            }
+            #sidebar-overlay.overlay-visible {
+                display: block;
+            }
+        }
+
+        /* ============================================
+           DESKTOP LAYOUT (>= 1024px)
+           Sidebar is always visible in flex flow
+           ============================================ */
+        @media (min-width: 1024px) {
+            #sidebar {
+                display: flex !important;
+                position: relative;
+                flex-shrink: 0;
+                width: 240px;
+            }
+            #hamburger-btn {
+                display: none !important;
+            }
+            #sidebar-overlay {
+                display: none !important;
+            }
         }
 
         .sidebar-logo {
@@ -179,373 +236,496 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+
+        /* === HAMBURGER BUTTON === */
+        #hamburger-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: #475569;
+            transition: background 0.15s, color 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #hamburger-btn:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        /* === RESPONSIVE TABLE === */
+        @media (max-width: 767px) {
+            .responsive-table-wrap {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                border-radius: 0 0 1.5rem 1.5rem;
+            }
+            .responsive-table-wrap table {
+                min-width: 600px;
+            }
+        }
+
+        /* === MAIN LAYOUT === */
+        #main-layout {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #main-content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* === MOBILE HEADER === */
+        @media (max-width: 1023px) {
+            .header-title {
+                font-size: 14px;
+            }
+        }
+
+        /* Toast mobile adjustment */
+        @media (max-width: 480px) {
+            #toast-container {
+                left: 12px;
+                right: 12px;
+                bottom: 12px;
+                max-width: none !important;
+            }
+        }
+
+        /* === MOBILE KPI CARDS === */
+        @media (max-width: 639px) {
+            /* Smaller padding for KPI cards on mobile */
+            .kpi-card-compact {
+                padding: 12px !important;
+            }
+            .kpi-card-compact h3 {
+                font-size: 1.75rem !important;
+            }
+            /* Better touch targets */
+            a, button {
+                min-height: 36px;
+            }
+            /* Hide some columns on mobile */
+            .mobile-hidden {
+                display: none !important;
+            }
+            /* Compact padding for tables on mobile */
+            .overflow-x-auto table td,
+            .overflow-x-auto table th {
+                padding-left: 12px !important;
+                padding-right: 12px !important;
+            }
+        }
+
+        /* === OVERFLOW X for mobile tables === */
+        .overflow-x-auto {
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* === PREVENT HORIZONTAL SCROLL === */
+        .page-content-wrapper {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
     </style>
+
 </head>
-<body class="text-slate-800 h-screen flex overflow-hidden" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<body class="text-slate-800" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 
-    <!-- ===== SIDEBAR ===== -->
-    <aside id="sidebar" class="w-60 flex flex-col flex-shrink-0">
-        
-        <!-- Logo -->
-        <div class="h-14 flex items-center px-4 border-b border-white/5 flex-shrink-0">
-            <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                    <i class="fas fa-bolt text-white text-sm"></i>
-                </div>
-                <div>
-                    <p class="text-white font-bold text-sm tracking-wide leading-none">EVN RMS</p>
-                    <p class="text-slate-500 text-[10px] leading-tight mt-0.5">Relay Management System</p>
-                </div>
-            </div>
-        </div>
+    <!-- Sidebar Overlay (Mobile) -->
+    <div id="sidebar-overlay" onclick="closeSidebar()"></div>
 
-        <!-- Navigation -->
-        <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-            {% url 'dashboard' as url_dashboard %}
-            {% url 'sheet_list' as url_sheets %}
-            {% url 'updated_sheets' as url_updated_sheets %}
-            {% url 'my_sheets' as url_my_sheets %}
-            {% url 'station_list' as url_stations %}
-            {% url 'user_list' as url_users %}
-            {% url 'role_matrix' as url_roles %}
+    <!-- ===== MAIN LAYOUT ===== -->
+    <div id="main-layout">
 
-            <!-- ===== ADMIN ===== -->
-            {% if request.user.is_superuser or request.user|has_group:'ADMIN' %}
-                <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}">
-                    <i class="fas fa-chart-pie nav-icon"></i>
-                    <span>Tổng quan Hệ thống</span>
-                </a>
-
-                <hr class="nav-separator">
-                <p class="nav-section-label">Nghiệp vụ Phê Duyệt</p>
-                <a href="{{ url_sheets }}?status=PENDING_ADMIN_APPROVAL" class="nav-item {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}active{% endif %}">
-                    <i class="fas fa-file-signature nav-icon text-violet-400"></i>
-                    <span>Chờ Duyệt Ban hành</span>
-                    {% if badges.pending_admin > 0 %}
-                    <span id="badge-pending-admin" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.pending_admin }}</span>
-                    {% else %}
-                    <span id="badge-pending-admin" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">0</span>
-                    {% endif %}
-                </a>
-                <a href="{{ url_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' and request.path == url_sheets %}active-emerald{% endif %}">
-                    <i class="fas fa-check-double nav-icon text-emerald-400"></i>
-                    <span>Hồ sơ Đã Ban hành</span>
-                </a>
-
-                <hr class="nav-separator">
-                <p class="nav-section-label">⚡ Tài sản Lưới điện</p>
-                <a href="{{ url_stations }}" class="nav-item {% if request.path == url_stations %}active{% endif %}">
-                    <i class="fas fa-bolt nav-icon text-yellow-400"></i>
-                    <span>Trạm biến áp</span>
-                </a>
-                {% url 'asset_line_list' as url_lines %}
-                <a href="{{ url_lines }}" class="nav-item {% if request.path == url_lines %}active{% endif %}">
-                    <i class="fas fa-route nav-icon text-sky-400"></i>
-                    <span>Đường dây</span>
-                </a>
-                {% url 'asset_location_list' as url_locations %}
-                <a href="{{ url_locations }}" class="nav-item {% if request.path == url_locations %}active{% endif %}">
-                    <i class="fas fa-map-pin nav-icon text-rose-400"></i>
-                    <span>Vị trí / Cột điện</span>
-                </a>
-                {% url 'asset_project_list' as url_projects %}
-                <a href="{{ url_projects }}" class="nav-item {% if request.path == url_projects %}active{% endif %}">
-                    <i class="fas fa-building-columns nav-icon text-indigo-400"></i>
-                    <span>Công trình</span>
-                </a>
-
-                <hr class="nav-separator">
-                <p class="nav-section-label">🔌 Thiết bị</p>
-                <a href="{{ url_sheets }}" class="nav-item {% if request.path == url_sheets and not request.GET.status %}active{% endif %}">
-                    <i class="fas fa-layer-group nav-icon"></i>
-                    <span>Phiếu Chỉnh định</span>
-                </a>
-                {% url 'autocheck_dashboard' as url_autocheck %}
-                <a href="{{ url_autocheck }}" class="nav-item {% if request.path == url_autocheck %}active-amber{% endif %}">
-                    <i class="fas fa-satellite-dish nav-icon text-blue-400"></i>
-                    <span>Lịch hẹn tự động</span>
-                </a>
-
-                <hr class="nav-separator">
-                <p class="nav-section-label">📚 Từ điển Dữ liệu</p>
-                {% url 'category_dashboard' as url_categories %}
-                <a href="{{ url_categories }}" class="nav-item {% if request.path == url_categories %}active-amber{% endif %}">
-                    <i class="fas fa-list-ul nav-icon text-amber-400"></i>
-                    <span>Danh mục Hệ thống</span>
-                </a>
-
-                <hr class="nav-separator">
-                <p class="nav-section-label">Quản trị</p>
-                <a href="{{ url_users }}" class="nav-item {% if request.path == url_users %}active-amber{% endif %}">
-                    <i class="fas fa-users nav-icon text-amber-400"></i>
-                    <span>Danh sách Tài khoản</span>
-                </a>
-                <a href="{{ url_roles }}" class="nav-item {% if request.path == url_roles %}active-amber{% endif %}">
-                    <i class="fas fa-shield-halved nav-icon text-amber-400"></i>
-                    <span>Ma trận Phân quyền</span>
-                </a>
-                {% url 'system_config' as url_system_config %}
-                <a href="{{ url_system_config }}" class="nav-item {% if request.path == url_system_config %}active-amber{% endif %}">
-                    <i class="fas fa-cogs nav-icon text-amber-400"></i>
-                    <span>Cấu hình API</span>
-                </a>
-
-            <!-- ===== DISPATCHER ===== -->
-            {% elif request.user|has_group:'DISPATCHER' %}
-                <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}">
-                    <i class="fas fa-house-laptop nav-icon"></i>
-                    <span>Bàn làm việc Điều phối</span>
-                </a>
-
-                <hr class="nav-separator">
-                <p class="nav-section-label">Nghiệp vụ Điều phối</p>
-                <a href="{% url 'sheet_create' %}" class="nav-item {% if request.path == '/sheets/create/' %}active-amber{% endif %}">
-                    <i class="fas fa-wand-magic-sparkles nav-icon text-amber-400"></i>
-                    <span>Trích xuất Phiếu (OCR)</span>
-                </a>
-
-                <hr class="nav-separator">
-                <p class="nav-section-label">Rà soát & Giao việc</p>
-                <a href="{{ url_sheets }}?status=ISSUED" class="nav-item {% if request.GET.status == 'ISSUED' %}active-amber{% endif %}">
-                    <i class="fas fa-magnifying-glass nav-icon text-amber-400"></i>
-                    <span>Phiếu Chờ Rà soát</span>
-                    {% if badges.issued > 0 %}
-                    <span id="badge-issued" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.issued }}</span>
-                    {% else %}
-                    <span id="badge-issued" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">0</span>
-                    {% endif %}
-                </a>
-
-                <hr class="nav-separator">
-                <p class="nav-section-label">Giám sát Thi công</p>
-                <a href="{{ url_sheets }}?status=ROUTED_TO_STATION,TRANSFERRED,RECEIVED" class="nav-item {% if request.GET.status == 'ROUTED_TO_STATION,TRANSFERRED,RECEIVED' %}active{% endif %}">
-                    <i class="fas fa-helmet-safety nav-icon"></i>
-                    <span>Trạm Đang Xử Lý</span>
-                    {% if badges.dispatcher_in_progress > 0 %}
-                    <span id="badge-dispatcher_in_progress" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.dispatcher_in_progress }}</span>
-                    {% else %}
-                    <span id="badge-dispatcher_in_progress" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">0</span>
-                    {% endif %}
-                </a>
-
-                <hr class="nav-separator">
-                <p class="nav-section-label">Quản lý Dữ liệu</p>
-                <a href="{% url 'dispatcher_routed_relays' %}" class="nav-item {% if '/dispatcher/routed-relays/' in request.path %}active{% endif %}">
-                    <i class="fas fa-database nav-icon text-teal-400"></i>
-                    <span>Danh sách Rơ-le đã duyệt</span>
-                </a>
-                <a href="{{ url_updated_sheets }}" class="nav-item {% if request.path == url_updated_sheets %}active-red{% endif %}">
-                    <i class="fas fa-circle-exclamation nav-icon text-red-400"></i>
-                    <span>Phiếu Có Thay Đổi</span>
-                </a>
-
-            <!-- ===== STATION_LEADER ===== -->
-            {% elif request.user|has_group:'STATION_LEADER' %}
-                <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}">
-                    <i class="fas fa-building-user nav-icon"></i>
-                    <span>Trung tâm Điều hành Trạm</span>
-                </a>
-
-                <hr class="nav-separator">
-                <p class="nav-section-label">Quản lý Phiếu tại Trạm</p>
-                <a href="{{ url_sheets }}?status=ROUTED_TO_STATION" class="nav-item {% if request.GET.status == 'ROUTED_TO_STATION' %}active{% endif %}">
-                    <i class="fas fa-user-plus nav-icon text-teal-400"></i>
-                    <span>Chờ Phân Công</span>
-                    {% if badges.routed > 0 %}
-                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.routed }}</span>
-                    {% endif %}
-                </a>
-                <a href="{{ url_sheets }}?status=TRANSFERRED,RECEIVED" class="nav-item {% if request.GET.status == 'TRANSFERRED,RECEIVED' %}active{% endif %}">
-                    <i class="fas fa-screwdriver-wrench nav-icon text-blue-400"></i>
-                    <span>Đang Thi Công</span>
-                    {% if badges.station_in_progress > 0 %}
-                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.station_in_progress }}</span>
-                    {% endif %}
-                </a>
-                <a href="{{ url_sheets }}?status=PENDING_ADMIN_APPROVAL" class="nav-item {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}active{% endif %}">
-                    <i class="fas fa-hourglass-half nav-icon text-orange-400"></i>
-                    <span>Chờ Admin Phê Duyệt</span>
-                    {% if badges.station_pending_admin > 0 %}
-                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-orange-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(249,115,22,0.7)] animate-pulse">{{ badges.station_pending_admin }}</span>
-                    {% endif %}
-                </a>
-                <a href="{{ url_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' %}active-emerald{% endif %}">
-                    <i class="fas fa-box-archive nav-icon text-emerald-400"></i>
-                    <span>Hồ sơ Lưu Trữ</span>
-                </a>
-
-            <!-- ===== SUPERVISOR ===== -->
-            {% elif request.user|has_group:'SUPERVISOR' %}
-                <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}">
-                    <i class="fas fa-helmet-safety nav-icon"></i>
-                    <span>Không gian Giám sát</span>
-                </a>
-
-                <hr class="nav-separator">
-                <p class="nav-section-label">Quản lý Công việc tại Trạm</p>
-                <a href="{{ url_my_sheets }}?status=TRANSFERRED" class="nav-item {% if request.GET.status == 'TRANSFERRED' %}active{% endif %}">
-                    <i class="fas fa-file-import nav-icon text-blue-400"></i>
-                    <span>Phiếu KTV Sắp Làm</span>
-                    {% if badges.supervisor_transferred > 0 %}
-                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.supervisor_transferred }}</span>
-                    {% endif %}
-                </a>
-                <a href="{{ url_my_sheets }}?status=RECEIVED" class="nav-item {% if request.GET.status == 'RECEIVED' %}active-amber{% endif %}">
-                    <i class="fas fa-file-signature nav-icon text-amber-400"></i>
-                    <span>Ký Nghiệm Thu</span>
-                    {% if badges.supervisor_received > 0 %}
-                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.supervisor_received }}</span>
-                    {% endif %}
-                </a>
-                <a href="{{ url_my_sheets }}?status=PENDING_ADMIN_APPROVAL" class="nav-item {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}active{% endif %}">
-                    <i class="fas fa-hourglass-half nav-icon text-violet-400"></i>
-                    <span>Chờ Admin Phê Duyệt</span>
-                    {% if badges.supervisor_pending_admin > 0 %}
-                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-violet-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(139,92,246,0.7)] animate-pulse">{{ badges.supervisor_pending_admin }}</span>
-                    {% endif %}
-                </a>
-                <a href="{{ url_my_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' %}active-emerald{% endif %}">
-                    <i class="fas fa-clock-rotate-left nav-icon text-emerald-400"></i>
-                    <span>Lịch sử Nghiệm thu</span>
-                </a>
-
-            <!-- ===== TECHNICIAN ===== -->
-            {% elif request.user|has_group:'TECHNICIAN' %}
-                <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}">
-                    <i class="fas fa-clipboard-list nav-icon"></i>
-                    <span>Bảng Công việc</span>
-                </a>
-
-                <hr class="nav-separator">
-                <p class="nav-section-label">Phiếu Công tác</p>
-                <a href="{{ url_my_sheets }}?status=TRANSFERRED" class="nav-item {% if request.GET.status == 'TRANSFERRED' %}active{% endif %}">
-                    <i class="fas fa-file-arrow-down nav-icon text-blue-400"></i>
-                    <span>Tiếp Nhận Công Việc</span>
-                    {% if badges.transferred > 0 %}
-                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.transferred }}</span>
-                    {% endif %}
-                </a>
-                <a href="{{ url_my_sheets }}?status=RECEIVED" class="nav-item {% if request.GET.status == 'RECEIVED' %}active-amber{% endif %}">
-                    <i class="fas fa-screwdriver-wrench nav-icon text-amber-400"></i>
-                    <span>Đang Thi Công & Ký</span>
-                    {% if badges.technician_received > 0 %}
-                    <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(245,158,11,0.7)] animate-pulse">{{ badges.technician_received }}</span>
-                    {% endif %}
-                </a>
-                <a href="{{ url_my_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' %}active-emerald{% endif %}">
-                    <i class="fas fa-clock-rotate-left nav-icon text-emerald-400"></i>
-                    <span>Lịch sử Thi Công</span>
-                </a>
-
-            <!-- ===== FALLBACK ===== -->
-            {% else %}
-                <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}">
-                    <i class="fas fa-home nav-icon"></i>
-                    <span>Trang chủ</span>
-                </a>
-            {% endif %}
-        </nav>
-        
-        <!-- User profile block (Alpine.js Dropdown) -->
-        <div class="border-t border-white/5 p-3 flex-shrink-0" x-data="{ open: false }">
-            {% if user.is_authenticated %}
-            <div class="relative">
-                
-                <!-- Dropdown Menu -->
-                <div x-show="open" @click.away="open = false" 
-                     x-transition:enter="transition ease-out duration-200"
-                     x-transition:enter-start="opacity-0 translate-y-2 scale-95"
-                     x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                     x-transition:leave="transition ease-in duration-150"
-                     x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-                     x-transition:leave-end="opacity-0 translate-y-2 scale-95"
-                     class="absolute bottom-[calc(100%+8px)] left-0 w-full bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 z-50 hidden"
-                     :class="{'hidden': !open}">
-                    
-                    <a href="{% url 'profile' %}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-colors group">
-                        <i class="fas fa-user-circle w-4 text-center group-hover:text-blue-400"></i>
-                        <span>Thông tin tài khoản</span>
-                    </a>
-                    
-                    <a href="{% url 'profile' %}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-colors group">
-                        <i class="fas fa-cog w-4 text-center group-hover:text-amber-400"></i>
-                        <span>Cài đặt cá nhân</span>
-                    </a>
-                    
-                    <div class="h-px bg-white/10 my-1 mx-2"></div>
-                    
-                    <form method="post" action="{% url 'logout' %}">
-                        {% csrf_token %}
-                        <button type="submit" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 transition-colors text-left">
-                            <i class="fas fa-arrow-right-from-bracket w-4 text-center"></i>
-                            <span>Đăng xuất</span>
-                        </button>
-                    </form>
-                </div>
-
-                <!-- Profile Trigger Button -->
-                <button @click="open = !open" class="w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/5 transition-colors text-left group">
-                    <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm uppercase flex-shrink-0 shadow shadow-blue-900/50 group-hover:shadow-blue-500/50 transition-shadow">
-                        {{ user.username|make_list|first }}
+        <!-- ===== SIDEBAR ===== -->
+        <aside id="sidebar" class="flex flex-col">
+            
+            <!-- Logo -->
+            <div class="h-14 flex items-center px-4 border-b border-white/5 flex-shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                        <i class="fas fa-bolt text-white text-sm"></i>
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold text-slate-200 truncate leading-tight group-hover:text-white transition-colors">{{ user.first_name|default:user.username }}</p>
-                        <p class="text-[11px] text-slate-500 truncate leading-tight mt-0.5 group-hover:text-slate-400">
-                            {% if user.is_superuser %}Quản trị tối cao{% endif %}
-                            {% for group in user.groups.all %}{{ group.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
-                        </p>
+                    <div>
+                        <p class="text-white font-bold text-sm tracking-wide leading-none">EVN RMS</p>
+                        <p class="text-slate-500 text-[10px] leading-tight mt-0.5">Relay Management System</p>
                     </div>
-                    <i class="fas fa-chevron-up text-xs text-slate-600 group-hover:text-slate-400 transition-transform duration-300" :class="{'rotate-180': open}"></i>
-                </button>
-                
-            </div>
-            {% else %}
-            <a href="{% url 'login' %}" class="block w-full py-2.5 text-sm text-center text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors font-semibold shadow-lg shadow-blue-500/30">
-                <i class="fas fa-arrow-right-to-bracket mr-2"></i>Đăng nhập
-            </a>
-            {% endif %}
-        </div>
-    </aside>
-
-    <!-- ===== MAIN CONTENT ===== -->
-    <main class="flex-1 flex flex-col h-screen min-w-0">
-        
-        <!-- Top Header -->
-        <header class="h-14 bg-white border-b border-slate-200/80 flex items-center justify-between px-6 flex-shrink-0 z-10">
-            <div class="text-base font-semibold text-slate-700 tracking-tight">
-                {% block header_title %}Tổng quan{% endblock %}
-            </div>
-            <div class="flex items-center gap-4">
-                <!-- HTMX Loading Indicator -->
-                <div id="global-spinner" class="htmx-indicator text-blue-500">
-                    <i class="fas fa-spinner fa-spin"></i>
                 </div>
-                
-                <!-- Notifications Bell -->
-                <button class="relative w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                    <i class="fas fa-bell text-base"></i>
-                    <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full notification-dot border-2 border-white"></span>
+                <!-- Close button (mobile only) -->
+                <button onclick="closeSidebar()" class="ml-auto lg:hidden w-8 h-8 flex items-center justify-center text-slate-500 hover:text-white transition-colors rounded-lg hover:bg-white/10">
+                    <i class="fas fa-times text-sm"></i>
                 </button>
+            </div>
 
-                <!-- Django Messages -->
-                {% if messages %}
-                <div class="hidden" id="django-messages-data">
-                    {% for message in messages %}
-                    <span data-level="{{ message.tags }}" data-text="{{ message }}"></span>
-                    {% endfor %}
+            <!-- Navigation -->
+            <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+                {% url 'dashboard' as url_dashboard %}
+                {% url 'sheet_list' as url_sheets %}
+                {% url 'updated_sheets' as url_updated_sheets %}
+                {% url 'my_sheets' as url_my_sheets %}
+                {% url 'station_list' as url_stations %}
+                {% url 'user_list' as url_users %}
+                {% url 'role_matrix' as url_roles %}
+
+                <!-- ===== ADMIN ===== -->
+                {% if request.user.is_superuser or request.user|has_group:'ADMIN' %}
+                    <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-chart-pie nav-icon"></i>
+                        <span>Tổng quan Hệ thống</span>
+                    </a>
+
+                    <hr class="nav-separator">
+                    <p class="nav-section-label">Nghiệp vụ Phê Duyệt</p>
+                    <a href="{{ url_sheets }}?status=PENDING_ADMIN_APPROVAL" class="nav-item {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-file-signature nav-icon text-violet-400"></i>
+                        <span>Chờ Duyệt Ban hành</span>
+                        {% if badges.pending_admin > 0 %}
+                        <span id="badge-pending-admin" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.pending_admin }}</span>
+                        {% else %}
+                        <span id="badge-pending-admin" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">0</span>
+                        {% endif %}
+                    </a>
+                    <a href="{{ url_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' and request.path == url_sheets %}active-emerald{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-check-double nav-icon text-emerald-400"></i>
+                        <span>Hồ sơ Đã Ban hành</span>
+                    </a>
+
+                    <hr class="nav-separator">
+                    <p class="nav-section-label">⚡ Tài sản Lưới điện</p>
+                    <a href="{{ url_stations }}" class="nav-item {% if request.path == url_stations %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-bolt nav-icon text-yellow-400"></i>
+                        <span>Trạm biến áp</span>
+                    </a>
+                    {% url 'asset_line_list' as url_lines %}
+                    <a href="{{ url_lines }}" class="nav-item {% if request.path == url_lines %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-route nav-icon text-sky-400"></i>
+                        <span>Đường dây</span>
+                    </a>
+                    {% url 'asset_location_list' as url_locations %}
+                    <a href="{{ url_locations }}" class="nav-item {% if request.path == url_locations %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-map-pin nav-icon text-rose-400"></i>
+                        <span>Vị trí / Cột điện</span>
+                    </a>
+                    {% url 'asset_project_list' as url_projects %}
+                    <a href="{{ url_projects }}" class="nav-item {% if request.path == url_projects %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-building-columns nav-icon text-indigo-400"></i>
+                        <span>Công trình</span>
+                    </a>
+
+                    <hr class="nav-separator">
+                    <p class="nav-section-label">🔌 Thiết bị</p>
+                    <a href="{{ url_sheets }}" class="nav-item {% if request.path == url_sheets and not request.GET.status %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-layer-group nav-icon"></i>
+                        <span>Phiếu Chỉnh định</span>
+                    </a>
+                    {% url 'autocheck_dashboard' as url_autocheck %}
+                    <a href="{{ url_autocheck }}" class="nav-item {% if request.path == url_autocheck %}active-amber{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-satellite-dish nav-icon text-blue-400"></i>
+                        <span>Lịch hẹn tự động</span>
+                    </a>
+
+                    <hr class="nav-separator">
+                    <p class="nav-section-label">📚 Từ điển Dữ liệu</p>
+                    {% url 'category_dashboard' as url_categories %}
+                    <a href="{{ url_categories }}" class="nav-item {% if request.path == url_categories %}active-amber{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-list-ul nav-icon text-amber-400"></i>
+                        <span>Danh mục Hệ thống</span>
+                    </a>
+
+                    <hr class="nav-separator">
+                    <p class="nav-section-label">Quản trị</p>
+                    <a href="{{ url_users }}" class="nav-item {% if request.path == url_users %}active-amber{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-users nav-icon text-amber-400"></i>
+                        <span>Danh sách Tài khoản</span>
+                    </a>
+                    <a href="{{ url_roles }}" class="nav-item {% if request.path == url_roles %}active-amber{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-shield-halved nav-icon text-amber-400"></i>
+                        <span>Ma trận Phân quyền</span>
+                    </a>
+                    {% url 'system_config' as url_system_config %}
+                    <a href="{{ url_system_config }}" class="nav-item {% if request.path == url_system_config %}active-amber{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-cogs nav-icon text-amber-400"></i>
+                        <span>Cấu hình API</span>
+                    </a>
+
+                <!-- ===== DISPATCHER ===== -->
+                {% elif request.user|has_group:'DISPATCHER' %}
+                    <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-house-laptop nav-icon"></i>
+                        <span>Bàn làm việc Điều phối</span>
+                    </a>
+
+                    <hr class="nav-separator">
+                    <p class="nav-section-label">Nghiệp vụ Điều phối</p>
+                    <a href="{% url 'sheet_create' %}" class="nav-item {% if request.path == '/sheets/create/' %}active-amber{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-wand-magic-sparkles nav-icon text-amber-400"></i>
+                        <span>Trích xuất Phiếu (OCR)</span>
+                    </a>
+
+                    <hr class="nav-separator">
+                    <p class="nav-section-label">Rà soát & Giao việc</p>
+                    <a href="{{ url_sheets }}?status=ISSUED" class="nav-item {% if request.GET.status == 'ISSUED' %}active-amber{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-magnifying-glass nav-icon text-amber-400"></i>
+                        <span>Phiếu Chờ Rà soát</span>
+                        {% if badges.issued > 0 %}
+                        <span id="badge-issued" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.issued }}</span>
+                        {% else %}
+                        <span id="badge-issued" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">0</span>
+                        {% endif %}
+                    </a>
+
+                    <hr class="nav-separator">
+                    <p class="nav-section-label">Giám sát Thi công</p>
+                    <a href="{{ url_sheets }}?status=ROUTED_TO_STATION,TRANSFERRED,RECEIVED" class="nav-item {% if request.GET.status == 'ROUTED_TO_STATION,TRANSFERRED,RECEIVED' %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-helmet-safety nav-icon"></i>
+                        <span>Trạm Đang Xử Lý</span>
+                        {% if badges.dispatcher_in_progress > 0 %}
+                        <span id="badge-dispatcher_in_progress" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.dispatcher_in_progress }}</span>
+                        {% else %}
+                        <span id="badge-dispatcher_in_progress" style="display:none;" class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">0</span>
+                        {% endif %}
+                    </a>
+
+                    <hr class="nav-separator">
+                    <p class="nav-section-label">Quản lý Dữ liệu</p>
+                    <a href="{% url 'dispatcher_routed_relays' %}" class="nav-item {% if '/dispatcher/routed-relays/' in request.path %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-database nav-icon text-teal-400"></i>
+                        <span>Danh sách Rơ-le đã duyệt</span>
+                    </a>
+                    <a href="{{ url_updated_sheets }}" class="nav-item {% if request.path == url_updated_sheets %}active-red{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-circle-exclamation nav-icon text-red-400"></i>
+                        <span>Phiếu Có Thay Đổi</span>
+                    </a>
+
+                <!-- ===== STATION_LEADER ===== -->
+                {% elif request.user|has_group:'STATION_LEADER' %}
+                    <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-building-user nav-icon"></i>
+                        <span>Trung tâm Điều hành Trạm</span>
+                    </a>
+
+                    <hr class="nav-separator">
+                    <p class="nav-section-label">Quản lý Phiếu tại Trạm</p>
+                    <a href="{{ url_sheets }}?status=ROUTED_TO_STATION" class="nav-item {% if request.GET.status == 'ROUTED_TO_STATION' %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-user-plus nav-icon text-teal-400"></i>
+                        <span>Chờ Phân Công</span>
+                        {% if badges.routed > 0 %}
+                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.routed }}</span>
+                        {% endif %}
+                    </a>
+                    <a href="{{ url_sheets }}?status=TRANSFERRED,RECEIVED" class="nav-item {% if request.GET.status == 'TRANSFERRED,RECEIVED' %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-screwdriver-wrench nav-icon text-blue-400"></i>
+                        <span>Đang Thi Công</span>
+                        {% if badges.station_in_progress > 0 %}
+                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.station_in_progress }}</span>
+                        {% endif %}
+                    </a>
+                    <a href="{{ url_sheets }}?status=PENDING_ADMIN_APPROVAL" class="nav-item {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-hourglass-half nav-icon text-orange-400"></i>
+                        <span>Chờ Admin Phê Duyệt</span>
+                        {% if badges.station_pending_admin > 0 %}
+                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-orange-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(249,115,22,0.7)] animate-pulse">{{ badges.station_pending_admin }}</span>
+                        {% endif %}
+                    </a>
+                    <a href="{{ url_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' %}active-emerald{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-box-archive nav-icon text-emerald-400"></i>
+                        <span>Hồ sơ Lưu Trữ</span>
+                    </a>
+
+                <!-- ===== SUPERVISOR ===== -->
+                {% elif request.user|has_group:'SUPERVISOR' %}
+                    <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-helmet-safety nav-icon"></i>
+                        <span>Không gian Giám sát</span>
+                    </a>
+
+                    <hr class="nav-separator">
+                    <p class="nav-section-label">Quản lý Công việc tại Trạm</p>
+                    <a href="{{ url_my_sheets }}?status=TRANSFERRED" class="nav-item {% if request.GET.status == 'TRANSFERRED' %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-file-import nav-icon text-blue-400"></i>
+                        <span>Phiếu KTV Sắp Làm</span>
+                        {% if badges.supervisor_transferred > 0 %}
+                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(59,130,246,0.7)] animate-pulse">{{ badges.supervisor_transferred }}</span>
+                        {% endif %}
+                    </a>
+                    <a href="{{ url_my_sheets }}?status=RECEIVED" class="nav-item {% if request.GET.status == 'RECEIVED' %}active-amber{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-file-signature nav-icon text-amber-400"></i>
+                        <span>Ký Nghiệm Thu</span>
+                        {% if badges.supervisor_received > 0 %}
+                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.supervisor_received }}</span>
+                        {% endif %}
+                    </a>
+                    <a href="{{ url_my_sheets }}?status=PENDING_ADMIN_APPROVAL" class="nav-item {% if request.GET.status == 'PENDING_ADMIN_APPROVAL' %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-hourglass-half nav-icon text-violet-400"></i>
+                        <span>Chờ Admin Phê Duyệt</span>
+                        {% if badges.supervisor_pending_admin > 0 %}
+                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-violet-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(139,92,246,0.7)] animate-pulse">{{ badges.supervisor_pending_admin }}</span>
+                        {% endif %}
+                    </a>
+                    <a href="{{ url_my_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' %}active-emerald{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-clock-rotate-left nav-icon text-emerald-400"></i>
+                        <span>Lịch sử Nghiệm thu</span>
+                    </a>
+
+                <!-- ===== TECHNICIAN ===== -->
+                {% elif request.user|has_group:'TECHNICIAN' %}
+                    <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-clipboard-list nav-icon"></i>
+                        <span>Bảng Công việc</span>
+                    </a>
+
+                    <hr class="nav-separator">
+                    <p class="nav-section-label">Phiếu Công tác</p>
+                    <a href="{{ url_my_sheets }}?status=TRANSFERRED" class="nav-item {% if request.GET.status == 'TRANSFERRED' %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-file-arrow-down nav-icon text-blue-400"></i>
+                        <span>Tiếp Nhận Công Việc</span>
+                        {% if badges.transferred > 0 %}
+                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse">{{ badges.transferred }}</span>
+                        {% endif %}
+                    </a>
+                    <a href="{{ url_my_sheets }}?status=RECEIVED" class="nav-item {% if request.GET.status == 'RECEIVED' %}active-amber{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-screwdriver-wrench nav-icon text-amber-400"></i>
+                        <span>Đang Thi Công & Ký</span>
+                        {% if badges.technician_received > 0 %}
+                        <span class="ml-auto flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-[10px] font-bold text-white shadow-[0_0_6px_rgba(245,158,11,0.7)] animate-pulse">{{ badges.technician_received }}</span>
+                        {% endif %}
+                    </a>
+                    <a href="{{ url_my_sheets }}?status=COMPLETED" class="nav-item {% if request.GET.status == 'COMPLETED' %}active-emerald{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-clock-rotate-left nav-icon text-emerald-400"></i>
+                        <span>Lịch sử Thi Công</span>
+                    </a>
+
+                <!-- ===== FALLBACK ===== -->
+                {% else %}
+                    <a href="{{ url_dashboard }}" class="nav-item {% if request.path == url_dashboard %}active{% endif %}" onclick="closeSidebar()">
+                        <i class="fas fa-home nav-icon"></i>
+                        <span>Trang chủ</span>
+                    </a>
+                {% endif %}
+            </nav>
+            
+            <!-- User profile block (Alpine.js Dropdown) -->
+            <div class="border-t border-white/5 p-3 flex-shrink-0" x-data="{ open: false }">
+                {% if user.is_authenticated %}
+                <div class="relative">
+                    
+                    <!-- Dropdown Menu -->
+                    <div x-show="open" @click.away="open = false" 
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+                         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                         x-transition:leave-end="opacity-0 translate-y-2 scale-95"
+                         class="absolute bottom-[calc(100%+8px)] left-0 w-full bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 z-50 hidden"
+                         :class="{'hidden': !open}">
+                        
+                        <a href="{% url 'profile' %}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-colors group">
+                            <i class="fas fa-user-circle w-4 text-center group-hover:text-blue-400"></i>
+                            <span>Thông tin tài khoản</span>
+                        </a>
+                        
+                        <a href="{% url 'profile' %}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-colors group">
+                            <i class="fas fa-cog w-4 text-center group-hover:text-amber-400"></i>
+                            <span>Cài đặt cá nhân</span>
+                        </a>
+                        
+                        <div class="h-px bg-white/10 my-1 mx-2"></div>
+                        
+                        <form method="post" action="{% url 'logout' %}">
+                            {% csrf_token %}
+                            <button type="submit" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 transition-colors text-left">
+                                <i class="fas fa-arrow-right-from-bracket w-4 text-center"></i>
+                                <span>Đăng xuất</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Profile Trigger Button -->
+                    <button @click="open = !open" class="w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/5 transition-colors text-left group">
+                        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm uppercase flex-shrink-0 shadow shadow-blue-900/50 group-hover:shadow-blue-500/50 transition-shadow">
+                            {{ user.username|make_list|first }}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-slate-200 truncate leading-tight group-hover:text-white transition-colors">{{ user.first_name|default:user.username }}</p>
+                            <p class="text-[11px] text-slate-500 truncate leading-tight mt-0.5 group-hover:text-slate-400">
+                                {% if user.is_superuser %}Quản trị tối cao{% endif %}
+                                {% for group in user.groups.all %}{{ group.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                            </p>
+                        </div>
+                        <i class="fas fa-chevron-up text-xs text-slate-600 group-hover:text-slate-400 transition-transform duration-300" :class="{'rotate-180': open}"></i>
+                    </button>
+                    
                 </div>
+                {% else %}
+                <a href="{% url 'login' %}" class="block w-full py-2.5 text-sm text-center text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors font-semibold shadow-lg shadow-blue-500/30">
+                    <i class="fas fa-arrow-right-to-bracket mr-2"></i>Đăng nhập
+                </a>
                 {% endif %}
             </div>
-        </header>
+        </aside>
 
-        <!-- Page Content -->
-        <div class="flex-1 overflow-y-auto p-6 bg-slate-50/80" id="main-content">
-            {% block content %}{% endblock %}
+        <!-- ===== MAIN CONTENT AREA ===== -->
+        <div id="main-content-area">
+            
+            <!-- Top Header -->
+            <header class="h-14 bg-white border-b border-slate-200/80 flex items-center justify-between px-4 md:px-6 flex-shrink-0 z-10">
+                <div class="flex items-center gap-3 min-w-0">
+                    <!-- Hamburger (mobile only) -->
+                    <button id="hamburger-btn" onclick="openSidebar()" aria-label="Mở menu">
+                        <i class="fas fa-bars text-lg"></i>
+                    </button>
+                    <!-- Page Title -->
+                    <div class="text-sm md:text-base font-semibold text-slate-700 tracking-tight truncate header-title">
+                        {% block header_title %}Tổng quan{% endblock %}
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 md:gap-4 flex-shrink-0">
+                    <!-- HTMX Loading Indicator -->
+                    <div id="global-spinner" class="htmx-indicator text-blue-500">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                    
+                    <!-- Notifications Bell -->
+                    <button class="relative w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                        <i class="fas fa-bell text-base"></i>
+                        <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full notification-dot border-2 border-white"></span>
+                    </button>
+
+                    <!-- Django Messages -->
+                    {% if messages %}
+                    <div class="hidden" id="django-messages-data">
+                        {% for message in messages %}
+                        <span data-level="{{ message.tags }}" data-text="{{ message }}"></span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="flex-1 overflow-y-auto p-3 md:p-6 bg-slate-50/80 page-content-wrapper" id="main-content">
+                {% block content %}{% endblock %}
+            </div>
         </div>
-    </main>
+
+    </div><!-- end #main-layout -->
 
     <!-- ===== TOAST NOTIFICATIONS (Alpine.js) ===== -->
-    <div x-data="notificationSystem()" 
+    <div id="toast-container"
+         x-data="notificationSystem()" 
          x-init="initWebSocket(); initDjangoMessages()"
          class="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 pointer-events-none"
          style="max-width: 360px;">
@@ -584,6 +764,35 @@
     </div>
 
     <script>
+        /* ===== SIDEBAR TOGGLE (Mobile) ===== */
+        function openSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            // Make visible first
+            sidebar.style.display = 'flex';
+            // Then trigger animation on next frame
+            requestAnimationFrame(() => {
+                sidebar.classList.add('sidebar-open');
+                overlay.classList.add('overlay-visible');
+            });
+            document.body.style.overflow = 'hidden';
+        }
+        function closeSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.remove('sidebar-open');
+            overlay.classList.remove('overlay-visible');
+            document.body.style.overflow = '';
+            // Hide after transition completes
+            sidebar.addEventListener('transitionend', function handler() {
+                if (!sidebar.classList.contains('sidebar-open')) {
+                    sidebar.style.display = '';
+                }
+                sidebar.removeEventListener('transitionend', handler);
+            });
+        }
+
+        /* ===== NOTIFICATION SYSTEM ===== */
         function notificationSystem() {
             return {
                 notifications: [],
@@ -620,7 +829,6 @@
                         });
                 },
                 initDjangoMessages() {
-                    // Render Django messages as toast
                     const container = document.getElementById('django-messages-data');
                     if (!container) return;
                     container.querySelectorAll('span').forEach(el => {

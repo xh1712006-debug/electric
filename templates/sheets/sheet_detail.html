@@ -260,8 +260,23 @@
                         {% endif %}
                     </div>
                 </div>
-                
+
                 {% if sheet.extracted_data %}
+                    {% if not sheet.relay %}
+                    <!-- Yêu cầu gán Relay trước -->
+                    <div class="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50 h-full">
+                        <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl mb-6 shadow-inner relative">
+                            <i class="fas fa-microchip"></i>
+                            <div class="absolute -right-1 -bottom-1 bg-green-500 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-50"><i class="fas fa-check"></i></div>
+                        </div>
+                        <h2 class="text-xl font-bold text-slate-800 mb-3">AI đã đọc xong Bản PDF!</h2>
+                        <p class="text-slate-500 mb-8 max-w-md text-sm leading-relaxed">Hệ thống đã nhận diện được các thông số thô từ file. Để chuẩn hóa và hiển thị thành bảng kỹ thuật chính xác, vui lòng chỉ định <b>Trạm</b> và <b>Rơ-le</b> cho phiếu này.</p>
+                        
+                        <button @click="activeTab = 'info'" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-blue-500/30 transition-all font-bold flex items-center gap-2 hover:-translate-y-0.5">
+                            Cập nhật Thông tin & Rơ-le <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                    {% else %}
                     <form method="POST" action="{% url 'sheet_save_actual_data' sheet.pk %}" class="flex-1 flex flex-col min-h-0">
                         {% csrf_token %}
                         <input type="hidden" name="_original_updated_at" value="{{ sheet.updated_at.timestamp }}">
@@ -295,25 +310,35 @@
                                         <!-- Cột Thông số -->
                                         <div class="col-span-8 flex flex-col justify-center">
                                             <div class="flex items-center gap-2">
-                                                <span class="text-sm font-bold text-slate-800">{{ item.parameter_code }}</span>
-                                                {% if 'AUTO-CORRECT' not in sheet.sheet_code %}
-                                                <span class="text-[9px] {% if item.confidence > 95 %}bg-green-100 text-green-700{% elif item.confidence > 90 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %} px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                                                    {{ item.confidence }}% AI
+                                                <span class="text-sm font-bold text-slate-800">
+                                                    {% if item.parameter_code and item.parameter_code != 'None' %}{{ item.parameter_code }}{% else %}{{ item.parameter_name }}{% endif %}
                                                 </span>
+                                                {% if 'AUTO-CORRECT' not in sheet.sheet_code %}
+                                                    {% if item.confidence and item.confidence != 'None' %}
+                                                    <span class="text-[9px] {% if item.confidence > 95 %}bg-green-100 text-green-700{% elif item.confidence > 90 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %} px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                                        {{ item.confidence }}% AI
+                                                    </span>
+                                                    {% else %}
+                                                    <span class="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider" title="AI không cung cấp độ tin cậy">
+                                                        N/A AI
+                                                    </span>
+                                                    {% endif %}
                                                 {% endif %}
                                             </div>
-                                            <p class="text-xs text-slate-500 truncate" title="{{ item.parameter_name }}">{{ item.parameter_name }}</p>
+                                            <p class="text-xs text-slate-500 truncate" title="{{ item.parameter_name }}">
+                                                {% if item.parameter_code and item.parameter_code != 'None' %}{{ item.parameter_name }}{% endif %}
+                                            </p>
                                         </div>
                                         
                                         <!-- Cột Giá trị -->
                                         <div class="col-span-4 flex flex-col justify-center gap-1">
                                             <div class="flex items-center bg-slate-100 px-3 py-2 rounded-lg w-full border border-slate-200 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-colors">
                                                 {% if request.user|has_group:'DISPATCHER' and sheet.status in 'DRAFT ISSUED' %}
-                                                    <input type="text" name="ocr_value_{{ forloop.counter0 }}" value="{{ item.value }}" class="w-full text-sm font-bold bg-transparent text-center focus:outline-none text-slate-800">
+                                                    <input type="text" name="ocr_value_{{ forloop.counter0 }}" value="{% if item.value and item.value != 'None' %}{{ item.value }}{% endif %}" class="w-full text-sm font-bold bg-transparent text-center focus:outline-none text-slate-800">
                                                 {% else %}
-                                                    <span class="w-full text-sm font-bold text-center text-slate-800">{{ item.value }}</span>
+                                                    <span class="w-full text-sm font-bold text-center text-slate-800">{% if item.value and item.value != 'None' %}{{ item.value }}{% endif %}</span>
                                                 {% endif %}
-                                                <span class="text-xs text-slate-500 font-medium w-8 text-right">{{ item.unit }}</span>
+                                                <span class="text-xs text-slate-500 font-medium w-8 text-right">{% if item.unit and item.unit != 'None' %}{{ item.unit }}{% endif %}</span>
                                             </div>
                                             {% if item.original_value and item.original_value|stringformat:"s" != item.value|stringformat:"s" %}
                                             <div class="text-[10px] text-orange-600 flex items-center justify-center font-bold bg-orange-50 py-0.5 px-2 rounded border border-orange-100 w-fit mx-auto mt-0.5">
@@ -341,6 +366,7 @@
                             {% endif %}
                         </div>
                     </form>
+                    {% endif %}
                 
                 {% else %}
                     <!-- Show mock OCR button -->
@@ -372,38 +398,125 @@
             <div x-show="activeTab === 'info'" class="absolute inset-0 overflow-y-auto bg-slate-50/50" style="display: none;">
                 <!-- Metadata Panel -->
         <div class="p-0">
-            <div class="p-5 border-b border-slate-200 bg-white sticky top-0 z-10 shadow-sm">
+            <div class="p-5 border-b border-slate-200 bg-white sticky top-0 z-10 shadow-sm flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-slate-800">Thông tin Chung</h3>
             </div>
-            <div class="p-4 space-y-3">
-                <div class="flex justify-between border-b border-slate-50 pb-2">
-                    <span class="text-sm text-slate-500">Tiêu đề:</span>
-                    <span class="text-sm font-medium text-slate-800 text-right">{{ sheet.title }}</span>
+            <div class="p-4">
+                {% if request.user|has_group:'DISPATCHER' and sheet.status in 'DRAFT ISSUED' %}
+                <!-- Form edit cho Dispatcher -->
+                <form method="POST" action="{% url 'sheet_update_metadata' sheet.pk %}" class="space-y-4" x-data="metadataForm()">
+                    {% csrf_token %}
+                    
+                    <div x-show="autoSuggestMessage" x-transition class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+                        <i class="fas fa-magic text-blue-500 mt-0.5"></i>
+                        <div>
+                            <p class="text-sm text-blue-800 font-medium">Gợi ý từ dữ liệu OCR:</p>
+                            <p class="text-xs text-blue-600 mt-1" x-html="autoSuggestMessage"></p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="group">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Mã Phiếu <span class="text-red-500">*</span></label>
+                            <input type="text" name="sheet_code" value="{{ sheet.sheet_code }}" required class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all">
+                        </div>
+                        <div class="group">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Tiêu đề</label>
+                            <input type="text" name="title" value="{{ sheet.title|default:'' }}" class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all">
+                        </div>
+                        
+                        <div class="group relative" wire:ignore>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Trạm đích <span class="text-red-500">*</span></label>
+                            <select id="stationSelect" name="station_id" required x-ref="stationSelect" placeholder="-- Tìm kiếm Trạm đích --" class="w-full text-sm">
+                                <option value="">-- Tìm kiếm Trạm đích --</option>
+                            </select>
+                        </div>
+                        
+                        <div class="group relative" wire:ignore>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Ngăn lộ</label>
+                            <select id="baySelect" x-ref="baySelect" placeholder="-- Tìm kiếm Ngăn lộ --" class="w-full text-sm">
+                                <option value="">-- Tìm kiếm Ngăn lộ --</option>
+                            </select>
+                            <!-- Hidden input because TomSelect doesn't submit if it doesn't have name (but we don't need to submit bay) -->
+                        </div>
+                        
+                        <div class="group md:col-span-2 relative" wire:ignore>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Rơ-le <span class="text-red-500">*</span></label>
+                            <select id="relaySelect" name="relay_id" required x-ref="relaySelect" placeholder="-- Tìm kiếm Rơ-le --" class="w-full text-sm">
+                                <option value="">-- Tìm kiếm Rơ-le --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex justify-end mt-4">
+                        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                            <i class="fas fa-save"></i> Cập nhật Thông tin
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <!-- Hiển thị dạng read-only -->
+                <div class="space-y-3">
+                    <div class="flex justify-between border-b border-slate-50 pb-2">
+                        <span class="text-sm text-slate-500">Mã Phiếu:</span>
+                        <span class="text-sm font-medium text-slate-800 text-right">{{ sheet.sheet_code }}</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-50 pb-2">
+                        <span class="text-sm text-slate-500">Tiêu đề:</span>
+                        <span class="text-sm font-medium text-slate-800 text-right">{{ sheet.title }}</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-50 pb-2">
+                        <span class="text-sm text-slate-500">Trạm đích:</span>
+                        <span class="text-sm font-medium text-slate-800 text-right">{% if sheet.station %}{{ sheet.station.station_name }}{% else %}-{% endif %}</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-50 pb-2">
+                        <span class="text-sm text-slate-500">Rơ-le:</span>
+                        <span class="text-sm font-medium text-slate-800 text-right">
+                            {% if sheet.relay %}{{ sheet.relay.relay_code }}{% elif sheet.relay_text %}{{ sheet.relay_text }}{% else %}-{% endif %}
+                        </span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-50 pb-2">
+                        <span class="text-sm text-slate-500">Người tạo:</span>
+                        <span class="text-sm font-medium text-slate-800 text-right">
+                            {% if sheet.created_by %}{{ sheet.created_by.first_name|default:sheet.created_by.username }}{% else %}<span class="text-slate-400 italic">System</span>{% endif %}
+                        </span>
+                    </div>
                 </div>
-                <div class="flex justify-between border-b border-slate-50 pb-2">
-                    <span class="text-sm text-slate-500">Rơ-le:</span>
-                    <span class="text-sm font-medium text-slate-800 text-right">
-                        {% if sheet.relay %}
-                            {{ sheet.relay.relay_code }}
-                        {% elif sheet.relay_text %}
-                            {{ sheet.relay_text }}
-                        {% else %}
-                            -
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- OCR Metadata Details -->
+        {% if page1_fields %}
+        <div class="p-0 mt-4 border-t border-slate-200">
+            <div class="p-5 border-b border-slate-200 bg-white shadow-sm flex items-center gap-2">
+                <i class="fas fa-file-invoice text-indigo-500"></i>
+                <h3 class="text-sm font-semibold text-slate-800">Dữ liệu Bóc tách OCR (Metadata)</h3>
+            </div>
+            <div class="p-5 bg-white">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                    {% for key, field in page1_fields.items %}
+                        {% if field.value %}
+                        <div class="flex flex-col border-b border-slate-50 pb-2">
+                            <span class="text-xs text-slate-500 uppercase tracking-wider mb-1">{{ key }}</span>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-slate-800 break-words">{{ field.value }}</span>
+                                {% if field.confidence %}
+                                    {% if field.confidence.score >= 90 %}
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700" title="Độ tin cậy: {{ field.confidence.score }}%">High</span>
+                                    {% elif field.confidence.score >= 70 %}
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700" title="Độ tin cậy: {{ field.confidence.score }}%">Med</span>
+                                    {% else %}
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700" title="Độ tin cậy: {{ field.confidence.score }}%">Low</span>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
                         {% endif %}
-                    </span>
-                </div>
-                <div class="flex justify-between border-b border-slate-50 pb-2">
-                    <span class="text-sm text-slate-500">Người tạo:</span>
-                    <span class="text-sm font-medium text-slate-800 text-right">
-                        {% if sheet.created_by %}
-                            {{ sheet.created_by.first_name|default:sheet.created_by.username }}
-                        {% else %}
-                            <span class="text-slate-400 italic">System</span>
-                        {% endif %}
-                    </span>
+                    {% endfor %}
                 </div>
             </div>
         </div>
+        {% endif %}
         
         <!-- History Timeline -->
         <div class="p-0 mt-4 border-t border-slate-200">
@@ -585,4 +698,191 @@
     </div>
 </div>
 </div>
+
+{% block scripts %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<style>
+    /* Custom TomSelect styles to match Tailwind */
+    .ts-control { border-radius: 0.5rem; border-color: #e2e8f0; padding: 0.5rem 0.75rem; font-size: 0.875rem; background-color: #f8fafc; }
+    .ts-control.focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); background-color: #ffffff; }
+</style>
+<script>
+    const STATIONS_DATA = {{ stations_json|safe|default:"[]" }};
+    const BAYS_DATA = {{ bays_json|safe|default:"[]" }};
+    const RELAYS_DATA = {{ relays_json|safe|default:"[]" }};
+    const PAGE1_FIELDS = {{ page1_fields_json|safe|default:"{}" }};
+    
+    // Initial data from server
+    const currentStationId = "{% if sheet.station %}{{ sheet.station.id }}{% endif %}";
+    const currentRelayId = "{% if sheet.relay %}{{ sheet.relay.id }}{% endif %}";
+    const currentRelayBayId = "{% if sheet.relay and sheet.relay.bay_id %}{{ sheet.relay.bay_id }}{% endif %}";
+    
+    function metadataForm() {
+        return {
+            stations: STATIONS_DATA,
+            bays: BAYS_DATA,
+            relays: RELAYS_DATA,
+            
+            selectedStation: currentStationId,
+            selectedBay: currentRelayBayId,
+            selectedRelay: currentRelayId,
+            
+            tsStation: null,
+            tsBay: null,
+            tsRelay: null,
+            
+            autoSuggestMessage: '',
+            
+            init() {
+                // Determine auto-suggest if no station is selected
+                if (!this.selectedStation) {
+                    this.runAutoSuggest();
+                }
+
+                // Initialize TomSelects
+                this.$nextTick(() => {
+                    this.initTomSelects();
+                });
+            },
+            
+            runAutoSuggest() {
+                let suggestedStationId = null;
+                let suggestedBayId = null;
+                let suggestedRelayId = null;
+                let msg = [];
+                
+                const ocrStation = PAGE1_FIELDS['Trạm'] || '';
+                const ocrBay = PAGE1_FIELDS['Máy Cắt'] || PAGE1_FIELDS['Thiết Bị Được Bảo Vệ'] || '';
+                const ocrRelay = PAGE1_FIELDS['Tên Rơ-le'] || PAGE1_FIELDS['Số Hiệu Rơ-le'] || '';
+                
+                if (ocrStation) {
+                    const normalizedOcrStation = ocrStation.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const match = this.stations.find(s => {
+                        const normalizedS = s.station_name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        return normalizedS.includes(normalizedOcrStation) || normalizedOcrStation.includes(normalizedS);
+                    });
+                    if (match) {
+                        suggestedStationId = match.id;
+                        msg.push(`Trạm đích <b>${match.station_name}</b>`);
+                    }
+                }
+                
+                if (suggestedStationId && ocrBay) {
+                    const match = this.bays.filter(b => b.station_id == suggestedStationId).find(b => {
+                        return ocrBay.toLowerCase().includes(b.bay_name.toLowerCase());
+                    });
+                    if (match) {
+                        suggestedBayId = match.id;
+                        msg.push(`Ngăn lộ <b>${match.bay_name}</b>`);
+                    }
+                }
+                
+                if (suggestedStationId && ocrRelay && ocrRelay.trim() !== '-' && ocrRelay.trim() !== '') {
+                    let possibleRelays = this.relays;
+                    if (suggestedBayId) possibleRelays = possibleRelays.filter(r => r.bay_id == suggestedBayId);
+                    
+                    const match = possibleRelays.find(r => {
+                        return ocrRelay.toLowerCase().includes(r.relay_code.toLowerCase()) || 
+                               (r.relay_name && ocrRelay.toLowerCase().includes(r.relay_name.toLowerCase()));
+                    });
+                    if (match) {
+                        suggestedRelayId = match.id;
+                        msg.push(`Rơ-le <b>${match.relay_code}</b>`);
+                    }
+                }
+                
+                if (suggestedStationId) {
+                    this.selectedStation = suggestedStationId;
+                    this.selectedBay = suggestedBayId || '';
+                    this.selectedRelay = suggestedRelayId || '';
+                    this.autoSuggestMessage = msg.length ? msg.join(' &middot; ') : '';
+                }
+            },
+            
+            initTomSelects() {
+                // 1. Station
+                this.tsStation = new TomSelect(this.$refs.stationSelect, {
+                    valueField: 'id',
+                    labelField: 'station_name',
+                    searchField: 'station_name',
+                    options: this.stations,
+                    items: this.selectedStation ? [this.selectedStation] : [],
+                    onChange: (value) => {
+                        this.selectedStation = value;
+                        this.onStationChange();
+                    }
+                });
+                
+                // 2. Bay
+                this.tsBay = new TomSelect(this.$refs.baySelect, {
+                    valueField: 'id',
+                    labelField: 'bay_name',
+                    searchField: 'bay_name',
+                    options: this.filteredBays,
+                    items: this.selectedBay ? [this.selectedBay] : [],
+                    onChange: (value) => {
+                        this.selectedBay = value;
+                        this.onBayChange();
+                    }
+                });
+                
+                // 3. Relay
+                this.tsRelay = new TomSelect(this.$refs.relaySelect, {
+                    valueField: 'id',
+                    labelField: 'display_name',
+                    searchField: ['relay_code', 'relay_name'],
+                    options: this.filteredRelays.map(r => ({...r, display_name: r.relay_code + ' - ' + r.relay_name})),
+                    items: this.selectedRelay ? [this.selectedRelay] : [],
+                    onChange: (value) => {
+                        this.selectedRelay = value;
+                    }
+                });
+            },
+            
+            get filteredBays() {
+                if (!this.selectedStation) return [];
+                return this.bays.filter(b => b.station_id == this.selectedStation);
+            },
+            
+            get filteredRelays() {
+                if (!this.selectedStation) return [];
+                let filtered = this.relays;
+                if (this.selectedBay) {
+                    filtered = filtered.filter(r => r.bay_id == this.selectedBay);
+                } else {
+                    const validBayIds = this.filteredBays.map(b => b.id);
+                    filtered = filtered.filter(r => validBayIds.includes(r.bay_id));
+                }
+                return filtered;
+            },
+            
+            onStationChange() {
+                this.selectedBay = '';
+                this.selectedRelay = '';
+                
+                if (this.tsBay) {
+                    this.tsBay.clearOptions();
+                    this.tsBay.addOptions(this.filteredBays);
+                    this.tsBay.clear();
+                }
+                if (this.tsRelay) {
+                    this.tsRelay.clearOptions();
+                    this.tsRelay.addOptions(this.filteredRelays.map(r => ({...r, display_name: r.relay_code + ' - ' + r.relay_name})));
+                    this.tsRelay.clear();
+                }
+            },
+            
+            onBayChange() {
+                this.selectedRelay = '';
+                if (this.tsRelay) {
+                    this.tsRelay.clearOptions();
+                    this.tsRelay.addOptions(this.filteredRelays.map(r => ({...r, display_name: r.relay_code + ' - ' + r.relay_name})));
+                    this.tsRelay.clear();
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}
 {% endblock %}

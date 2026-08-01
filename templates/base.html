@@ -392,6 +392,10 @@
                     <i class="fas fa-wand-magic-sparkles nav-icon text-amber-400"></i>
                     <span>Trích xuất Phiếu (OCR)</span>
                 </a>
+                <a href="{% url 'ocr_job_list' %}" class="nav-item {% if request.path == '/sheets/ocr-progress/' %}active-amber{% endif %}" onclick="closeSidebar()">
+                    <i class="fas fa-tasks nav-icon text-blue-400"></i>
+                    <span>Tiến độ Trích xuất</span>
+                </a>
                 {% endif %}
                 {% if perms.sheets.can_dispatch_sheet %}
                 <a href="{{ url_sheets }}?status=ISSUED" class="nav-item {% if request.GET.status == 'ISSUED' %}active-amber{% endif %}" onclick="closeSidebar()">

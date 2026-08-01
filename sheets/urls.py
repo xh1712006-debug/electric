@@ -13,10 +13,17 @@ urlpatterns = [
     path('<int:pk>/sign/confirm/', views.confirm_signature, name='confirm_signature'),
     path('<int:pk>/run-mock-ocr/', views.run_mock_ocr, name='run_mock_ocr'),
     path('<int:pk>/save-actual-data/', views.sheet_save_actual_data, name='sheet_save_actual_data'),
+    path('<int:pk>/update-metadata/', views.sheet_update_metadata, name='sheet_update_metadata'),
+    path('ocr-progress/', views.ocr_job_list, name='ocr_job_list'),
+    path('ocr-job/<int:pk>/json/', views.ocr_job_json, name='ocr_job_json'),
     path('<int:pk>/route-to-station/', views.sheet_route_to_station, name='sheet_route_to_station'),
     path('updated/', views.updated_sheets, name='updated_sheets'),
     
     # Bulk create (Test Utility)
     path('bulk-create/', views_bulk.bulk_create_ui, name='bulk_create_ui'),
     path('bulk-create/execute/', views_bulk.bulk_create_execute, name='bulk_create_execute'),
+    
+    # API Extract (Test Utility)
+    path('api-extract-test/', views_bulk.api_extract_test_ui, name='api_extract_test_ui'),
+    path('api-extract-test/execute/', views_bulk.api_extract_test_execute, name='api_extract_test_execute'),
 ]

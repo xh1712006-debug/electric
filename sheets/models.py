@@ -74,3 +74,28 @@ class SignatureRecord(models.Model):
 
     def __str__(self):
         return f"{self.signer_name} ({self.role})"
+
+class OcrJob(models.Model):
+    STATUS_CHOICES = (
+        ('PENDING', 'Chờ xử lý'),
+        ('PROCESSING', 'Đang xử lý'),
+        ('SUCCESS', 'Thành công'),
+        ('SUCCESS_WITH_WARNINGS', 'Thành công (có cảnh báo)'),
+        ('FAILED', 'Thất bại'),
+    )
+
+    sheet = models.ForeignKey(SettingSheet, related_name='ocr_jobs', on_delete=models.CASCADE)
+    correlation_id = models.CharField(max_length=128, unique=True, help_text="ID duy nhất để giao tiếp với hệ thống OCR")
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='PENDING')
+    review_status = models.CharField(max_length=50, null=True, blank=True)
+    
+    # Kết quả và lỗi
+    result_data = models.JSONField(null=True, blank=True, help_text="Toàn bộ JSON trả về từ OCR")
+    error_code = models.CharField(max_length=50, null=True, blank=True)
+    error_stage = models.CharField(max_length=50, null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"OCR {self.correlation_id} - {self.get_status_display()}"

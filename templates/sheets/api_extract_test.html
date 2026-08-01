@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Trích Xuất Qua API (Test) | EVN RMS{% endblock %}
+
+{% block header_title %}
+    <div class="flex items-center gap-3">
+        <i class="fas fa-microchip text-purple-500 text-xl"></i>
+        <span>Trích Xuất Qua API (Test)</span>
+    </div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6" x-data="apiExtractApp()">
+    
+    <!-- Info Banner -->
+    <div class="bg-purple-50 border-l-4 border-purple-500 p-4 rounded-r-lg flex items-start gap-3">
+        <i class="fas fa-info-circle text-purple-500 mt-1"></i>
+        <div class="text-sm text-purple-900 leading-relaxed">
+            <strong class="block mb-1">Kiểm thử API Trích xuất (Mock API):</strong>
+            Tính năng này cho phép tải file lên và gọi trực tiếp (động) một Mock API để đọc thông tin từ file. Khác với "Trích xuất Hàng loạt" chạy ngầm, tính năng này trả về dữ liệu trực tiếp dưới dạng JSON trên màn hình để kiểm tra trước.
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Form Card (Left side) -->
+        <div class="page-card p-6 h-fit">
+            <h2 class="text-lg font-bold text-slate-800 border-b pb-3 mb-6">Tải lên Bản scan</h2>
+            
+            <form @submit.prevent="submitTask" class="space-y-5">
+                
+                <!-- API URL Input -->
+                <div class="space-y-1.5">
+                    <label class="block text-sm font-semibold text-slate-700">Đường dẫn API (Tùy chọn)</label>
+                    <input type="url" x-model="apiUrl" placeholder="Nhập API URL thật (VD: http://192.168.1.10:5000/ocr)" 
+                           class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-colors text-sm">
+                    <p class="text-xs text-slate-500">Nếu để trống, hệ thống sẽ trả về dữ liệu Mock (giả lập) để thử nghiệm giao diện.</p>
+                </div>
+
+                <div class="h-64 flex justify-center items-center px-6 pt-5 pb-6 border-2 border-dashed rounded-2xl transition-all relative overflow-hidden group"
+                     @dragover.prevent="isDragging = true" 
+                     @dragleave.prevent="isDragging = false" 
+                     @drop.prevent="handleDrop($event)"
+                     :class="isDragging ? 'border-purple-500 bg-purple-50' : 'border-slate-300 bg-slate-50'"
+                     x-show="files.length === 0">
+                    
+                    <div class="space-y-3 text-center transition-transform group-hover:scale-105 pointer-events-none">
+                        <div class="w-16 h-16 mx-auto bg-white rounded-full shadow-sm flex items-center justify-center transition-transform">
+                            <i class="fas fa-cloud-upload-alt text-2xl text-purple-600"></i>
+                        </div>
+                        <div class="flex flex-col text-sm text-slate-600 justify-center">
+                            <div><span class="font-bold text-purple-600">Tải file lên</span> hoặc kéo thả vào đây</div>
+                            <div class="text-xs text-slate-500 mt-1">Hỗ trợ PDF, PNG, JPG (Có thể chọn nhiều file)</div>
+                        </div>
+                    </div>
+                    
+                    <input x-ref="fileInput" @change="handleFiles($event.target.files)" type="file" multiple accept=".pdf,image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                </div>
+
+                <!-- Header when files are selected -->
+                <div x-show="files.length > 0" class="flex justify-between items-center bg-slate-100 px-4 py-3 rounded-lg" x-cloak>
+                    <div class="font-bold text-slate-700">
+                        Đã chọn <span class="text-purple-600" x-text="files.length"></span> file
+                    </div>
+                    <button type="button" @click="clearFiles()" class="text-sm font-semibold text-slate-500 hover:text-red-500 transition-colors" :disabled="loading">
+                        <i class="fas fa-trash-alt mr-1"></i> Làm lại
+                    </button>
+                </div>
+
+                <!-- List of selected files -->
+                <div x-show="files.length > 0" x-cloak class="max-h-[300px] overflow-y-auto border border-slate-200 rounded-lg bg-white shadow-inner p-2 space-y-1">
+                    <template x-for="(file, index) in files" :key="index">
+                        <div class="flex items-center justify-between text-sm py-2 px-3 border rounded bg-slate-50 border-slate-100">
+                            <div class="flex items-center gap-3 truncate">
+                                <i class="far fa-file-alt text-slate-400"></i>
+                                <span class="truncate font-medium text-slate-700" x-text="file.name"></span>
+                            </div>
+                            <button type="button" @click="removeFile(index)" class="text-slate-400 hover:text-red-500 p-1 transition-colors" :disabled="loading">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+                
+                <!-- Actions -->
+                <div class="pt-4 flex flex-col gap-3 border-t">
+                    <button type="submit" :disabled="loading || files.length === 0"
+                            class="w-full px-5 py-3 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-spinner animate-spin" x-show="loading" x-cloak></i>
+                        <i class="fas fa-bolt" x-show="!loading"></i>
+                        <span x-text="loading ? 'Đang gọi API & Đọc thông tin...' : 'Gửi Yêu Cầu Trích Xuất'"></span>
+                    </button>
+                    
+                    <!-- Link back to bulk create -->
+                    <a href="{% url 'bulk_create_ui' %}" class="w-full px-5 py-2 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center justify-center gap-2 text-center" :class="{'opacity-50 pointer-events-none': loading}">
+                        <i class="fas fa-layer-group"></i>
+                        Quay lại trang Trích Xuất Hàng Loạt
+                    </a>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Results Card (Right side) -->
+        <div class="page-card p-6 flex flex-col h-full lg:h-auto min-h-[500px]">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h2 class="text-lg font-bold text-slate-800">Kết quả Trả về từ API (JSON)</h2>
+                <span x-show="resultData" class="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full animate-pulse" x-cloak>
+                    <i class="fas fa-check-circle mr-1"></i> Đã trích xuất
+                </span>
+            </div>
+            
+            <div class="flex-1 bg-slate-900 rounded-lg p-4 overflow-auto text-sm text-green-400 font-mono relative shadow-inner">
+                <div x-show="!resultData && !loading" class="absolute inset-0 flex items-center justify-center text-slate-500" x-cloak>
+                    <div class="text-center">
+                        <i class="fas fa-code text-4xl mb-3 opacity-30"></i>
+                        <p>Dữ liệu JSON từ API sẽ hiển thị ở đây</p>
+                    </div>
+                </div>
+                
+                <div x-show="loading" class="absolute inset-0 flex flex-col items-center justify-center text-purple-400 bg-slate-900/80 z-10 rounded-lg" x-cloak>
+                    <i class="fas fa-circle-notch fa-spin text-4xl mb-4"></i>
+                    <p class="animate-pulse font-sans font-semibold">Đang mô phỏng độ trễ API...</p>
+                </div>
+                
+                <pre x-show="resultData" x-text="resultData" class="whitespace-pre-wrap break-all" x-cloak></pre>
+            </div>
+        </div>
+    </div>
+    
+</div>
+
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('apiExtractApp', () => ({
+            isDragging: false,
+            files: [],
+            apiUrl: '',
+            loading: false,
+            resultData: null,
+            
+            handleDrop(event) {
+                this.isDragging = false;
+                if(!this.loading) {
+                    this.handleFiles(event.dataTransfer.files);
+                }
+            },
+            
+            handleFiles(fileList) {
+                for (let i = 0; i < fileList.length; i++) {
+                    this.files.push({
+                        fileObj: fileList[i],
+                        name: fileList[i].name
+                    });
+                }
+                this.$refs.fileInput.value = '';
+            },
+            
+            removeFile(index) {
+                this.files.splice(index, 1);
+            },
+            
+            clearFiles() {
+                this.files = [];
+                this.resultData = null;
+            },
+            
+            async submitTask() {
+                if(this.loading || this.files.length === 0) return;
+                this.loading = true;
+                this.resultData = null;
+                
+                const formData = new FormData();
+                if (this.apiUrl.trim() !== '') {
+                    formData.append('api_url', this.apiUrl.trim());
+                }
+                
+                for (let i = 0; i < this.files.length; i++) {
+                    formData.append('scan_files', this.files[i].fileObj);
+                }
+                
+                try {
+                    const response = await fetch("{% url 'api_extract_test_execute' %}", {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if(response.ok) {
+                        // Pretty print JSON
+                        this.resultData = JSON.stringify(result, null, 4);
+                        window.dispatchEvent(new CustomEvent('notify', {
+                            detail: { title: 'Thành công', message: result.message, type: 'success'}
+                        }));
+                    } else {
+                        this.resultData = JSON.stringify(result, null, 4);
+                        window.dispatchEvent(new CustomEvent('notify', {
+                            detail: { title: 'Lỗi', message: result.error || "Đã xảy ra lỗi.", type: 'error'}
+                        }));
+                    }
+                } catch(e) {
+                    console.error(e);
+                    this.resultData = JSON.stringify({error: "Không thể kết nối đến API"}, null, 4);
+                    window.dispatchEvent(new CustomEvent('notify', {
+                        detail: { title: 'Lỗi mạng', message: "Không thể kết nối đến máy chủ.", type: 'error'}
+                    }));
+                } finally {
+                    this.loading = false;
+                }
+            }
+        }));
+    });
+</script>
+{% endblock %}

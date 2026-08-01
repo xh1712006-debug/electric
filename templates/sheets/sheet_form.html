@@ -25,11 +25,44 @@
             </div>
         </div>
 
-        <form method="POST" action="{% url 'sheet_create' %}" enctype="multipart/form-data" class="p-8 space-y-8">
+        <form @submit.prevent="submitForm" enctype="multipart/form-data" class="p-8 space-y-8"
+              x-data="{ 
+                  isDragging: false, 
+                  files: [], 
+                  isUploading: false,
+                  uploadedCount: 0,
+                  async submitForm(e) {
+                      if (this.files.length === 0) return;
+                      this.isUploading = true;
+                      this.uploadedCount = 0;
+                      
+                      let csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                      
+                      for (let i = 0; i < this.files.length; i++) {
+                          let formData = new FormData();
+                          formData.append('csrfmiddlewaretoken', csrfToken);
+                          formData.append('scan_files', this.files[i]);
+                          
+                          try {
+                              await fetch('/sheets/create/', {
+                                  method: 'POST',
+                                  body: formData,
+                                  headers: {
+                                      'X-Requested-With': 'XMLHttpRequest'
+                                  }
+                              });
+                              this.uploadedCount++;
+                          } catch (err) {
+                              console.error(err);
+                          }
+                      }
+                      window.location.href = '/sheets/ocr-progress/';
+                  }
+              }">
             {% csrf_token %}
             
             {% if messages %}
-            <div class="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl text-sm flex items-start gap-3">
+            <div class="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl text-sm flex items-start gap-3" x-show="!isUploading">
                 <i class="fas fa-exclamation-circle mt-0.5"></i>
                 <div class="space-y-1">
                 {% for message in messages %}
@@ -39,110 +72,72 @@
             </div>
             {% endif %}
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Cột trái: Thông tin cơ bản -->
-                <div class="space-y-6">
-                    <div class="group">
-                        <label class="block text-sm font-semibold text-slate-700 mb-2 group-focus-within:text-primary transition-colors">
-                            Mã Phiếu <span class="text-red-500">*</span>
-                        </label>
-                        <div class="relative">
-                            <i class="fas fa-barcode absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"></i>
-                            <input type="text" name="sheet_code" required placeholder="VD: PHIEU-2026-001"
-                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm">
-                        </div>
-                    </div>
-                    
-                    <div class="group">
-                        <label class="block text-sm font-semibold text-slate-700 mb-2 group-focus-within:text-primary transition-colors">
-                            Trạm đích (Bắt buộc) <span class="text-red-500">*</span>
-                        </label>
-                        <div class="relative">
-                            <i class="fas fa-building absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"></i>
-                            <select name="station_id" required class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm appearance-none cursor-pointer">
-                                <option value="">-- Chọn Trạm đích --</option>
-                                {% for st in stations %}
-                                    <option value="{{ st.id }}">{{ st.station_code }} - {{ st.station_name }}</option>
-                                {% endfor %}
-                            </select>
-                            <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none"></i>
-                        </div>
-                    </div>
-
-                    <div class="group">
-                        <label class="block text-sm font-semibold text-slate-700 mb-2 group-focus-within:text-primary transition-colors">
-                            Mã Rơ-le áp dụng <span class="text-red-500">*</span>
-                        </label>
-                        <div class="relative">
-                            <i class="fas fa-microchip absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"></i>
-                            <input type="text" name="relay_text" required list="relay_list" placeholder="Nhập mã rơ-le hoặc chọn..." autocomplete="off" value="{{ initial_relay }}"
-                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm">
-                            <datalist id="relay_list">
-                                {% for relay in relays %}
-                                    <option value="{{ relay.relay_code }}">{{ relay.relay_name }}</option>
-                                {% endfor %}
-                            </datalist>
-                        </div>
-                        <p class="text-xs text-slate-500 mt-1.5 ml-1">Bạn có thể tự nhập mã rơ-le mới nếu chưa có trong hệ thống.</p>
-                    </div>
-
-                    <div class="group">
-                        <label class="block text-sm font-semibold text-slate-700 mb-2 group-focus-within:text-primary transition-colors">
-                            Tiêu đề Phiếu <span class="text-slate-400 font-normal">(Không bắt buộc)</span>
-                        </label>
-                        <div class="relative">
-                            <i class="fas fa-heading absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"></i>
-                            <input type="text" name="title" placeholder="Nhập tiêu đề ngắn gọn..."
-                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-sm">
-                        </div>
-                    </div>
+            <!-- Trạng thái Đang Upload -->
+            <div x-show="isUploading" class="bg-blue-50 border border-blue-200 rounded-xl p-8 text-center space-y-4" style="display: none;">
+                <div class="w-16 h-16 mx-auto bg-white rounded-full shadow-sm flex items-center justify-center">
+                    <i class="fas fa-cloud-upload-alt text-2xl text-blue-500 animate-bounce"></i>
                 </div>
-
-                <!-- Cột phải: File Scan -->
                 <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">
-                        Bản Scan Kèm Theo <span class="text-red-500">*</span>
-                    </label>
-                    <div class="h-[240px] flex justify-center items-center px-6 pt-5 pb-6 border-2 border-dashed rounded-2xl transition-all relative overflow-hidden cursor-pointer group"
-                         x-data="{ isDragging: false, fileName: '' }" 
-                         @dragover.prevent="isDragging = true" 
-                         @dragleave.prevent="isDragging = false" 
-                         @drop.prevent="isDragging = false; fileName = $event.dataTransfer.files[0].name; $refs.fileInput.files = $event.dataTransfer.files"
-                         :class="isDragging ? 'border-primary bg-blue-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-primary/50'">
-                        
-                        <div class="space-y-3 text-center transition-transform group-hover:scale-105" x-show="!fileName">
-                            <div class="w-16 h-16 mx-auto bg-white rounded-full shadow-sm flex items-center justify-center transition-transform" :class="isDragging ? 'scale-110' : ''">
-                                <i class="fas fa-cloud-upload-alt text-2xl text-primary"></i>
-                            </div>
-                            <div class="flex text-sm text-slate-600 justify-center">
-                                <span class="font-bold text-primary">Tải file lên</span>
-                                <p class="pl-1">hoặc kéo thả vào đây</p>
-                            </div>
-                            <p class="text-xs text-slate-400 font-medium">Hỗ trợ PDF, PNG, JPG (Max 20MB)</p>
-                        </div>
+                    <h3 class="text-lg font-bold text-blue-800">Đang đẩy file lên hệ thống...</h3>
+                    <p class="text-sm text-blue-600 mt-1">Đã đẩy <span class="font-bold text-lg" x-text="uploadedCount"></span> / <span class="font-bold text-lg" x-text="files.length"></span> file.</p>
+                </div>
+                <div class="w-full max-w-md mx-auto bg-blue-200 rounded-full h-2.5 mt-4 overflow-hidden">
+                    <div class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" :style="`width: ${(uploadedCount / files.length) * 100}%`"></div>
+                </div>
+                <p class="text-xs text-blue-500 italic mt-2">Vui lòng không đóng trang này cho đến khi hoàn tất.</p>
+            </div>
 
-                        <div class="space-y-3 text-center" x-show="fileName" style="display: none;">
-                            <div class="w-16 h-16 mx-auto bg-green-100 rounded-full shadow-sm flex items-center justify-center">
-                                <i class="fas fa-check text-2xl text-green-600"></i>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-bold text-green-700 mb-1">Đã sẵn sàng tải lên:</h4>
-                                <p class="text-xs text-slate-700 font-mono bg-white inline-block px-3 py-1 border border-slate-200 rounded shadow-sm max-w-[250px] truncate" x-text="fileName"></p>
-                            </div>
-                            <span class="text-xs text-primary font-medium mt-1 inline-block">Nhấp hoặc kéo thả để đổi file</span>
+            <!-- Dropzone Kéo Thả Nhiều File (Ẩn khi đang upload) -->
+            <div x-show="!isUploading">
+                <label class="block text-sm font-semibold text-slate-700 mb-2">
+                    Tải lên các bản Scan (PDF/IMG) <span class="text-red-500">*</span>
+                </label>
+                <div class="min-h-[300px] flex flex-col justify-center items-center px-6 pt-5 pb-6 border-2 border-dashed rounded-2xl transition-all relative overflow-hidden cursor-pointer group"
+                     @dragover.prevent="isDragging = true" 
+                     @dragleave.prevent="isDragging = false" 
+                     @drop.prevent="isDragging = false; files = Array.from($event.dataTransfer.files); $refs.fileInput.files = $event.dataTransfer.files"
+                     :class="isDragging ? 'border-primary bg-blue-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-primary/50'">
+                    
+                    <div class="space-y-4 text-center transition-transform" x-show="files.length === 0">
+                        <div class="w-20 h-20 mx-auto bg-white rounded-full shadow-sm flex items-center justify-center transition-transform" :class="isDragging ? 'scale-110' : ''">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-primary"></i>
                         </div>
-
-                        <input x-ref="fileInput" @change="fileName = $event.target.files[0].name" type="file" name="scan_file" required accept=".pdf,image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                        <div class="flex flex-col text-sm text-slate-600 justify-center items-center gap-1">
+                            <span class="font-bold text-primary text-lg">Kéo thả các file vào đây</span>
+                            <p>hoặc click để chọn file từ máy tính</p>
+                        </div>
+                        <p class="text-xs text-slate-400 font-medium">Bạn có thể chọn nhiều file PDF cùng lúc.</p>
                     </div>
+
+                    <!-- Danh sách file đã chọn -->
+                    <div class="w-full max-w-2xl mx-auto z-10 relative" x-show="files.length > 0" style="display: none;">
+                        <h4 class="text-sm font-bold text-slate-700 mb-3 flex items-center justify-between">
+                            <span>Đã chọn <span x-text="files.length" class="text-primary"></span> file:</span>
+                            <button type="button" @click.stop="files = []; $refs.fileInput.value = ''" class="text-xs text-red-500 hover:text-red-700 font-medium"><i class="fas fa-trash-alt mr-1"></i>Xóa tất cả</button>
+                        </h4>
+                        <ul class="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                            <template x-for="(file, index) in files" :key="index">
+                                <li class="text-sm text-slate-700 bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm flex items-center justify-between">
+                                    <div class="flex items-center gap-2 overflow-hidden">
+                                        <i class="fas fa-file-pdf text-red-500 text-lg shrink-0"></i>
+                                        <span class="truncate font-medium" x-text="file.name"></span>
+                                    </div>
+                                    <span class="text-xs text-slate-400 shrink-0 ml-2" x-text="(file.size / 1024 / 1024).toFixed(2) + ' MB'"></span>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+
+                    <input x-ref="fileInput" @change="files = Array.from($event.target.files)" type="file" name="scan_files" multiple required accept=".pdf,image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-0">
                 </div>
             </div>
 
-            <div class="flex justify-end gap-3 pt-6 border-t border-slate-100 mt-8">
+            <div class="flex justify-end gap-3 pt-6 border-t border-slate-100 mt-8" x-show="!isUploading">
                 <a href="{% url 'sheet_list' %}" class="px-6 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-sm">
                     Trở về
                 </a>
                 <button type="submit" class="px-6 py-2.5 text-sm font-semibold text-white bg-primary rounded-xl hover:bg-blue-700 transition-all shadow-sm flex items-center gap-2 hover:shadow-md transform hover:-translate-y-0.5">
-                    <i class="fas fa-magic"></i> Bắt đầu Trích xuất
+                    <i class="fas fa-magic"></i> Bắt đầu Trích xuất Hàng loạt
                 </button>
             </div>
         </form>

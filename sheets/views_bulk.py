@@ -99,3 +99,88 @@ def bulk_create_execute(request):
         'status': 'ACCEPTED',
         'message': f'Đã đưa {len(sheet_ids)} file vào hàng đợi Celery (Background Processing). Vui lòng chờ thông báo (Toast) khi hoàn tất.'
     })
+
+@login_required
+def api_extract_test_ui(request):
+    """Render the UI for API Extract Test"""
+    if not request.user.is_superuser and not request.user.has_perm('sheets.can_create_sheet'):
+        messages.error(request, "Bạn không có quyền truy cập tính năng Test này.")
+        return redirect('sheet_list')
+    return render(request, 'sheets/api_extract_test.html')
+
+@login_required
+def api_extract_test_execute(request):
+    """Mock API endpoint to simulate data extraction"""
+    if not request.user.is_superuser and not request.user.has_perm('sheets.can_create_sheet'):
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+        
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+        
+    scan_files = request.FILES.getlist('scan_files')
+    if not scan_files:
+        return JsonResponse({'error': 'Vui lòng tải lên ít nhất 1 file.'}, status=400)
+        
+    api_url = request.POST.get('api_url')
+    
+    if api_url:
+        import requests
+        # Pass files to the real API
+        try:
+            # Prepare files for requests
+            files_to_send = []
+            for f in scan_files:
+                # requests expects a tuple (filename, fileobj, content_type)
+                files_to_send.append(('scan_files', (f.name, f.read(), f.content_type)))
+                
+            response = requests.post(api_url, files=files_to_send, timeout=30)
+            # Try to return the JSON directly from the API
+            try:
+                api_json = response.json()
+                return JsonResponse({
+                    'status': 'SUCCESS' if response.ok else 'ERROR',
+                    'message': f'Phản hồi từ {api_url}',
+                    'data': api_json,
+                    'http_status': response.status_code
+                })
+            except ValueError:
+                return JsonResponse({
+                    'status': 'ERROR',
+                    'error': 'API không trả về định dạng JSON hợp lệ.',
+                    'raw_response': response.text[:500] # Return partial raw response for debugging
+                })
+        except requests.exceptions.RequestException as e:
+            return JsonResponse({
+                'status': 'ERROR',
+                'error': f'Lỗi khi kết nối đến API: {str(e)}'
+            })
+        
+    # Simulate processing and return mock data if no api_url provided
+    # For multiple files, we'll return an array of results
+    import time
+    time.sleep(1) # Simulate API delay
+    
+    results = []
+    for f in scan_files:
+        results.append({
+            'file_name': f.name,
+            'status': 'success',
+            'extracted_data': {
+                'Tên Trạm': 'Trạm Mock 110kV',
+                'Ngăn lộ': 'Lộ 171',
+                'Loại Rơ-le': 'SEL-311C',
+                'Hãng sản xuất': 'Schweitzer Engineering Laboratories',
+                'Các thông số': {
+                    'I>>': '10A',
+                    't>>': '0.1s',
+                    'I>': '5A',
+                    't>': '0.5s'
+                }
+            }
+        })
+        
+    return JsonResponse({
+        'status': 'SUCCESS',
+        'message': f'Đã trích xuất thành công {len(scan_files)} file.',
+        'data': results
+    })

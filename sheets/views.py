@@ -145,40 +145,42 @@ def sheet_create(request):
         return redirect('sheet_list')
 
     if request.method == 'POST':
-        sheet_code = request.POST.get('sheet_code')
-        title = request.POST.get('title', '')
-        relay_text = request.POST.get('relay_text')
-        station_id = request.POST.get('station_id')
-        scan_file = request.FILES.get('scan_file')
+        scan_files = request.FILES.getlist('scan_files')
         
-        if not all([sheet_code, relay_text, station_id, scan_file]):
-            messages.error(request, "Vui lòng điền đủ Mã Phiếu, Trạm đích, Rơ-le áp dụng và Tải file scan.")
+        if not scan_files:
+            messages.error(request, "Vui lòng tải lên ít nhất một file PDF.")
             return redirect('sheet_create')
             
-        if SettingSheet.objects.filter(sheet_code=sheet_code).exists():
-            messages.error(request, f"Mã phiếu '{sheet_code}' đã tồn tại trong hệ thống. Vui lòng chọn mã khác.")
-            return redirect('sheet_create')
+        import uuid
+        from .models import OcrJob
+        from .tasks import run_ocr_subprocess
+        
+        created_count = 0
+        for scan_file in scan_files:
+            temp_uuid = uuid.uuid4().hex[:8]
+            temp_sheet_code = f"OCR-TEMP-{temp_uuid}"
             
-        relay = Relay.objects.filter(relay_code=relay_text).first()
-        from stations.models import Station
-        station = Station.objects.filter(id=station_id).first()
-        
-        sheet = SettingSheet.objects.create(
-            sheet_code=sheet_code,
-            title=title,
-            relay=relay,
-            relay_text=relay_text if not relay else None,
-            station=station,
-            scan_file=scan_file,
-            status='ISSUED', # Directly issued after OCR
-            created_by=request.user
-        )
-        
-        # Auto-trigger OCR
-        perform_mock_ocr(sheet)
-        
-        messages.success(request, f"Đã tạo phiếu {sheet.sheet_code} và quét OCR thành công!")
-        return redirect('sheet_detail', pk=sheet.pk)
+            sheet = SettingSheet.objects.create(
+                sheet_code=temp_sheet_code,
+                title=f"Phiếu OCR {temp_uuid}",
+                scan_file=scan_file,
+                status='ISSUED', # Trực tiếp chuyển cho Điều phối viên (ISSUED)
+                created_by=request.user
+            )
+            
+            job = OcrJob.objects.create(
+                sheet=sheet,
+                correlation_id=f"sheet_{sheet.id}_{temp_uuid}"
+            )
+            run_ocr_subprocess.delay(job.id)
+            created_count += 1
+            
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            from django.http import JsonResponse
+            return JsonResponse({'status': 'ok', 'created': created_count})
+            
+        messages.success(request, f"Đã đưa {created_count} file vào tiến trình xử lý OCR ngầm! Dưới đây là tiến độ trích xuất.")
+        return redirect('ocr_job_list')
 
     from stations.models import Station
     stations = Station.objects.all()
@@ -424,6 +426,64 @@ def sheet_detail(request, pk):
         'display_data': display_data,
         'history_logs': history_logs,
     }
+    
+    # Get extra metadata from OCR
+    latest_ocr_job = sheet.ocr_jobs.filter(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS']).order_by('-created_at').first()
+    if latest_ocr_job and latest_ocr_job.result_data:
+        business = latest_ocr_job.result_data.get('business', {})
+        if business and 'page1_fields' in business:
+            key_translations = {
+                'ticket_number': 'Số Phiếu',
+                'page_reference': 'Số Bản Vẽ / Trang',
+                'station': 'Trạm',
+                'protected_equipment': 'Thiết Bị Được Bảo Vệ',
+                'protection_type': 'Kiểu Bảo Vệ',
+                'circuit_breaker': 'Máy Cắt',
+                'relay_name': 'Tên Rơ-le',
+                'relay_version': 'Phiên Bản Rơ-le',
+                'wiring_diagram': 'Sơ Đồ Đấu Dây',
+                'relay_serial': 'Số Hiệu Rơ-le',
+                'current_transformer_ratio': 'Tỷ Số Biến Dòng Điện',
+                'manufacturer': 'Nhà Chế Tạo',
+                'voltage_transformer_ratio': 'Tỷ Số Biến Điện Áp',
+                'installation_year': 'Năm Lắp Đặt',
+                'single_line_drawing': 'Sơ Đồ Một Sợi',
+                'software': 'Phần Mềm',
+                'protection_cabinet': 'Tủ Bảo Vệ',
+                'protection_circuit': 'Mạch Bảo Vệ',
+                'issuance_purpose': 'Mục Đích Ban Hành / Chỉnh Định',
+                'dispatch_center_request': 'Yêu Cầu Của Trung Tâm Điều Độ',
+                'software_version': 'Phiên Bản Phần Mềm',
+                'page_number': 'Trang Số',
+                'total_pages': 'Tổng Số Trang',
+                'form_title': 'Tiêu Đề Phiếu',
+                'protection_principle_heading': 'Nguyên Tắc Hoạt Động'
+            }
+            
+            formatted_fields = {}
+            for k, v in business['page1_fields'].items():
+                if v and v.get('value'):
+                    # Dịch key sang tiếng Việt, nếu không có thì format từ key tiếng Anh
+                    formatted_key = key_translations.get(k, k.replace('_', ' ').title())
+                    formatted_fields[formatted_key] = v
+            context['page1_fields'] = formatted_fields
+    
+    # Pass stations, bays, and relays for editing metadata
+    from stations.models import Station, Bay, Relay
+    import json
+    
+    if 'page1_fields' in context:
+        context['page1_fields_json'] = json.dumps({k: v.get('value', '') for k, v in context['page1_fields'].items() if isinstance(v, dict)})
+    else:
+        context['page1_fields_json'] = "{}"
+    
+    stations_data = list(Station.objects.values('id', 'station_name'))
+    bays_data = list(Bay.objects.values('id', 'station_id', 'bay_name'))
+    relays_data = list(Relay.objects.values('id', 'bay_id', 'relay_code', 'relay_name'))
+    
+    context['stations_json'] = json.dumps(stations_data)
+    context['bays_json'] = json.dumps(bays_data)
+    context['relays_json'] = json.dumps(relays_data)
     
     return render(request, 'sheets/sheet_detail.html', context)
 
@@ -750,7 +810,7 @@ def perform_mock_ocr(sheet):
 
 @login_required
 def run_mock_ocr(request, pk):
-    """View giả lập quá trình chạy AI OCR (Dành cho trigger thủ công nếu cần)."""
+    """View kích hoạt lại quá trình chạy AI OCR (thủ công)."""
     if request.method == 'POST':
         sheet = get_object_or_404(SettingSheet, pk=pk)
         
@@ -758,8 +818,17 @@ def run_mock_ocr(request, pk):
             messages.error(request, "Phiếu đã được duyệt và chuyển trạm. Không thể chạy lại AI OCR.")
             return redirect('sheet_detail', pk=pk)
             
-        time.sleep(1.5)
-        perform_mock_ocr(sheet)
+        import uuid
+        from .models import OcrJob
+        from .tasks import run_ocr_subprocess
+        
+        job = OcrJob.objects.create(
+            sheet=sheet,
+            correlation_id=f"sheet_{sheet.id}_{uuid.uuid4().hex[:8]}"
+        )
+        run_ocr_subprocess.delay(job.id)
+        
+        messages.success(request, "Đã gửi yêu cầu chạy OCR thực tế. Quá trình xử lý đang diễn ra ngầm.")
         return redirect('sheet_detail', pk=pk)
     return redirect('sheet_list')
 
@@ -861,3 +930,67 @@ def sheet_save_actual_data(request, pk):
             
         return redirect('sheet_detail', pk=pk)
     return redirect('sheet_list')
+
+@login_required
+def sheet_update_metadata(request, pk):
+    """View cho phép Điều phối viên cập nhật lại thông tin chung của phiếu (Mã, Trạm, Rơ-le) sau OCR."""
+    if request.method == 'POST':
+        sheet = get_object_or_404(SettingSheet, pk=pk)
+        
+        if sheet.status not in ['DRAFT', 'ISSUED']:
+            messages.error(request, "Phiếu đã được chuyển trạm. Không thể sửa thông tin chung nữa.")
+            return redirect('sheet_detail', pk=pk)
+            
+        is_dispatcher = request.user.has_perm('sheets.can_create_sheet') or request.user.has_perm('sheets.can_dispatch_sheet')
+        
+        if is_dispatcher:
+            sheet.sheet_code = request.POST.get('sheet_code', sheet.sheet_code).strip()
+            sheet.title = request.POST.get('title', sheet.title).strip()
+            
+            station_id = request.POST.get('station_id')
+            if station_id:
+                from stations.models import Station
+                sheet.station = Station.objects.filter(id=station_id).first()
+                
+            relay_id = request.POST.get('relay_id')
+            if relay_id:
+                from stations.models import Relay
+                relay = Relay.objects.filter(id=relay_id).first()
+                if relay:
+                    sheet.relay = relay
+                    sheet.relay_text = None
+            else:
+                # Fallback to relay_text if they didn't select relay dropdown but typed something?
+                relay_text = request.POST.get('relay_text')
+                if relay_text:
+                    from stations.models import Relay
+                    relay_text = relay_text.strip()
+                    sheet.relay = Relay.objects.filter(relay_code=relay_text).first()
+                    sheet.relay_text = relay_text if not sheet.relay else None
+                
+            sheet.save()
+            messages.success(request, "Đã cập nhật thông tin chung của phiếu thành công.")
+            
+    return redirect('sheet_detail', pk=pk)
+
+@login_required
+def ocr_job_list(request):
+    """View hiển thị tiến độ trích xuất các phiếu (OcrJob)."""
+    from .models import OcrJob
+    
+    # Lấy 50 jobs mới nhất
+    jobs = OcrJob.objects.select_related('sheet').order_by('-created_at')[:50]
+    
+    return render(request, 'sheets/ocr_job_list.html', {
+        'jobs': jobs,
+        'list_title': 'Tiến độ Trích xuất OCR'
+    })
+
+@login_required
+def ocr_job_json(request, pk):
+    from sheets.models import OcrJob
+    job = get_object_or_404(OcrJob, pk=pk)
+    if job.result_data:
+        return JsonResponse(job.result_data, safe=False)
+    return JsonResponse({'error': 'No JSON data available for this job.'}, status=404)
+

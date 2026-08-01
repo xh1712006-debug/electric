@@ -4,6 +4,14 @@
 {% block header_title %}Danh sách Tài khoản Hệ thống{% endblock %}
 
 {% block content %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<style>
+    /* Custom TomSelect styles to match Tailwind in User form */
+    .ts-control { border-radius: 0.5rem; border-color: #5eead4; padding: 0.5rem 0.75rem; font-size: 0.875rem; background-color: #f0fdfa; }
+    .ts-control.focus { border-color: #14b8a6; box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.2); background-color: #ffffff; }
+    .ts-dropdown { border-radius: 0.5rem; border-color: #5eead4; }
+</style>
 <div class="h-full flex flex-col" x-data="{ showModal: false }">
     
     <!-- Top Bar -->
@@ -132,12 +140,14 @@
                                                     
                                                     <div x-show="['TECHNICIAN', 'SUPERVISOR', 'STATION_LEADER'].includes(editGroup_{{ u.id }})" x-collapse style="display: none;">
                                                         <label class="block text-sm font-bold text-teal-700 mb-1"><i class="fas fa-building mr-1"></i> Trạm trực thuộc</label>
-                                                        <select name="station_id" :required="['TECHNICIAN', 'SUPERVISOR', 'STATION_LEADER'].includes(editGroup_{{ u.id }})" class="w-full px-3 py-2 border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors bg-teal-50">
-                                                            <option value="">-- Chọn Trạm --</option>
+                                                        <div wire:ignore>
+                                                            <select name="station_id" :required="['TECHNICIAN', 'SUPERVISOR', 'STATION_LEADER'].includes(editGroup_{{ u.id }})" x-init="$nextTick(() => { new TomSelect($el, {create: false}) })" placeholder="-- Tìm kiếm Trạm --" class="w-full text-sm">
+                                                                <option value="">-- Tìm kiếm Trạm --</option>
                                                             {% for s in stations %}
                                                             <option value="{{ s.id }}" {% if u.userprofile.station_id == s.id %}selected{% endif %}>{{ s.station_code }} - {{ s.station_name }}</option>
                                                             {% endfor %}
-                                                        </select>
+                                                            </select>
+                                                        </div>
                                                         <p class="text-xs text-teal-600 mt-1">Gắn người dùng này vào Trạm cụ thể.</p>
                                                     </div>
                                                 </div>
@@ -231,12 +241,14 @@
                             
                             <div x-show="['TECHNICIAN', 'SUPERVISOR', 'STATION_LEADER'].includes(selectedGroupName)" x-collapse style="display: none;">
                                 <label class="block text-sm font-bold text-teal-700 mb-1"><i class="fas fa-building mr-1"></i> Trạm trực thuộc *</label>
-                                <select name="station_id" :required="['TECHNICIAN', 'SUPERVISOR', 'STATION_LEADER'].includes(selectedGroupName)" class="w-full px-3 py-2 border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors bg-teal-50">
-                                    <option value="">-- Chọn Trạm --</option>
+                                <div wire:ignore>
+                                    <select name="station_id" :required="['TECHNICIAN', 'SUPERVISOR', 'STATION_LEADER'].includes(selectedGroupName)" x-init="$nextTick(() => { new TomSelect($el, {create: false}) })" placeholder="-- Tìm kiếm Trạm --" class="w-full text-sm">
+                                        <option value="">-- Tìm kiếm Trạm --</option>
                                     {% for s in stations %}
                                     <option value="{{ s.id }}">{{ s.station_code }} - {{ s.station_name }}</option>
                                     {% endfor %}
-                                </select>
+                                    </select>
+                                </div>
                                 <p class="text-xs text-teal-600 mt-1">Tài khoản này sẽ được gắn cố định với Trạm đã chọn.</p>
                             </div>
                         </div>

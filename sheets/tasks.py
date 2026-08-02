@@ -141,14 +141,21 @@ def run_ocr_subprocess(self, job_id):
     output_root = os.path.join(settings.MEDIA_ROOT, 'ocr_artifacts')
     os.makedirs(output_root, exist_ok=True)
     
-    # Path tới python trong venv của OCR_PRJ
+    # Path tới python trong venv của OCR_PRJ (Local Windows) hoặc system python (Docker Linux)
     project_root = settings.BASE_DIR
     ocr_prj_root = os.path.join(project_root, 'OCR_PRJ')
-    python_exe = os.path.join(ocr_prj_root, '.venv', 'Scripts', 'python.exe')
+    
+    if os.name == 'nt':
+        # Trên Windows, dùng venv riêng của OCR_PRJ nếu có
+        python_exe = os.path.join(ocr_prj_root, '.venv', 'Scripts', 'python.exe')
+    else:
+        # Trên Linux/Docker, dùng python hệ thống vì tất cả đã cài chung trong image
+        import sys
+        python_exe = sys.executable
     
     if not os.path.exists(python_exe):
         job.status = 'FAILED'
-        job.error_detail = 'OCR Python interpreter not found'
+        job.error_detail = f'OCR Python interpreter not found at {python_exe}'
         job.save()
         return "Python exe not found"
 

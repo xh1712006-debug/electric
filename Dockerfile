@@ -19,7 +19,7 @@ WORKDIR /app
 COPY requirements.txt /app/
 COPY vendor /app/vendor/
 RUN pip install --upgrade pip \
-    && pip install --no-index --find-links=/app/vendor -r requirements.txt
+    && pip install --find-links=/app/vendor -r requirements.txt
 
 # Sao chép toàn bộ mã nguồn dự án vào container (bao gồm cả OCR_PRJ)
 COPY . /app/

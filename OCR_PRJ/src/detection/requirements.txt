@@ -1,0 +1,6 @@
+# CPU deployment dependencies for the PP-OCRv5 detector.
+# Install the CUDA-compatible PaddlePaddle build separately for GPU workers.
+paddlepaddle>=3.0,<4.0
+paddleocr>=3.0,<4.0
+opencv-python>=4.8,<5.0
+numpy>=1.24,<3.0

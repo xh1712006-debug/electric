@@ -1,0 +1,135 @@
+{
+  "contract_id": "ocr_prj.local_pdf.v1",
+  "schema_version": "1.0",
+  "interface": {
+    "primary": "python",
+    "json_serialization": "required",
+    "cli_adapter": "required"
+  },
+  "request": {
+    "required_fields": [
+      "input_pdf",
+      "output_root",
+      "correlation_id"
+    ],
+    "allowed_fields": [
+      "input_pdf",
+      "output_root",
+      "correlation_id"
+    ],
+    "input_kind": "single_pdf_x",
+    "correlation_id_pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+  },
+  "result": {
+    "required_fields": [
+      "schema_version",
+      "pipeline_version",
+      "correlation_id",
+      "status",
+      "review_status",
+      "document",
+      "business",
+      "pages",
+      "warnings",
+      "timing",
+      "artifact_manifest",
+      "error"
+    ]
+  },
+  "enums": {
+    "status": [
+      "success",
+      "success_with_warnings",
+      "failed"
+    ],
+    "review_status": [
+      "not_required",
+      "review_required"
+    ],
+    "page_role": [
+      "page1",
+      "page2",
+      "page3_plus"
+    ],
+    "page_status": [
+      "completed",
+      "skipped_by_policy",
+      "failed"
+    ],
+    "field_resolution_status": [
+      "auto_selected",
+      "preserved_existing",
+      "review_required",
+      "not_available"
+    ],
+    "confidence_label": [
+      "very_low",
+      "low",
+      "medium",
+      "high",
+      "very_high"
+    ],
+    "error_stage": [
+      "validation",
+      "rendering",
+      "detection",
+      "recognition",
+      "layout",
+      "artifact_write",
+      "pipeline"
+    ],
+    "error_code": [
+      "INVALID_REQUEST",
+      "INPUT_NOT_FOUND",
+      "INPUT_NOT_FILE",
+      "UNSUPPORTED_INPUT_KIND",
+      "INVALID_PDF",
+      "OUTPUT_NOT_WRITABLE",
+      "PDF_RENDER_FAILED",
+      "DETECTION_FAILED",
+      "RECOGNITION_FAILED",
+      "LAYOUT_FAILED",
+      "ARTIFACT_WRITE_FAILED",
+      "INTERNAL_PIPELINE_ERROR"
+    ]
+  },
+  "policies": {
+    "synchronous_terminal_result": true,
+    "one_pdf_per_call": true,
+    "pdf_a_supported": false,
+    "absolute_request_paths_allowed": true,
+    "absolute_result_paths_allowed": false,
+    "artifact_paths_relative_to_output_root": true,
+    "failed_result_business_must_be_null": true,
+    "page3_records_require_review": true,
+    "public_stack_trace_allowed": false,
+    "progress_callback_optional": true,
+    "progress_total": 100,
+    "progress_monotonic": true,
+    "progress_callback_failure_is_nonfatal": true,
+    "default_log_includes_pdf_path": false,
+    "default_log_includes_ocr_text": false
+  },
+  "observability": {
+    "error_catalog": "error_catalog.json",
+    "log_format": "json_lines",
+    "required_log_fields": [
+      "timestamp",
+      "level",
+      "correlation_id",
+      "stage",
+      "event",
+      "completed",
+      "total",
+      "terminal"
+    ],
+    "cli_log_stream": "stderr",
+    "cli_machine_result_stream": "stdout"
+  },
+  "example_scenarios": [
+    "success",
+    "success_with_warnings",
+    "review_required",
+    "failure"
+  ]
+}

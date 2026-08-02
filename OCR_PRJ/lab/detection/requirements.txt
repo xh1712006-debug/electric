@@ -1,0 +1,7 @@
+# PaddleOCR 3.x uses the supported TextDetection API and requires Paddle 3.x.
+# Install the GPU-specific PaddlePaddle build separately when needed.
+paddlepaddle>=3.0,<4.0
+paddleocr>=3.0,<4.0
+easyocr>=1.7,<2.0
+opencv-python>=4.8,<5.0
+numpy>=1.24,<3.0

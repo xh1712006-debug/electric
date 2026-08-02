@@ -1,0 +1,6 @@
+# The experiment reuses the selected production OCR environments.
+-r ../../src/detection/requirements.txt
+-r ../../src/recognition/requirements.txt
+numpy>=1.24,<3.0
+opencv-python>=4.8,<5.0
+Pillow==10.2.0

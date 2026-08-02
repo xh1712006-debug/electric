@@ -1,0 +1,92 @@
+{
+  "release_id": "ocr_prj.local_api.v1",
+  "release_status": "scope_locked",
+  "local_api_version": "1.0",
+  "schema_version": "1.0",
+  "cli_schema_version": "1.0",
+  "pipeline_version": "0.7.0",
+  "source_checkout_mode": true,
+  "build_provenance": {
+    "implementation_commit": "8f4bebb90a8489b998fe9e5a86b7631554c9bd74",
+    "acceptance_evidence_commit": "b832edf",
+    "final_documentation_commit": "git HEAD containing this manifest"
+  },
+  "public_python_imports": [
+    "OcrRequest",
+    "OcrResult",
+    "RelayFormOcrService",
+    "ProgressEvent",
+    "ProcessingStatus",
+    "ReviewStatus",
+    "ErrorCode",
+    "ErrorStage",
+    "PIPELINE_VERSION"
+  ],
+  "public_cli_module": "src.relay_form_ocr",
+  "supported_scope": [
+    "một PDF_x local cho mỗi lời gọi đồng bộ",
+    "Python API gọi trực tiếp",
+    "local JSON CLI adapter",
+    "đường dẫn input/output Unicode trên Windows",
+    "terminal result có kiểu và public error catalog ổn định",
+    "workspace cô lập và artifact manifest có checksum",
+    "progress callback tăng đơn điệu và JSONL log đã khử dữ liệu nhạy cảm"
+  ],
+  "limitations": [
+    "source checkout cần repository root trên PYTHONPATH",
+    "không hỗ trợ PDF_A, folder hoặc nhiều PDF trong một lời gọi",
+    "không hỗ trợ HTTP, network transport, background queue hoặc distributed storage",
+    "Page 2 bị bỏ qua theo policy hiện tại và có warning",
+    "Table 02 của Page 1 chưa được trích xuất",
+    "setting Page 3+ và note candidate luôn cần người duyệt",
+    "acceptance không phải phép đo độ chính xác OCR khi chưa có ground truth",
+    "installable package, deployment và rollback vẫn thuộc PLAN-009/PLAN-018"
+  ],
+  "compatibility_policy": {
+    "same_major_allowed": [
+      "add an optional field when existing fixtures and consumers remain valid",
+      "change pipeline_version while output still validates against the declared schema"
+    ],
+    "major_version_required": [
+      "remove or rename a public field",
+      "change a public field type or nullability",
+      "change enum or stable error semantics",
+      "change the artifact relative-path base or trust boundary"
+    ]
+  },
+  "documentation": [
+    "README.md",
+    "API.md",
+    "ARCHITECTURE.md",
+    "docs/LOCAL_API_CONTRACT_V1.md",
+    "manual.md",
+    "session-handoff.md"
+  ],
+  "schemas": [
+    "contracts/local_api/v1/schemas/ocr_request.schema.json",
+    "contracts/local_api/v1/schemas/ocr_result.schema.json"
+  ],
+  "fixtures": [
+    "contracts/local_api/v1/examples/success.json",
+    "contracts/local_api/v1/examples/success_with_warnings.json",
+    "contracts/local_api/v1/examples/review_required.json",
+    "contracts/local_api/v1/examples/failure.json"
+  ],
+  "acceptance_summary": {
+    "run_id": "immediate-009-cpu-20260731",
+    "runtime": "CPython 3.12.13 / Windows 11 AMD64 / CPU",
+    "layout_families": 8,
+    "real_pdf_executions": 9,
+    "failure_executions": 1,
+    "passed_executions": 10,
+    "real_pages": 69,
+    "warnings": 65,
+    "public_artifacts": 156,
+    "repeatability_stable": true,
+    "workspace_collision_free": true,
+    "sources_unchanged": true,
+    "full_artifact_audit": true,
+    "accuracy_claimed": false
+  },
+  "next_task": "PLAN-001 — Chốt phạm vi nghiệp vụ và ranh giới tích hợp"
+}

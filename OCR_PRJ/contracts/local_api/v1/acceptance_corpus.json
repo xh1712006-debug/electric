@@ -1,0 +1,73 @@
+{
+  "acceptance_schema_version": "1.0",
+  "suite_id": "relay-layout-families-v1",
+  "description": "Corpus khởi đầu cho acceptance local API; có thể nối thêm các PDF và họ bố cục.",
+  "required_layout_families": [
+    "borderless-three-column",
+    "range-three-column",
+    "attribute-four-column",
+    "borderless-hierarchy-two-column",
+    "hierarchy-three-column",
+    "code-name-value-grid",
+    "indexed-four-column",
+    "multi-table-four-column"
+  ],
+  "cases": [
+    {
+      "case_id": "7sj622-1",
+      "layout_family": "borderless-three-column",
+      "display_name": "7SJ622 — ba cột không kẻ viền",
+      "input_pdf": "7SJ622_1.pdf",
+      "repeat": 1
+    },
+    {
+      "case_id": "c264-1",
+      "layout_family": "range-three-column",
+      "display_name": "C264 — Parameter / Range of value / Value",
+      "input_pdf": "C264_1.pdf",
+      "repeat": 2
+    },
+    {
+      "case_id": "grl200-1",
+      "layout_family": "attribute-four-column",
+      "display_name": "GRL200 — bảng bốn cột thuộc tính",
+      "input_pdf": "GRL200_1.pdf",
+      "repeat": 1
+    },
+    {
+      "case_id": "l90-1",
+      "layout_family": "borderless-hierarchy-two-column",
+      "display_name": "L90 — hai cột phân cấp không viền",
+      "input_pdf": "L90_1.pdf",
+      "repeat": 1
+    },
+    {
+      "case_id": "p132-1",
+      "layout_family": "hierarchy-three-column",
+      "display_name": "P132 — bảng ba cột phân cấp",
+      "input_pdf": "P132_1.pdf",
+      "repeat": 1
+    },
+    {
+      "case_id": "p443-1",
+      "layout_family": "code-name-value-grid",
+      "display_name": "P443/P543 — bảng mã, tên và giá trị",
+      "input_pdf": "P443_1.pdf",
+      "repeat": 1
+    },
+    {
+      "case_id": "pcs-902-1",
+      "layout_family": "indexed-four-column",
+      "display_name": "PCS-902 — chỉ số, hạng mục, mô tả, thiết lập",
+      "input_pdf": "PCS-902_1.pdf",
+      "repeat": 1
+    },
+    {
+      "case_id": "pcs9611-1",
+      "layout_family": "multi-table-four-column",
+      "display_name": "PCS9611 — nhiều bảng bốn cột",
+      "input_pdf": "PCS9611_1.pdf",
+      "repeat": 1
+    }
+  ]
+}

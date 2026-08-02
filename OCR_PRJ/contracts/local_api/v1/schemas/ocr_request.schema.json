@@ -1,0 +1,30 @@
+{
+  "$id": "https://ocr-prj.local/schema/v1/ocr-request.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Request for exactly one local PDF_x.",
+  "properties": {
+    "correlation_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "input_pdf": {
+      "format": "path",
+      "title": "Input Pdf",
+      "type": "string"
+    },
+    "output_root": {
+      "format": "path",
+      "title": "Output Root",
+      "type": "string"
+    }
+  },
+  "required": [
+    "input_pdf",
+    "output_root",
+    "correlation_id"
+  ],
+  "title": "OcrRequest",
+  "type": "object"
+}

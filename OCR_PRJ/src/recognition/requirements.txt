@@ -1,0 +1,10 @@
+# Vietnamese recognition worker dependencies.
+opencv-python>=4.8,<5.0
+Pillow==10.2.0
+vietocr==0.3.13
+# VietOCR does not reliably declare its PyTorch runtime on every platform;
+# keep it explicit so a fresh production venv can initialise the recognizer.
+torch>=2.0,<3.0
+torchvision>=0.15,<1.0
+# VietOCR 0.3.13 currently imports pkg_resources through gdown.
+setuptools<81

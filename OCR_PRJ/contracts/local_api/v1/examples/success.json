@@ -1,0 +1,71 @@
+{
+  "example_id": "local-api-v1-success",
+  "scenario": "success",
+  "request": {
+    "input_pdf": "D:\\management-data\\P_001.pdf",
+    "output_root": "D:\\ocr-artifacts",
+    "correlation_id": "ticket-001"
+  },
+  "result": {
+    "schema_version": "1.0",
+    "pipeline_version": "0.1.0",
+    "correlation_id": "ticket-001",
+    "status": "success",
+    "review_status": "not_required",
+    "document": {
+      "document_id": "P_001",
+      "source_name": "P_001.pdf",
+      "source_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "page_count": 1
+    },
+    "business": {
+      "page1_fields": {
+        "ticket_number": {"value": "A1-01-2026/E5.8/220", "confidence": {"level": 5, "label": "very_high", "score": 96.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "page_reference": {"value": "1/1", "confidence": {"level": 5, "label": "very_high", "score": 98.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "station": {"value": "Trạm 220 kV Việt Trì", "confidence": {"level": 5, "label": "very_high", "score": 94.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "protected_equipment": {"value": "Đường dây 220 kV", "confidence": {"level": 4, "label": "high", "score": 84.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "protection_type": {"value": "Bảo vệ khoảng cách", "confidence": {"level": 4, "label": "high", "score": 86.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "circuit_breaker": {"value": "273", "confidence": {"level": 5, "label": "very_high", "score": 93.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "relay_name": {"value": "SEL311L", "confidence": {"level": 5, "label": "very_high", "score": 95.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "relay_version": {"value": null, "confidence": null, "resolution_status": "not_available", "source_page": 1},
+        "wiring_diagram": {"value": "BV-220-01", "confidence": {"level": 4, "label": "high", "score": 81.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "relay_serial": {"value": "RLY-001", "confidence": {"level": 4, "label": "high", "score": 80.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "current_transformer_ratio": {"value": "1200/1 A", "confidence": {"level": 4, "label": "high", "score": 85.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "manufacturer": {"value": "Schweitzer", "confidence": {"level": 4, "label": "high", "score": 82.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "voltage_transformer_ratio": {"value": "220000/100 V", "confidence": {"level": 4, "label": "high", "score": 83.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "installation_year": {"value": "2021", "confidence": {"level": 4, "label": "high", "score": 88.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "single_line_drawing": {"value": "SLD-01", "confidence": {"level": 4, "label": "high", "score": 80.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "software": {"value": "ACSELerator QuickSet", "confidence": {"level": 5, "label": "very_high", "score": 91.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "protection_cabinet": {"value": "Tủ F01", "confidence": {"level": 4, "label": "high", "score": 82.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "protection_circuit": {"value": "Mạch 1", "confidence": {"level": 4, "label": "high", "score": 80.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "issuance_purpose": {"value": "Ban hành mới", "confidence": {"level": 5, "label": "very_high", "score": 92.0}, "resolution_status": "auto_selected", "source_page": 1},
+        "dispatch_center_request": {"value": "Theo phương thức A0", "confidence": {"level": 4, "label": "high", "score": 84.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "software_version": {"value": "V6.7.0.2", "confidence": {"level": 4, "label": "high", "score": 87.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "page_number": {"value": "1", "confidence": {"level": 5, "label": "very_high", "score": 98.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "total_pages": {"value": "1", "confidence": {"level": 5, "label": "very_high", "score": 98.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "form_title": {"value": "Phiếu chỉnh định rơ-le", "confidence": {"level": 4, "label": "high", "score": 85.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "protection_principle_heading": {"value": "Nguyên lý bảo vệ", "confidence": {"level": 4, "label": "high", "score": 82.0}, "resolution_status": "preserved_existing", "source_page": 1}
+      },
+      "setting_records": [],
+      "note_candidates": [],
+      "evidence_artifact_ids": ["page1-evidence"]
+    },
+    "pages": [
+      {"page_number": 1, "role": "page1", "status": "completed", "review_status": "not_required", "artifact_ids": ["page1-evidence"]}
+    ],
+    "warnings": [],
+    "timing": {
+      "started_at": "2026-07-30T08:00:00Z",
+      "completed_at": "2026-07-30T08:00:02Z",
+      "elapsed_ms": 2000.0,
+      "stage_ms": {"validation": 5.0, "rendering": 300.0, "detection": 500.0, "recognition": 800.0, "layout": 300.0, "artifact_write": 95.0}
+    },
+    "artifact_manifest": {
+      "workspace_id": "ticket-001--run-001",
+      "artifacts": [
+        {"artifact_id": "page1-evidence", "kind": "page_layout_evidence", "relative_path": "ticket-001--run-001/pages/page_0001_layout.json", "media_type": "application/json", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "size_bytes": 4096}
+      ]
+    },
+    "error": null
+  }
+}

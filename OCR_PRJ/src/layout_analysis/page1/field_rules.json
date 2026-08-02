@@ -1,0 +1,187 @@
+{
+  "schema_version": "1.0",
+  "scoring": {
+    "auto_select_minimum": 70,
+    "winner_margin_minimum": 15,
+    "weights": {
+      "topology": 25,
+      "anchor": 25,
+      "alias": 15,
+      "separator": 15,
+      "value_validation": 15,
+      "ocr_confidence": 5
+    }
+  },
+  "fields": {
+    "ticket_number": {
+      "aliases": [
+        {"value": "Số phiếu", "origin": "built_in", "status": "active"},
+        {"value": "Số phiếu chỉnh định", "origin": "built_in", "status": "active"},
+        {"value": "Số", "origin": "user", "status": "active", "created_by": "human-confirmed", "created_at": "2026-07-29"}
+      ],
+      "topology_rules": [
+        {"type": "page_region", "region": "top_right_header", "origin": "built_in", "status": "active"}
+      ],
+      "anchor_rules": [
+        {"type": "field_relation", "field": "page_reference", "relation": "above", "origin": "built_in", "status": "active"}
+      ],
+      "value_rules": [
+        {"type": "ticket_number", "required": true, "origin": "built_in", "status": "active"}
+      ]
+    },
+    "page_reference": {
+      "aliases": [],
+      "topology_rules": [
+        {"type": "page_region", "region": "top_right_header", "origin": "built_in", "status": "active"}
+      ],
+      "anchor_rules": [
+        {"type": "field_relation", "field": "ticket_number", "relation": "below", "origin": "built_in", "status": "active"}
+      ],
+      "value_rules": [
+        {"type": "page_reference", "required": true, "origin": "built_in", "status": "active"}
+      ]
+    },
+    "station": {
+      "aliases": [{"value": "Trạm", "origin": "built_in", "status": "active"}],
+      "topology_rules": [{"type": "source_policy", "value": "inline_or_right", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "protected_equipment": {
+      "aliases": [{"value": "Thiết bị được bảo vệ", "origin": "built_in", "status": "active"}],
+      "topology_rules": [{"type": "cover_slot", "row": 0, "slot": "left", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "protection_type": {
+      "aliases": [{"value": "Kiểu bảo vệ", "origin": "built_in", "status": "active"}],
+      "topology_rules": [{"type": "cover_slot", "row": 0, "slot": "right", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "circuit_breaker": {
+      "aliases": [{"value": "Máy cắt", "origin": "built_in", "status": "active"}],
+      "topology_rules": [{"type": "cover_slot", "row": 1, "slot": "left", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "relay_name": {
+      "aliases": [
+        {"value": "Tên rơ-le", "origin": "built_in", "status": "active"},
+        {"value": "Tên role", "origin": "built_in", "status": "active"},
+        {"value": "Tên rơ-je", "origin": "built_in", "status": "active"}
+      ],
+      "topology_rules": [{"type": "cover_slot", "row": 1, "slot": "right_primary", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "relay_version": {
+      "aliases": [
+        {"value": "Phiên bản", "origin": "built_in", "status": "active"},
+        {"value": "Phiên bản rơ-le", "origin": "user", "status": "active", "created_by": "human-confirmed", "created_at": "2026-07-29"}
+      ],
+      "topology_rules": [{"type": "cover_slot", "row": 1, "slot": "right_secondary", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [{"type": "field_relation", "field": "relay_name", "relation": "same_row_right", "origin": "built_in", "status": "active"}],
+      "value_rules": [{"type": "version", "required": true, "origin": "built_in", "status": "active"}]
+    },
+    "wiring_diagram": {
+      "aliases": [{"value": "Sơ đồ đánh số", "origin": "built_in", "status": "active"}],
+      "topology_rules": [{"type": "cover_slot", "row": 2, "slot": "left", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "relay_serial": {
+      "aliases": [
+        {"value": "Số hiệu rơ-le", "origin": "built_in", "status": "active"},
+        {"value": "Số hiệu role", "origin": "built_in", "status": "active"}
+      ],
+      "topology_rules": [{"type": "cover_slot", "row": 2, "slot": "right", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "current_transformer_ratio": {
+      "aliases": [
+        {"value": "Tỷ số biến dòng điện", "origin": "built_in", "status": "active"},
+        {"value": "Tỷ số/ chỉ danh biến dòng điện", "origin": "built_in", "status": "active"},
+        {"value": "Tỷ số chỉ danh biến dòng điện", "origin": "built_in", "status": "active"}
+      ],
+      "topology_rules": [{"type": "cover_slot", "row": 3, "slot": "left", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "manufacturer": {
+      "aliases": [
+        {"value": "Nhà chế tạo", "origin": "built_in", "status": "active"},
+        {"value": "Nhà sản xuất", "origin": "built_in", "status": "active"}
+      ],
+      "topology_rules": [{"type": "cover_slot", "row": 3, "slot": "right", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "voltage_transformer_ratio": {
+      "aliases": [
+        {"value": "Tỷ số biến điện áp", "origin": "built_in", "status": "active"},
+        {"value": "Tỷ số/ chỉ danh biến điện áp", "origin": "built_in", "status": "active"},
+        {"value": "Tỷ số chỉ danh biến điện áp", "origin": "built_in", "status": "active"}
+      ],
+      "topology_rules": [{"type": "cover_slot", "row": 4, "slot": "left", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "installation_year": {
+      "aliases": [{"value": "Năm lắp đặt", "origin": "built_in", "status": "active"}],
+      "topology_rules": [{"type": "cover_slot", "row": 4, "slot": "right", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": [{"type": "year", "required": false, "origin": "built_in", "status": "active"}]
+    },
+    "single_line_drawing": {
+      "aliases": [{"value": "Số hiệu bản vẽ một sợi", "origin": "built_in", "status": "active"}],
+      "topology_rules": [{"type": "cover_slot", "row": 5, "slot": "left", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "software": {
+      "aliases": [{"value": "Phần mềm", "origin": "built_in", "status": "active"}],
+      "topology_rules": [{"type": "cover_slot", "row": 5, "slot": "right_primary", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "software_version": {
+      "aliases": [{"value": "Phiên bản", "origin": "built_in", "status": "active"}],
+      "topology_rules": [{"type": "cover_slot", "row": 5, "slot": "right_secondary", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [{"type": "field_relation", "field": "software", "relation": "same_row_right", "origin": "built_in", "status": "active"}],
+      "value_rules": [{"type": "version", "required": true, "origin": "built_in", "status": "active"}]
+    },
+    "protection_cabinet": {
+      "aliases": [{"value": "Tủ bảo vệ", "origin": "built_in", "status": "active"}],
+      "topology_rules": [{"type": "cover_slot", "row": 6, "slot": "left", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "protection_circuit": {
+      "aliases": [{"value": "Mạch bảo vệ", "origin": "built_in", "status": "active"}],
+      "topology_rules": [{"type": "cover_slot", "row": 6, "slot": "right", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "issuance_purpose": {
+      "aliases": [
+        {"value": "Mục đích ban hành phiếu chỉnh định", "origin": "built_in", "status": "active"},
+        {"value": "Mục đích ban hành phiếu", "origin": "user", "status": "active", "created_by": "human-confirmed", "created_at": "2026-07-29"},
+        {"value": "Nguyên nhân thay đổi chỉnh định", "origin": "user", "status": "active", "created_by": "human-confirmed", "created_at": "2026-07-29"}
+      ],
+      "topology_rules": [{"type": "source_policy", "value": "inline_or_right", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    },
+    "dispatch_center_request": {
+      "aliases": [
+        {"value": "Yêu cầu của Trung tâm Điều độ", "origin": "built_in", "status": "active"},
+        {"value": "Yêu cầu của Trung tâm Điều độ:", "origin": "built_in", "status": "active"}
+      ],
+      "topology_rules": [{"type": "source_policy", "value": "inline_or_right", "origin": "built_in", "status": "active"}],
+      "anchor_rules": [],
+      "value_rules": []
+    }
+  }
+}

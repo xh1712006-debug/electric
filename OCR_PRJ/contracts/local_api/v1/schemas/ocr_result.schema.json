@@ -1,0 +1,889 @@
+{
+  "$defs": {
+    "Artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "kind": {
+          "pattern": "^[a-z][a-z0-9_]{1,127}$",
+          "title": "Kind",
+          "type": "string"
+        },
+        "media_type": {
+          "pattern": "^[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+$",
+          "title": "Media Type",
+          "type": "string"
+        },
+        "relative_path": {
+          "minLength": 1,
+          "title": "Relative Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "kind",
+        "relative_path",
+        "media_type",
+        "sha256",
+        "size_bytes"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
+    "ArtifactManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/Artifact"
+          },
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "workspace_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+          "title": "Workspace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspace_id",
+        "artifacts"
+      ],
+      "title": "ArtifactManifest",
+      "type": "object"
+    },
+    "BusinessResult": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_artifact_ids": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "type": "string"
+          },
+          "title": "Evidence Artifact Ids",
+          "type": "array"
+        },
+        "note_candidates": {
+          "items": {
+            "$ref": "#/$defs/NoteCandidate"
+          },
+          "title": "Note Candidates",
+          "type": "array"
+        },
+        "page1_fields": {
+          "$ref": "#/$defs/Page1Fields"
+        },
+        "setting_records": {
+          "items": {
+            "$ref": "#/$defs/SettingRecord"
+          },
+          "title": "Setting Records",
+          "type": "array"
+        }
+      },
+      "required": [
+        "page1_fields",
+        "setting_records",
+        "note_candidates",
+        "evidence_artifact_ids"
+      ],
+      "title": "BusinessResult",
+      "type": "object"
+    },
+    "Confidence": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/ConfidenceLabel"
+        },
+        "level": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Level",
+          "type": "integer"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "level",
+        "label",
+        "score"
+      ],
+      "title": "Confidence",
+      "type": "object"
+    },
+    "ConfidenceLabel": {
+      "enum": [
+        "very_low",
+        "low",
+        "medium",
+        "high",
+        "very_high"
+      ],
+      "title": "ConfidenceLabel",
+      "type": "string"
+    },
+    "DocumentIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "document_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "page_count": {
+          "minimum": 1,
+          "title": "Page Count",
+          "type": "integer"
+        },
+        "source_name": {
+          "minLength": 1,
+          "title": "Source Name",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "document_id",
+        "source_name",
+        "source_sha256",
+        "page_count"
+      ],
+      "title": "DocumentIdentity",
+      "type": "object"
+    },
+    "ErrorCode": {
+      "enum": [
+        "INVALID_REQUEST",
+        "INPUT_NOT_FOUND",
+        "INPUT_NOT_FILE",
+        "UNSUPPORTED_INPUT_KIND",
+        "INVALID_PDF",
+        "OUTPUT_NOT_WRITABLE",
+        "PDF_RENDER_FAILED",
+        "DETECTION_FAILED",
+        "RECOGNITION_FAILED",
+        "LAYOUT_FAILED",
+        "ARTIFACT_WRITE_FAILED",
+        "INTERNAL_PIPELINE_ERROR"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
+    },
+    "ErrorStage": {
+      "enum": [
+        "validation",
+        "rendering",
+        "detection",
+        "recognition",
+        "layout",
+        "artifact_write",
+        "pipeline"
+      ],
+      "title": "ErrorStage",
+      "type": "string"
+    },
+    "ExtractedField": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resolution_status": {
+          "$ref": "#/$defs/FieldResolutionStatus"
+        },
+        "source_page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Page"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "value",
+        "confidence",
+        "resolution_status",
+        "source_page"
+      ],
+      "title": "ExtractedField",
+      "type": "object"
+    },
+    "FieldResolutionStatus": {
+      "enum": [
+        "auto_selected",
+        "preserved_existing",
+        "review_required",
+        "not_available"
+      ],
+      "title": "FieldResolutionStatus",
+      "type": "string"
+    },
+    "JsonValue": {},
+    "NoteCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_artifact_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+          "title": "Evidence Artifact Id",
+          "type": "string"
+        },
+        "page_number": {
+          "minimum": 1,
+          "title": "Page Number",
+          "type": "integer"
+        },
+        "review_status": {
+          "const": "review_required",
+          "title": "Review Status",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "page_number",
+        "text",
+        "review_status",
+        "evidence_artifact_id"
+      ],
+      "title": "NoteCandidate",
+      "type": "object"
+    },
+    "OcrWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z][A-Z0-9_]{1,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "page_number": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Number"
+        },
+        "stage": {
+          "$ref": "#/$defs/ErrorStage"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "stage"
+      ],
+      "title": "OcrWarning",
+      "type": "object"
+    },
+    "Page1Fields": {
+      "additionalProperties": false,
+      "description": "The fixed 25-field Page-1 public schema.",
+      "properties": {
+        "circuit_breaker": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "current_transformer_ratio": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "dispatch_center_request": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "form_title": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "installation_year": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "issuance_purpose": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "manufacturer": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "page_number": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "page_reference": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "protected_equipment": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "protection_cabinet": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "protection_circuit": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "protection_principle_heading": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "protection_type": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "relay_name": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "relay_serial": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "relay_version": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "single_line_drawing": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "software": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "software_version": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "station": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "ticket_number": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "total_pages": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "voltage_transformer_ratio": {
+          "$ref": "#/$defs/ExtractedField"
+        },
+        "wiring_diagram": {
+          "$ref": "#/$defs/ExtractedField"
+        }
+      },
+      "required": [
+        "ticket_number",
+        "page_reference",
+        "station",
+        "protected_equipment",
+        "protection_type",
+        "circuit_breaker",
+        "relay_name",
+        "relay_version",
+        "wiring_diagram",
+        "relay_serial",
+        "current_transformer_ratio",
+        "manufacturer",
+        "voltage_transformer_ratio",
+        "installation_year",
+        "single_line_drawing",
+        "software",
+        "protection_cabinet",
+        "protection_circuit",
+        "issuance_purpose",
+        "dispatch_center_request",
+        "software_version",
+        "page_number",
+        "total_pages",
+        "form_title",
+        "protection_principle_heading"
+      ],
+      "title": "Page1Fields",
+      "type": "object"
+    },
+    "PageResult": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_ids": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "page_number": {
+          "minimum": 1,
+          "title": "Page Number",
+          "type": "integer"
+        },
+        "review_status": {
+          "$ref": "#/$defs/ReviewStatus"
+        },
+        "role": {
+          "$ref": "#/$defs/PageRole"
+        },
+        "status": {
+          "$ref": "#/$defs/PageStatus"
+        }
+      },
+      "required": [
+        "page_number",
+        "role",
+        "status",
+        "review_status",
+        "artifact_ids"
+      ],
+      "title": "PageResult",
+      "type": "object"
+    },
+    "PageRole": {
+      "enum": [
+        "page1",
+        "page2",
+        "page3_plus"
+      ],
+      "title": "PageRole",
+      "type": "string"
+    },
+    "PageStatus": {
+      "enum": [
+        "completed",
+        "skipped_by_policy",
+        "failed"
+      ],
+      "title": "PageStatus",
+      "type": "string"
+    },
+    "ProcessingStatus": {
+      "enum": [
+        "success",
+        "success_with_warnings",
+        "failed"
+      ],
+      "title": "ProcessingStatus",
+      "type": "string"
+    },
+    "PublicError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/ErrorCode"
+        },
+        "details": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JsonValue"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "stage": {
+          "$ref": "#/$defs/ErrorStage"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "stage",
+        "retryable",
+        "details"
+      ],
+      "title": "PublicError",
+      "type": "object"
+    },
+    "ReviewStatus": {
+      "enum": [
+        "not_required",
+        "review_required"
+      ],
+      "title": "ReviewStatus",
+      "type": "string"
+    },
+    "SettingRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Description"
+        },
+        "evidence_artifact_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+          "title": "Evidence Artifact Id",
+          "type": "string"
+        },
+        "page_number": {
+          "minimum": 1,
+          "title": "Page Number",
+          "type": "integer"
+        },
+        "parameter_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parameter Code"
+        },
+        "parameter_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parameter Name"
+        },
+        "record_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+          "title": "Record Id",
+          "type": "string"
+        },
+        "review_status": {
+          "const": "review_required",
+          "title": "Review Status",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unit"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "record_id",
+        "page_number",
+        "parameter_code",
+        "parameter_name",
+        "value",
+        "unit",
+        "description",
+        "confidence",
+        "review_status",
+        "evidence_artifact_id"
+      ],
+      "title": "SettingRecord",
+      "type": "object"
+    },
+    "StageTimings": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_write": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Write"
+        },
+        "detection": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detection"
+        },
+        "layout": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Layout"
+        },
+        "pipeline": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pipeline"
+        },
+        "recognition": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recognition"
+        },
+        "rendering": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rendering"
+        },
+        "validation": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Validation"
+        }
+      },
+      "title": "StageTimings",
+      "type": "object"
+    },
+    "Timing": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_at": {
+          "format": "date-time",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "elapsed_ms": {
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "number"
+        },
+        "stage_ms": {
+          "$ref": "#/$defs/StageTimings"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "started_at",
+        "completed_at",
+        "elapsed_ms",
+        "stage_ms"
+      ],
+      "title": "Timing",
+      "type": "object"
+    }
+  },
+  "$id": "https://ocr-prj.local/schema/v1/ocr-result.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One terminal success or failure envelope for schema version 1.0.",
+  "properties": {
+    "artifact_manifest": {
+      "$ref": "#/$defs/ArtifactManifest"
+    },
+    "business": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BusinessResult"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "correlation_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "document": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DocumentIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PublicError"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pages": {
+      "items": {
+        "$ref": "#/$defs/PageResult"
+      },
+      "title": "Pages",
+      "type": "array"
+    },
+    "pipeline_version": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$",
+      "title": "Pipeline Version",
+      "type": "string"
+    },
+    "review_status": {
+      "$ref": "#/$defs/ReviewStatus"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/ProcessingStatus"
+    },
+    "timing": {
+      "$ref": "#/$defs/Timing"
+    },
+    "warnings": {
+      "items": {
+        "$ref": "#/$defs/OcrWarning"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "pipeline_version",
+    "correlation_id",
+    "status",
+    "review_status",
+    "document",
+    "business",
+    "pages",
+    "warnings",
+    "timing",
+    "artifact_manifest",
+    "error"
+  ],
+  "title": "OcrResult",
+  "type": "object"
+}

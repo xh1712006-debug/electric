@@ -1,0 +1,7 @@
+# Complete runtime for src/debug_ui/app.py.
+# Paths are resolved relative to this file by pip.
+-r ../detection/requirements.txt
+-r ../recognition/requirements.txt
+-r ../pdf_form_splitter/requirements.txt
+-r ../relay_form_ocr/requirements.txt
+-r requirements.txt

@@ -1,0 +1,67 @@
+# Private source documents and generated OCR / detector artifacts.
+data/image/
+data/pdf/
+data/
+output/
+# Every lab may generate large visual/JSON comparison artifacts.
+lab/**/output/
+
+# Downloaded or exported ML models. Model configuration files remain tracked.
+lab/detection/models/
+lab/detection/downloads/
+lab/detection/vendor/
+*.ckpt
+*.onnx
+*.pdiparams
+*.pdiparams.info
+*.pdmodel
+*.pdopt
+*.pdparams
+*.pt
+*.pth
+*.safetensors
+*.tflite
+*.png
+*.json
+!src/layout_analysis/page1/field_rules.json
+!contracts/local_api/v1/*.json
+!contracts/local_api/v1/examples/*.json
+!contracts/local_api/v1/schemas/*.json
+*.csv
+*.engine
+*.weights
+*.h5
+*.bin
+
+# Python environments, caches, test reports and local logs.
+.venv/
+.venv-export/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.log
+*.tmp
+*.bak
+*.swp
+.ipynb_checkpoints/
+
+# Local configuration and secrets.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.sqlite3
+media/
+staticfiles/
+
+# OS and editor metadata.
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

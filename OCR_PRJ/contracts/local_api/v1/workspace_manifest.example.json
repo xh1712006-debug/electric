@@ -1,0 +1,20 @@
+{
+  "manifest_schema_version": "1.0",
+  "workspace_id": "workspace-example-001",
+  "status": "completed",
+  "source": {
+    "sha256_before": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sha256_after": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "unchanged": true
+  },
+  "artifacts": [
+    {
+      "artifact_id": "artifact-0001",
+      "kind": "page_result",
+      "relative_path": "workspace-example-001/pages/page_0001.json",
+      "media_type": "application/json",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size_bytes": 128
+    }
+  ]
+}

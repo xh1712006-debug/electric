@@ -1,0 +1,42 @@
+{
+  "catalog_version": "1.0",
+  "schema_version": "1.0",
+  "errors": [
+    {"code": "INVALID_REQUEST", "stage": "validation", "retryable": false},
+    {"code": "INPUT_NOT_FOUND", "stage": "validation", "retryable": false},
+    {"code": "INPUT_NOT_FILE", "stage": "validation", "retryable": false},
+    {"code": "UNSUPPORTED_INPUT_KIND", "stage": "validation", "retryable": false},
+    {"code": "INVALID_PDF", "stage": "validation", "retryable": false},
+    {
+      "code": "OUTPUT_NOT_WRITABLE",
+      "stage": "artifact_write",
+      "retryable": false,
+      "runtime_variants": {
+        "workspace_collision": false,
+        "workspace_security": false,
+        "workspace_write": true
+      }
+    },
+    {"code": "PDF_RENDER_FAILED", "stage": "rendering", "retryable": true},
+    {"code": "DETECTION_FAILED", "stage": "detection", "retryable": true},
+    {"code": "RECOGNITION_FAILED", "stage": "recognition", "retryable": true},
+    {"code": "LAYOUT_FAILED", "stage": "layout", "retryable": false},
+    {
+      "code": "ARTIFACT_WRITE_FAILED",
+      "stage": "artifact_write",
+      "retryable": true,
+      "runtime_variants": {
+        "workspace_security": false,
+        "workspace_write": true
+      }
+    },
+    {"code": "INTERNAL_PIPELINE_ERROR", "stage": "pipeline", "retryable": false}
+  ],
+  "policies": {
+    "public_exception_text": false,
+    "public_stack_trace": false,
+    "default_log_pdf_path": false,
+    "default_log_ocr_text": false,
+    "callback_failure_aborts_pipeline": false
+  }
+}

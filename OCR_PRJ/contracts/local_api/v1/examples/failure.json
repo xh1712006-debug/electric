@@ -1,0 +1,37 @@
+{
+  "example_id": "local-api-v1-failure",
+  "scenario": "failure",
+  "request": {
+    "input_pdf": "D:\\management-data\\P_099.pdf",
+    "output_root": "D:\\ocr-artifacts",
+    "correlation_id": "ticket-099"
+  },
+  "result": {
+    "schema_version": "1.0",
+    "pipeline_version": "0.1.0",
+    "correlation_id": "ticket-099",
+    "status": "failed",
+    "review_status": "review_required",
+    "document": null,
+    "business": null,
+    "pages": [],
+    "warnings": [],
+    "timing": {
+      "started_at": "2026-07-30T08:30:00Z",
+      "completed_at": "2026-07-30T08:30:00Z",
+      "elapsed_ms": 4.0,
+      "stage_ms": {"validation": 4.0}
+    },
+    "artifact_manifest": {
+      "workspace_id": "ticket-099--run-001",
+      "artifacts": []
+    },
+    "error": {
+      "code": "INVALID_PDF",
+      "message": "File đầu vào không có cấu trúc PDF hợp lệ.",
+      "stage": "validation",
+      "retryable": false,
+      "details": null
+    }
+  }
+}

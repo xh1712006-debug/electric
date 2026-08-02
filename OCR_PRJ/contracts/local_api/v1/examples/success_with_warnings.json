@@ -1,0 +1,74 @@
+{
+  "example_id": "local-api-v1-success-with-warnings",
+  "scenario": "success_with_warnings",
+  "request": {
+    "input_pdf": "D:\\management-data\\P_002.pdf",
+    "output_root": "D:\\ocr-artifacts",
+    "correlation_id": "ticket-002"
+  },
+  "result": {
+    "schema_version": "1.0",
+    "pipeline_version": "0.1.0",
+    "correlation_id": "ticket-002",
+    "status": "success_with_warnings",
+    "review_status": "not_required",
+    "document": {
+      "document_id": "P_002",
+      "source_name": "P_002.pdf",
+      "source_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "page_count": 2
+    },
+    "business": {
+      "page1_fields": {
+        "ticket_number": {"value": "A1-02-2026/E5.8/220", "confidence": {"level": 5, "label": "very_high", "score": 95.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "page_reference": {"value": "1/2", "confidence": {"level": 5, "label": "very_high", "score": 97.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "station": {"value": "Trạm 220 kV Việt Trì", "confidence": {"level": 5, "label": "very_high", "score": 93.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "protected_equipment": {"value": "Máy biến áp AT1", "confidence": {"level": 4, "label": "high", "score": 83.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "protection_type": {"value": "Bảo vệ so lệch", "confidence": {"level": 4, "label": "high", "score": 84.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "circuit_breaker": {"value": "131", "confidence": {"level": 4, "label": "high", "score": 89.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "relay_name": {"value": "7UT613", "confidence": {"level": 5, "label": "very_high", "score": 91.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "relay_version": {"value": null, "confidence": null, "resolution_status": "not_available", "source_page": 1},
+        "wiring_diagram": {"value": null, "confidence": null, "resolution_status": "not_available", "source_page": 1},
+        "relay_serial": {"value": null, "confidence": null, "resolution_status": "not_available", "source_page": 1},
+        "current_transformer_ratio": {"value": "1200/1 A", "confidence": {"level": 4, "label": "high", "score": 82.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "manufacturer": {"value": "Siemens", "confidence": {"level": 4, "label": "high", "score": 86.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "voltage_transformer_ratio": {"value": null, "confidence": null, "resolution_status": "not_available", "source_page": 1},
+        "installation_year": {"value": "2018", "confidence": {"level": 4, "label": "high", "score": 87.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "single_line_drawing": {"value": null, "confidence": null, "resolution_status": "not_available", "source_page": 1},
+        "software": {"value": "DIGSI", "confidence": {"level": 4, "label": "high", "score": 84.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "protection_cabinet": {"value": null, "confidence": null, "resolution_status": "not_available", "source_page": 1},
+        "protection_circuit": {"value": null, "confidence": null, "resolution_status": "not_available", "source_page": 1},
+        "issuance_purpose": {"value": "Thay đổi chỉnh định", "confidence": {"level": 5, "label": "very_high", "score": 90.0}, "resolution_status": "auto_selected", "source_page": 1},
+        "dispatch_center_request": {"value": "Theo yêu cầu A0", "confidence": {"level": 4, "label": "high", "score": 82.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "software_version": {"value": null, "confidence": null, "resolution_status": "not_available", "source_page": 1},
+        "page_number": {"value": "1", "confidence": {"level": 5, "label": "very_high", "score": 97.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "total_pages": {"value": "2", "confidence": {"level": 5, "label": "very_high", "score": 97.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "form_title": {"value": "Phiếu chỉnh định rơ-le", "confidence": {"level": 4, "label": "high", "score": 84.0}, "resolution_status": "preserved_existing", "source_page": 1},
+        "protection_principle_heading": {"value": "Nguyên lý bảo vệ", "confidence": {"level": 4, "label": "high", "score": 80.0}, "resolution_status": "preserved_existing", "source_page": 1}
+      },
+      "setting_records": [],
+      "note_candidates": [],
+      "evidence_artifact_ids": ["page1-evidence"]
+    },
+    "pages": [
+      {"page_number": 1, "role": "page1", "status": "completed", "review_status": "not_required", "artifact_ids": ["page1-evidence"]},
+      {"page_number": 2, "role": "page2", "status": "skipped_by_policy", "review_status": "not_required", "artifact_ids": []}
+    ],
+    "warnings": [
+      {"code": "PAGE2_SKIPPED_BY_POLICY", "message": "Trang 2 được bỏ qua theo phạm vi contract v1.", "stage": "layout", "page_number": 2}
+    ],
+    "timing": {
+      "started_at": "2026-07-30T08:10:00Z",
+      "completed_at": "2026-07-30T08:10:03Z",
+      "elapsed_ms": 3000.0,
+      "stage_ms": {"validation": 5.0, "rendering": 500.0, "detection": 700.0, "recognition": 1200.0, "layout": 400.0, "artifact_write": 195.0}
+    },
+    "artifact_manifest": {
+      "workspace_id": "ticket-002--run-001",
+      "artifacts": [
+        {"artifact_id": "page1-evidence", "kind": "page_layout_evidence", "relative_path": "ticket-002--run-001/pages/page_0001_layout.json", "media_type": "application/json", "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "size_bytes": 3900}
+      ]
+    },
+    "error": null
+  }
+}

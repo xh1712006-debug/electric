@@ -16,6 +16,8 @@ urlpatterns = [
     path('<int:pk>/update-metadata/', views.sheet_update_metadata, name='sheet_update_metadata'),
     path('ocr-progress/', views.ocr_job_list, name='ocr_job_list'),
     path('ocr-job/<int:pk>/json/', views.ocr_job_json, name='ocr_job_json'),
+    path('ocr-job/<int:pk>/retry/', views.ocr_job_retry, name='ocr_job_retry'),
+    path('ocr-job/retry-all/', views.ocr_job_retry_all, name='ocr_job_retry_all'),
     path('<int:pk>/route-to-station/', views.sheet_route_to_station, name='sheet_route_to_station'),
     path('updated/', views.updated_sheets, name='updated_sheets'),
     

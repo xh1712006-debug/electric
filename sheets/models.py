@@ -93,6 +93,7 @@ class OcrJob(models.Model):
     result_data = models.JSONField(null=True, blank=True, help_text="Toàn bộ JSON trả về từ OCR")
     error_code = models.CharField(max_length=50, null=True, blank=True)
     error_stage = models.CharField(max_length=50, null=True, blank=True)
+    error_detail = models.TextField(null=True, blank=True, help_text="Chi tiết nguyên nhân lỗi OCR")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -6,11 +6,14 @@
 {% block content %}
 <div x-data="{
     showModal: false,
+    showErrorModal: false,
     isLoading: false,
     jsonData: '',
+    errorData: { title: '', code: '', stage: '', detail: '', jobId: null },
     isHovering: false,
     isNavigating: false,
     pollingInterval: null,
+    retryingId: null,
     
     async viewJson(jobId) {
         this.showModal = true;
@@ -26,6 +29,41 @@
         } finally {
             this.isLoading = false;
         }
+    },
+
+    viewError(title, code, stage, detail, jobId) {
+        this.errorData = {
+            title: title || 'Không có tên file',
+            code: code || 'Chưa xác định',
+            stage: stage || 'Trích xuất',
+            detail: detail || 'Hệ thống không ghi nhận được thông điệp lỗi chi tiết.',
+            jobId: jobId
+        };
+        this.showErrorModal = true;
+    },
+
+    async retryJob(jobId) {
+        this.retryingId = jobId;
+        try {
+            const response = await fetch(`/sheets/ocr-job/${jobId}/retry/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            if (data.status === 'ok') {
+                window.location.reload();
+            } else {
+                alert(data.message || 'Không thể trích xuất lại');
+            }
+        } catch (e) {
+            // Fallback reload if standard POST
+            window.location.href = `/sheets/ocr-job/${jobId}/retry/`;
+        } finally {
+            this.retryingId = null;
+        }
     }
 }" 
 @mouseenter="isHovering = true"
@@ -39,11 +77,11 @@ x-init="
     }
     
     pollingInterval = setInterval(() => {
-        if (!showModal && !isHovering && !isNavigating) {
+        if (!showModal && !showErrorModal && !isHovering && !isNavigating && !retryingId) {
             sessionStorage.setItem('ocrScrollPos', window.scrollY);
             window.location.reload();
         }
-    }, 5000);
+    }, 6000);
     
     window.addEventListener('beforeunload', () => {
         isNavigating = true;
@@ -51,95 +89,185 @@ x-init="
     });
 ">
 
+<!-- Page Header & Actions -->
 <div class="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
     <div>
-        <h2 class="text-xl md:text-2xl font-black text-slate-800 tracking-tight">{{ list_title }}</h2>
-        <p class="text-slate-500 text-sm mt-1">Trang sẽ tự động làm mới sau mỗi 5 giây (sẽ tạm dừng khi đang xem JSON).</p>
+        <h2 class="text-xl md:text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+            <span class="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 text-lg">
+                <i class="fas fa-microchip"></i>
+            </span>
+            <span>{{ list_title }}</span>
+        </h2>
+        <p class="text-slate-500 text-sm mt-1">Theo dõi tiến trình AI bóc tách thông số phiếu. Khi thành công, phiếu sẽ tự động xuất hiện ở mục <strong>Phiếu Chờ Rà Soát</strong>.</p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-        <a href="{% url 'sheet_create' %}" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 bg-white text-slate-700 font-bold rounded-xl shadow-sm border border-slate-200 hover:bg-slate-50 transition-all text-sm">
-            <i class="fas fa-plus"></i> Tạo Phiếu Mới
+        {% if failed_count and failed_count > 0 %}
+        <form method="POST" action="{% url 'ocr_job_retry_all' %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all text-sm">
+                <i class="fas fa-rotate-right"></i> Thử lại tất cả file lỗi ({{ failed_count }})
+            </button>
+        </form>
+        {% endif %}
+        <a href="{% url 'sheet_create' %}" class="inline-flex items-center justify-center gap-2 px-4 md:px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 transition-all text-sm">
+            <i class="fas fa-plus"></i> Tải Lên Phiếu Mới
         </a>
     </div>
 </div>
 
+<!-- KPI Stats Cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3.5">
+        <div class="w-11 h-11 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-base shrink-0">
+            <i class="fas fa-layer-group"></i>
+        </div>
+        <div>
+            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tổng số Job</div>
+            <div class="text-xl font-black text-slate-800">{{ jobs|length }}</div>
+        </div>
+    </div>
+    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3.5">
+        <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base shrink-0">
+            <i class="fas fa-check-double"></i>
+        </div>
+        <div>
+            <div class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Thành công</div>
+            <div class="text-xl font-black text-emerald-700">{{ success_count|default:0 }}</div>
+        </div>
+    </div>
+    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3.5">
+        <div class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-base shrink-0">
+            <i class="fas fa-spinner fa-spin"></i>
+        </div>
+        <div>
+            <div class="text-xs font-semibold text-blue-600 uppercase tracking-wider">Đang trích xuất</div>
+            <div class="text-xl font-black text-blue-700">{{ processing_count|default:0 }}</div>
+        </div>
+    </div>
+    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3.5">
+        <div class="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-base shrink-0">
+            <i class="fas fa-triangle-exclamation"></i>
+        </div>
+        <div>
+            <div class="text-xs font-semibold text-rose-600 uppercase tracking-wider">Thất bại</div>
+            <div class="text-xl font-black text-rose-700">{{ failed_count|default:0 }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Progress Table Card -->
 <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden relative">
     <!-- Toolbar -->
-    <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div class="flex items-center gap-3">
-            <span class="text-sm font-medium text-slate-500">Hiển thị <strong class="text-slate-800">50</strong> tiến trình gần nhất</span>
+    <div class="p-4 md:p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="text-xs md:text-sm font-medium text-slate-500">Tự động cập nhật tiến độ theo thời gian thực (6s/lần)</span>
+        </div>
+        <div class="text-xs text-slate-400 font-medium">
+            Hiển thị <strong>50</strong> tiến trình gần nhất
         </div>
     </div>
 
     <!-- Table -->
-    <div class="overflow-x-auto -webkit-overflow-scrolling-touch min-h-[400px]">
+    <div class="overflow-x-auto -webkit-overflow-scrolling-touch min-h-[420px]">
         <table class="w-full text-left border-collapse">
             <thead>
                 <tr class="bg-white border-b border-slate-100 text-slate-400 text-[11px] font-bold uppercase tracking-widest">
-                    <th class="px-6 py-4 whitespace-nowrap">Mã Phiếu Tạm</th>
-                    <th class="px-6 py-4">Tên File / Tiêu đề</th>
-                    <th class="px-6 py-4">Khởi tạo lúc</th>
-                    <th class="px-6 py-4">Trạng thái OCR</th>
+                    <th class="px-6 py-4 whitespace-nowrap">Mã Phiếu</th>
+                    <th class="px-6 py-4">Tệp Scan / Tiêu đề</th>
+                    <th class="px-6 py-4">Thời gian</th>
+                    <th class="px-6 py-4">Trạng thái Bóc tách</th>
                     <th class="px-6 py-4 text-right">Thao tác</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-50 text-sm">
                 {% for job in jobs %}
-                <tr class="hover:bg-blue-50/50 transition-colors duration-150 relative z-10">
-                    <td class="px-6 py-5 font-bold text-slate-800">
-                        <a href="{% url 'sheet_detail' job.sheet.pk %}" class="hover:text-blue-600 transition-colors">
-                            {{ job.sheet.sheet_code }}
+                <tr class="hover:bg-blue-50/40 transition-colors duration-150 relative z-10 {% if job.status == 'FAILED' %}bg-rose-50/20{% endif %}">
+                    <td class="px-6 py-4 font-bold text-slate-800 whitespace-nowrap">
+                        {% if job.status == 'SUCCESS' or job.status == 'SUCCESS_WITH_WARNINGS' %}
+                        <a href="{% url 'sheet_detail' job.sheet.pk %}" class="text-blue-600 hover:text-blue-800 font-bold hover:underline transition-colors flex items-center gap-1.5">
+                            <span>{{ job.sheet.sheet_code }}</span>
+                            <i class="fas fa-arrow-up-right-from-square text-[11px]"></i>
                         </a>
+                        {% else %}
+                        <span class="text-slate-700">{{ job.sheet.sheet_code }}</span>
+                        {% endif %}
                     </td>
-                    <td class="px-6 py-5">
-                        <div class="flex items-center gap-2">
-                            <i class="fas fa-file-pdf text-red-500 text-lg"></i>
-                            <p class="text-slate-700 font-medium line-clamp-1 max-w-xs">{{ job.sheet.title }}</p>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                                <i class="fas fa-file-pdf text-sm"></i>
+                            </div>
+                            <div class="min-w-0 max-w-xs md:max-w-md">
+                                <p class="text-slate-800 font-semibold truncate">{{ job.sheet.title }}</p>
+                                <span class="text-slate-400 text-xs">Người tạo: {{ job.sheet.created_by.get_full_name|default:job.sheet.created_by.username|default:"Hệ thống" }}</span>
+                            </div>
                         </div>
                     </td>
-                    <td class="px-6 py-5">
+                    <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex flex-col">
-                            <span class="text-slate-700 font-medium">{{ job.created_at|date:"d/m/Y" }}</span>
+                            <span class="text-slate-700 font-medium text-xs">{{ job.created_at|date:"d/m/Y" }}</span>
                             <span class="text-slate-400 text-[11px]"><i class="far fa-clock mr-1"></i>{{ job.created_at|date:"H:i:s" }}</span>
                         </div>
                     </td>
-                    <td class="px-6 py-5">
+                    <td class="px-6 py-4 whitespace-nowrap">
                         {% if job.status == 'PENDING' %}
-                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                            <i class="fas fa-hourglass-start mr-1.5 text-slate-400"></i> Đang chờ (Queue)
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                            <i class="fas fa-hourglass-start mr-1.5 text-slate-400"></i> Đang chờ xử lý
                         </span>
                         {% elif job.status == 'PROCESSING' %}
-                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 animate-pulse">
-                            <i class="fas fa-circle-notch animate-spin mr-1.5 text-blue-500" style="animation-duration: 1s;"></i> Đang trích xuất...
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200 animate-pulse">
+                            <i class="fas fa-circle-notch animate-spin mr-1.5 text-blue-500"></i> Đang trích xuất...
                         </span>
                         {% elif job.status == 'SUCCESS' or job.status == 'SUCCESS_WITH_WARNINGS' %}
-                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                            <i class="fas fa-check-circle mr-1.5 text-emerald-500"></i> Đã hoàn thành
-                        </span>
+                        <div class="flex flex-col gap-1">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200 w-fit">
+                                <i class="fas fa-check-circle mr-1.5 text-emerald-500"></i> Đã hoàn thành
+                            </span>
+                            <span class="text-[11px] text-emerald-600 font-medium ml-1">
+                                <i class="fas fa-arrow-right text-[10px] mr-1"></i>Đã đưa vào Phiếu Chờ Rà Soát
+                            </span>
+                        </div>
                         {% elif job.status == 'FAILED' %}
-                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700" title="{{ job.error_detail|default:job.error_code|default:'Lỗi không xác định' }}">
-                            <i class="fas fa-exclamation-triangle mr-1.5 text-red-500"></i> Thất bại
-                        </span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" @click="viewError('{{ job.sheet.title|escapejs }}', '{{ job.error_code|default:''|escapejs }}', '{{ job.error_stage|default:''|escapejs }}', '{{ job.error_detail|default:job.error_code|default:'Lỗi không xác định'|escapejs }}', {{ job.pk }})" 
+                                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-700 border border-rose-200 hover:bg-rose-200 transition-colors cursor-pointer" 
+                                    title="Bấm để xem chi tiết nguyên nhân lỗi">
+                                <i class="fas fa-triangle-exclamation mr-1.5 text-rose-500"></i> Thất bại
+                                <i class="fas fa-circle-info ml-1.5 text-[10px] text-rose-400"></i>
+                            </button>
+                        </div>
                         {% else %}
-                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-800">
                             {{ job.get_status_display }}
                         </span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-5 text-right relative space-x-2">
+                    <td class="px-6 py-4 text-right whitespace-nowrap space-x-2">
+                        <!-- Nút Trích xuất lại (Khi FAILED) -->
+                        {% if job.status == 'FAILED' %}
+                        <button type="button" @click="retryJob({{ job.pk }})" :disabled="retryingId === {{ job.pk }}"
+                                class="inline-flex items-center justify-center px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition-all text-xs shadow-sm shadow-amber-500/20 active:scale-95 disabled:opacity-50">
+                            <template x-if="retryingId === {{ job.pk }}">
+                                <span class="flex items-center"><i class="fas fa-circle-notch fa-spin mr-1.5"></i> Đang gửi...</span>
+                            </template>
+                            <template x-if="retryingId !== {{ job.pk }}">
+                                <span class="flex items-center"><i class="fas fa-rotate-right mr-1.5"></i> Trích xuất lại</span>
+                            </template>
+                        </button>
+                        {% endif %}
+
+                        <!-- Nút Xem JSON API -->
                         {% if job.status == 'SUCCESS' or job.status == 'SUCCESS_WITH_WARNINGS' or job.status == 'FAILED' %}
-                        <button type="button" @click="viewJson({{ job.pk }})" class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition-colors text-xs border border-slate-200" title="Xem JSON API">
-                            <i class="fas fa-code mr-1.5"></i> API JSON
+                        <button type="button" @click="viewJson({{ job.pk }})" class="inline-flex items-center justify-center px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition-colors text-xs border border-slate-200" title="Xem JSON API trả về">
+                            <i class="fas fa-code mr-1.5"></i> JSON
                         </button>
                         {% endif %}
                         
+                        <!-- Nút Đi tới trang Rà soát (Khi Thành công) -->
                         {% if job.status == 'SUCCESS' or job.status == 'SUCCESS_WITH_WARNINGS' %}
-                        <a href="{% url 'sheet_detail' job.sheet.pk %}" class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 font-semibold hover:bg-blue-600 hover:text-white transition-colors text-xs border border-blue-200 hover:border-transparent">
-                            <i class="fas fa-edit mr-1.5"></i> Cập nhật & Rà soát
-                        </a>
-                        {% else %}
-                        <a href="{% url 'sheet_detail' job.sheet.pk %}" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white text-slate-400 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-                            <i class="fas fa-chevron-right text-xs"></i>
+                        <a href="{% url 'sheet_detail' job.sheet.pk %}" class="inline-flex items-center justify-center px-3.5 py-1.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all text-xs shadow-sm shadow-blue-500/20">
+                            <i class="fas fa-clipboard-check mr-1.5"></i> Cập nhật & Rà soát
                         </a>
                         {% endif %}
                     </td>
@@ -148,11 +276,14 @@ x-init="
                 <tr>
                     <td colspan="5" class="px-6 py-16 text-center">
                         <div class="flex flex-col items-center justify-center max-w-sm mx-auto">
-                            <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                                <i class="fas fa-tasks text-3xl text-slate-300"></i>
+                            <div class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 text-slate-300">
+                                <i class="fas fa-tasks text-3xl"></i>
                             </div>
-                            <h3 class="text-lg font-bold text-slate-700 mb-1">Chưa có tiến trình OCR nào</h3>
-                            <p class="text-slate-500 text-sm mb-6 text-center">Các phiếu bạn tải lên sẽ hiển thị tiến trình trích xuất tại đây.</p>
+                            <h3 class="text-base font-bold text-slate-700 mb-1">Chưa có tiến trình OCR nào</h3>
+                            <p class="text-slate-500 text-xs mb-6 text-center">Các phiếu bạn tải lên sẽ hiển thị tiến trình trích xuất tại đây.</p>
+                            <a href="{% url 'sheet_create' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-blue-700 transition-all">
+                                <i class="fas fa-plus"></i> Tải lên phiếu đầu tiên
+                            </a>
                         </div>
                     </td>
                 </tr>
@@ -162,14 +293,68 @@ x-init="
     </div>
 </div>
 
+<!-- Modal Xem Chi Tiết Lỗi -->
+<div x-show="showErrorModal" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+    <div x-show="showErrorModal" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="showErrorModal = false"></div>
+    
+    <div x-show="showErrorModal" x-transition.scale.origin.center class="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 z-10 flex flex-col">
+        <div class="p-5 border-b border-slate-100 bg-rose-50/50 flex justify-between items-center shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-sm font-bold">
+                    <i class="fas fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base">Chi tiết Sự cố Trích xuất</h3>
+                    <p class="text-slate-400 text-xs" x-text="errorData.title"></p>
+                </div>
+            </div>
+            <button @click="showErrorModal = false" class="text-slate-400 hover:text-slate-600 transition-colors p-1">
+                <i class="fas fa-times text-base"></i>
+            </button>
+        </div>
+        
+        <div class="p-6 space-y-4">
+            <div class="grid grid-cols-2 gap-3">
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="text-[11px] font-bold text-slate-400 uppercase">Mã lỗi</div>
+                    <div class="text-sm font-bold text-rose-600 font-mono mt-0.5" x-text="errorData.code"></div>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="text-[11px] font-bold text-slate-400 uppercase">Giai đoạn lỗi</div>
+                    <div class="text-sm font-bold text-slate-700 mt-0.5" x-text="errorData.stage"></div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Thông điệp chi tiết từ Hệ thống AI</label>
+                <div class="p-3.5 rounded-xl bg-slate-900 text-slate-200 text-xs font-mono leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto border border-slate-800" x-text="errorData.detail"></div>
+            </div>
+
+            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs leading-relaxed flex items-start gap-2">
+                <i class="fas fa-lightbulb text-amber-500 text-sm mt-0.5 shrink-0"></i>
+                <span>Gợi ý: Nếu ảnh mờ hoặc mất kết nối mạng tạm thời, bạn có thể bấm <strong>"Trích xuất lại"</strong> bên dưới để yêu cầu AI phân tích lại file.</span>
+            </div>
+        </div>
+        
+        <div class="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2.5 shrink-0">
+            <button @click="showErrorModal = false" class="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl transition-colors font-semibold text-xs">
+                Đóng
+            </button>
+            <button @click="showErrorModal = false; retryJob(errorData.jobId)" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all font-bold text-xs shadow-md shadow-amber-500/20 flex items-center gap-1.5">
+                <i class="fas fa-rotate-right"></i> Trích xuất lại ngay
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Xem JSON -->
 <div x-show="showModal" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
     <div x-show="showModal" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="showModal = false"></div>
     
-    <div x-show="showModal" x-transition.scale.origin.bottom class="relative bg-slate-900 text-slate-300 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden border border-slate-700">
+    <div x-show="showModal" x-transition.scale.origin.bottom class="relative bg-slate-900 text-slate-300 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden border border-slate-700 z-10">
         <div class="p-4 border-b border-slate-800 bg-slate-900 flex justify-between items-center shrink-0">
-            <h3 class="font-bold text-emerald-400 flex items-center gap-2">
-                <i class="fas fa-terminal"></i> OCR_RESULT.json
+            <h3 class="font-bold text-emerald-400 flex items-center gap-2 text-sm">
+                <i class="fas fa-terminal"></i> Dữ liệu trích xuất JSON (OcrResult)
             </h3>
             <button @click="showModal = false" class="text-slate-500 hover:text-white transition-colors p-1">
                 <i class="fas fa-times text-lg"></i>
@@ -180,11 +365,11 @@ x-init="
             <div x-show="isLoading" class="absolute inset-0 flex items-center justify-center bg-[#1e1e1e]/80 z-10">
                 <i class="fas fa-circle-notch fa-spin text-3xl text-emerald-500"></i>
             </div>
-            <pre class="p-5 text-sm font-mono leading-relaxed" x-text="jsonData" style="color: #d4d4d4;"></pre>
+            <pre class="p-5 text-xs font-mono leading-relaxed" x-text="jsonData" style="color: #d4d4d4;"></pre>
         </div>
         
-        <div class="p-3 border-t border-slate-800 bg-slate-900 flex justify-end shrink-0">
-            <button @click="showModal = false" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors font-medium text-sm">
+        <div class="p-3.5 border-t border-slate-800 bg-slate-900 flex justify-end shrink-0">
+            <button @click="showModal = false" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors font-semibold text-xs">
                 Đóng
             </button>
         </div>

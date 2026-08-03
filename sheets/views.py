@@ -164,7 +164,7 @@ def sheet_create(request):
                 sheet_code=temp_sheet_code,
                 title=f"Phiếu OCR {temp_uuid}",
                 scan_file=scan_file,
-                status='ISSUED', # Trực tiếp chuyển cho Điều phối viên (ISSUED)
+                status='DRAFT', # Khởi tạo ở trạng thái Nháp / Đang bóc tách OCR
                 created_by=request.user
             )
             
@@ -979,12 +979,90 @@ def ocr_job_list(request):
     from .models import OcrJob
     
     # Lấy 50 jobs mới nhất
-    jobs = OcrJob.objects.select_related('sheet').order_by('-created_at')[:50]
+    jobs = OcrJob.objects.select_related('sheet', 'sheet__created_by').order_by('-created_at')[:50]
+    
+    failed_count = OcrJob.objects.filter(status='FAILED').count()
+    processing_count = OcrJob.objects.filter(status__in=['PENDING', 'PROCESSING']).count()
+    success_count = OcrJob.objects.filter(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS']).count()
     
     return render(request, 'sheets/ocr_job_list.html', {
         'jobs': jobs,
+        'failed_count': failed_count,
+        'processing_count': processing_count,
+        'success_count': success_count,
         'list_title': 'Tiến độ Trích xuất OCR'
     })
+
+@login_required
+def ocr_job_retry(request, pk):
+    """View kích hoạt lại quá trình trích xuất OCR cho 1 job cụ thể."""
+    if not request.user.is_superuser and not request.user.has_perm('sheets.can_create_sheet') and not request.user.has_perm('sheets.can_dispatch_sheet'):
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'status': 'error', 'message': 'Bạn không có quyền thực hiện thao tác này.'}, status=403)
+        messages.error(request, "Bạn không có quyền thực hiện thao tác này.")
+        return redirect('ocr_job_list')
+
+    from sheets.models import OcrJob
+    from sheets.tasks import run_ocr_subprocess
+    import uuid
+
+    job = get_object_or_404(OcrJob.objects.select_related('sheet'), pk=pk)
+    
+    # Reset job
+    job.status = 'PENDING'
+    job.error_code = None
+    job.error_stage = None
+    job.error_detail = None
+    job.correlation_id = f"sheet_{job.sheet.id}_{uuid.uuid4().hex[:8]}"
+    job.save()
+
+    # Đảm bảo SettingSheet ở trạng thái DRAFT
+    if job.sheet.status != 'DRAFT':
+        job.sheet.status = 'DRAFT'
+        job.sheet.save(update_fields=['status'])
+
+    # Gửi task vào Celery
+    run_ocr_subprocess.delay(job.id)
+
+    msg = f"Đã đưa phiếu {job.sheet.sheet_code} vào hàng đợi để trích xuất lại thông tin."
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'ok', 'message': msg})
+
+    messages.success(request, msg)
+    return redirect('ocr_job_list')
+
+@login_required
+def ocr_job_retry_all(request):
+    """View kích hoạt lại trích xuất cho tất cả các job đang bị FAILED."""
+    if not request.user.is_superuser and not request.user.has_perm('sheets.can_create_sheet') and not request.user.has_perm('sheets.can_dispatch_sheet'):
+        messages.error(request, "Bạn không có quyền thực hiện thao tác này.")
+        return redirect('ocr_job_list')
+
+    from sheets.models import OcrJob
+    from sheets.tasks import run_ocr_subprocess
+    import uuid
+
+    failed_jobs = OcrJob.objects.filter(status='FAILED').select_related('sheet')
+    count = 0
+    for job in failed_jobs:
+        job.status = 'PENDING'
+        job.error_code = None
+        job.error_stage = None
+        job.error_detail = None
+        job.correlation_id = f"sheet_{job.sheet.id}_{uuid.uuid4().hex[:8]}"
+        job.save()
+        if job.sheet.status != 'DRAFT':
+            job.sheet.status = 'DRAFT'
+            job.sheet.save(update_fields=['status'])
+        run_ocr_subprocess.delay(job.id)
+        count += 1
+
+    if count > 0:
+        messages.success(request, f"Đã gửi yêu cầu trích xuất lại cho {count} file thất bại.")
+    else:
+        messages.info(request, "Không có file nào đang ở trạng thái thất bại.")
+
+    return redirect('ocr_job_list')
 
 @login_required
 def ocr_job_json(request, pk):
@@ -993,4 +1071,5 @@ def ocr_job_json(request, pk):
     if job.result_data:
         return JsonResponse(job.result_data, safe=False)
     return JsonResponse({'error': 'No JSON data available for this job.'}, status=404)
+
 

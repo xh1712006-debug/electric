@@ -121,18 +121,27 @@ def run_ocr_subprocess(self, job_id):
     from django.conf import settings
     from sheets.models import OcrJob
     from pathlib import Path
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
     
     try:
-        job = OcrJob.objects.get(id=job_id)
+        job = OcrJob.objects.select_related('sheet', 'sheet__created_by').get(id=job_id)
     except OcrJob.DoesNotExist:
         return "OcrJob not found"
         
     job.status = 'PROCESSING'
     job.save(update_fields=['status'])
     
+    # Đảm bảo SettingSheet luôn ở trạng thái DRAFT khi đang trích xuất
+    if job.sheet.status != 'DRAFT':
+        job.sheet.status = 'DRAFT'
+        job.sheet.save(update_fields=['status'])
+    
+    channel_layer = get_channel_layer()
+    
     if not job.sheet.scan_file:
         job.status = 'FAILED'
-        job.error_detail = 'No scan file found'
+        job.error_detail = 'Không tìm thấy file scan PDF đính kèm.'
         job.save()
         return "No scan file"
 
@@ -149,13 +158,13 @@ def run_ocr_subprocess(self, job_id):
         # Trên Windows, dùng venv riêng của OCR_PRJ nếu có
         python_exe = os.path.join(ocr_prj_root, '.venv', 'Scripts', 'python.exe')
     else:
-        # Trên Linux/Docker, dùng python hệ thống vì tất cả đã cài chung trong image
+        # Trên Linux/Docker, dùng python hệ thống
         import sys
         python_exe = sys.executable
     
     if not os.path.exists(python_exe):
         job.status = 'FAILED'
-        job.error_detail = f'OCR Python interpreter not found at {python_exe}'
+        job.error_detail = f'Không tìm thấy môi trường Python OCR tại {python_exe}'
         job.save()
         return "Python exe not found"
 
@@ -196,6 +205,9 @@ def run_ocr_subprocess(self, job_id):
                         job.status = 'SUCCESS'
                         
                     if job.status != 'FAILED':
+                        # Chuyển trạng thái phiếu sang ISSUED (Chờ rà soát)
+                        job.sheet.status = 'ISSUED'
+                        
                         # Update SettingSheet extracted_data
                         if 'business' in parsed_data:
                             business = parsed_data['business']
@@ -238,36 +250,128 @@ def run_ocr_subprocess(self, job_id):
                                         if rl.bay and not job.sheet.station:
                                             job.sheet.station = rl.bay.station
                             
-                            job.sheet.save(update_fields=['extracted_data', 'sheet_code', 'title', 'station', 'relay'])
+                            from sheets.utils import update_has_parameters_changed_for_sheet
+                            update_has_parameters_changed_for_sheet(job.sheet)
+                            job.sheet.save()
+                        else:
+                            job.sheet.save(update_fields=['status'])
+                            
+                        # Gửi WebSocket thông báo thành công & cập nhật badge sidebar
+                        if channel_layer and job.sheet.created_by:
+                            async_to_sync(channel_layer.group_send)(
+                                f"user_{job.sheet.created_by.id}",
+                                {
+                                    "type": "send_notification",
+                                    "title": "Trích xuất OCR Thành công",
+                                    "message": f"Phiếu {job.sheet.sheet_code} đã bóc tách dữ liệu xong và chuyển vào 'Phiếu Chờ Rà Soát'.",
+                                    "level": "success"
+                                }
+                            )
+                            async_to_sync(channel_layer.group_send)(
+                                f"user_{job.sheet.created_by.id}",
+                                {
+                                    "type": "bulk_progress",
+                                    "event_type": "update_badges"
+                                }
+                            )
                     else:
+                        job.sheet.status = 'DRAFT'
+                        job.sheet.save(update_fields=['status'])
                         if 'error' in parsed_data and parsed_data['error']:
                             job.error_code = parsed_data['error'].get('code')
                             job.error_stage = parsed_data['error'].get('stage')
-                            job.error_detail = parsed_data['error'].get('message', 'AI Model reported failure.')
+                            job.error_detail = parsed_data['error'].get('message', 'AI Model báo lỗi bóc tách.')
                         else:
-                            job.error_detail = "AI Model trả về trạng thái thất bại nhưng không có mô tả lỗi."
+                            job.error_detail = "AI Model trả về trạng thái thất bại."
                         
+                        # Gửi WebSocket thông báo lỗi
+                        if channel_layer and job.sheet.created_by:
+                            async_to_sync(channel_layer.group_send)(
+                                f"user_{job.sheet.created_by.id}",
+                                {
+                                    "type": "send_notification",
+                                    "title": "Trích xuất OCR Thất bại",
+                                    "message": f"Quá trình bóc tách phiếu {job.sheet.sheet_code} gặp sự cố. Bạn có thể xem lỗi và bấm 'Trích xuất lại'.",
+                                    "level": "error"
+                                }
+                            )
+                            async_to_sync(channel_layer.group_send)(
+                                f"user_{job.sheet.created_by.id}",
+                                {
+                                    "type": "bulk_progress",
+                                    "event_type": "update_badges"
+                                }
+                            )
                 else:
                     job.status = 'FAILED'
+                    job.sheet.status = 'DRAFT'
+                    job.sheet.save(update_fields=['status'])
                     if 'error' in parsed_data and parsed_data['error']:
                         job.error_code = parsed_data['error'].get('code')
                         job.error_stage = parsed_data['error'].get('stage')
-                        job.error_detail = f"Exit Code {result.returncode}. Lỗi hệ thống OCR."
+                        job.error_detail = f"Exit Code {result.returncode}: {parsed_data['error'].get('message', 'Lỗi hệ thống OCR')}"
                     else:
-                        job.error_detail = result.stderr
+                        job.error_detail = result.stderr if result.stderr else f"Exit Code {result.returncode}"
+                        
+                    if channel_layer and job.sheet.created_by:
+                        async_to_sync(channel_layer.group_send)(
+                            f"user_{job.sheet.created_by.id}",
+                            {
+                                "type": "send_notification",
+                                "title": "Trích xuất OCR Thất bại",
+                                "message": f"Không thể xử lý phiếu {job.sheet.sheet_code}. Vui lòng bấm 'Trích xuất lại'.",
+                                "level": "error"
+                            }
+                        )
+                        async_to_sync(channel_layer.group_send)(
+                            f"user_{job.sheet.created_by.id}",
+                            {
+                                "type": "bulk_progress",
+                                "event_type": "update_badges"
+                            }
+                        )
             except json.JSONDecodeError:
                 job.status = 'FAILED'
-                job.error_detail = f"Không thể parse JSON từ OCR. RAW: {output_json[:200]}"
+                job.sheet.status = 'DRAFT'
+                job.sheet.save(update_fields=['status'])
+                job.error_detail = f"Không thể parse JSON từ kết quả OCR: {output_json[:300]}"
+                if channel_layer and job.sheet.created_by:
+                    async_to_sync(channel_layer.group_send)(
+                        f"user_{job.sheet.created_by.id}",
+                        {
+                            "type": "bulk_progress",
+                            "event_type": "update_badges"
+                        }
+                    )
         else:
             job.status = 'FAILED'
-            job.error_detail = f"OCR không trả về dữ liệu. Stderr: {result.stderr[:200]}"
+            job.sheet.status = 'DRAFT'
+            job.sheet.save(update_fields=['status'])
+            job.error_detail = f"OCR không trả về dữ liệu. Stderr: {result.stderr[:300]}"
+            if channel_layer and job.sheet.created_by:
+                async_to_sync(channel_layer.group_send)(
+                    f"user_{job.sheet.created_by.id}",
+                    {
+                        "type": "bulk_progress",
+                        "event_type": "update_badges"
+                    }
+                )
             
         job.save()
         return job.status
 
     except Exception as e:
         job.status = 'FAILED'
+        job.sheet.status = 'DRAFT'
+        job.sheet.save(update_fields=['status'])
         job.error_detail = str(e)
         job.save()
-        # Nếu lỗi mạng hay tài nguyên (vd OOM), có thể retry
+        if channel_layer and job.sheet.created_by:
+            async_to_sync(channel_layer.group_send)(
+                f"user_{job.sheet.created_by.id}",
+                {
+                    "type": "bulk_progress",
+                    "event_type": "update_badges"
+                }
+            )
         raise self.retry(exc=e, countdown=60)

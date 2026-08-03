@@ -25,6 +25,14 @@ class VietOCRRecognizer:
         except ImportError as exc:
             raise RuntimeError("VietOCR is not installed. Install src/recognition/requirements.txt") from exc
 
+        if use_gpu:
+            try:
+                import torch
+                if not torch.cuda.is_available():
+                    raise RuntimeError("Máy tính hiện tại không phát hiện GPU NVIDIA hoặc thư viện PyTorch CUDA chưa khả dụng.")
+            except ImportError:
+                raise RuntimeError("Thư viện PyTorch chưa được cài đặt.")
+
         # load_config_from_name fetches YAML from vocr.vn on every process
         # start. Keep the selected upstream config in production source so the
         # app can start offline once the model weights have been downloaded.
@@ -35,7 +43,7 @@ class VietOCRRecognizer:
         try:
             self._predictor = Predictor(config)
         except Exception as exc:
-            raise RuntimeError(f"Could not initialise VietOCR: {exc}") from exc
+            raise RuntimeError(f"Không thể khởi tạo VietOCR (GPU={use_gpu}): {exc}") from exc
 
     def recognise(self, crop: Any) -> Recognition:
         """Recognise a BGR, horizontally oriented text crop."""

@@ -160,20 +160,22 @@ class DocumentOcrOrchestrator:
             try:
                 self._recognizer = VietnameseRecognitionService(use_gpu=self.use_gpu)
             except Exception as exc:
+                msg = str(exc) if str(exc) else "Không thể khởi tạo bộ nhận dạng văn bản."
                 raise PipelineStageError(
                     ErrorCode.RECOGNITION_FAILED,
                     ErrorStage.RECOGNITION,
-                    "Không thể khởi tạo bộ nhận dạng văn bản.",
+                    msg,
                     retryable=True,
                 ) from exc
         if self._detector is None:
             try:
                 self._detector = DocumentTextDetectionService(use_gpu=self.use_gpu)
             except Exception as exc:
+                msg = str(exc) if str(exc) else "Không thể khởi tạo bộ phát hiện văn bản."
                 raise PipelineStageError(
                     ErrorCode.DETECTION_FAILED,
                     ErrorStage.DETECTION,
-                    "Không thể khởi tạo bộ phát hiện văn bản.",
+                    msg,
                     retryable=True,
                 ) from exc
         return self._detector, self._recognizer

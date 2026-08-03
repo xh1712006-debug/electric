@@ -155,6 +155,10 @@ def sheet_create(request):
         from .models import OcrJob
         from .tasks import run_ocr_subprocess
         
+        device_mode = request.POST.get('device_mode', 'CPU').strip().upper()
+        if device_mode not in ['CPU', 'GPU']:
+            device_mode = 'CPU'
+
         created_count = 0
         for scan_file in scan_files:
             temp_uuid = uuid.uuid4().hex[:8]
@@ -170,7 +174,8 @@ def sheet_create(request):
             
             job = OcrJob.objects.create(
                 sheet=sheet,
-                correlation_id=f"sheet_{sheet.id}_{temp_uuid}"
+                correlation_id=f"sheet_{sheet.id}_{temp_uuid}",
+                device_mode=device_mode
             )
             run_ocr_subprocess.delay(job.id)
             created_count += 1
@@ -984,13 +989,26 @@ def ocr_job_list(request):
     failed_count = OcrJob.objects.filter(status='FAILED').count()
     processing_count = OcrJob.objects.filter(status__in=['PENDING', 'PROCESSING']).count()
     success_count = OcrJob.objects.filter(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS']).count()
+
+    # Kiểm tra GPU khả dụng để cảnh báo trên UI
+    gpu_available = False
+    gpu_name = None
+    try:
+        import torch
+        gpu_available = torch.cuda.is_available()
+        if gpu_available:
+            gpu_name = torch.cuda.get_device_name(0)
+    except Exception:
+        pass
     
     return render(request, 'sheets/ocr_job_list.html', {
         'jobs': jobs,
         'failed_count': failed_count,
         'processing_count': processing_count,
         'success_count': success_count,
-        'list_title': 'Tiến độ Trích xuất OCR'
+        'list_title': 'Tiến độ Trích xuất OCR',
+        'gpu_available': gpu_available,
+        'gpu_name': gpu_name,
     })
 
 @login_required
@@ -1008,6 +1026,11 @@ def ocr_job_retry(request, pk):
 
     job = get_object_or_404(OcrJob.objects.select_related('sheet'), pk=pk)
     
+    # Cho phép thay đổi device_mode (ví dụ đổi từ GPU sang CPU khi retry)
+    new_device = request.POST.get('device_mode') or request.GET.get('device_mode')
+    if new_device and new_device.upper() in ['CPU', 'GPU']:
+        job.device_mode = new_device.upper()
+
     # Reset job
     job.status = 'PENDING'
     job.error_code = None
@@ -1024,7 +1047,7 @@ def ocr_job_retry(request, pk):
     # Gửi task vào Celery
     run_ocr_subprocess.delay(job.id)
 
-    msg = f"Đã đưa phiếu {job.sheet.sheet_code} vào hàng đợi để trích xuất lại thông tin."
+    msg = f"Đã đưa phiếu {job.sheet.sheet_code} vào hàng đợi để trích xuất lại thông tin (Chế độ: {job.device_mode})."
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return JsonResponse({'status': 'ok', 'message': msg})
 
@@ -1042,9 +1065,13 @@ def ocr_job_retry_all(request):
     from sheets.tasks import run_ocr_subprocess
     import uuid
 
+    new_device = request.POST.get('device_mode') or request.GET.get('device_mode')
+
     failed_jobs = OcrJob.objects.filter(status='FAILED').select_related('sheet')
     count = 0
     for job in failed_jobs:
+        if new_device and new_device.upper() in ['CPU', 'GPU']:
+            job.device_mode = new_device.upper()
         job.status = 'PENDING'
         job.error_code = None
         job.error_stage = None

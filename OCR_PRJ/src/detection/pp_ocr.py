@@ -26,6 +26,16 @@ class PPTextDetector:
                 # Prevent the Windows CPU oneDNN fused-convolution failure seen
                 # during detector verification; this does not alter model output.
                 os.environ.setdefault("FLAGS_use_mkldnn", "0")
+            else:
+                try:
+                    import paddle
+                    if not paddle.is_compiled_with_cuda():
+                        raise RuntimeError("PaddlePaddle hiện tại chưa được biên dịch hỗ trợ CUDA/GPU trên máy tính này.")
+                    if paddle.device.cuda.device_count() == 0:
+                        raise RuntimeError("Máy tính không tìm thấy card đồ họa GPU NVIDIA khả dụng cho PaddlePaddle.")
+                except Exception as exc:
+                    raise RuntimeError(f"Kiểm tra PaddlePaddle GPU thất bại: {exc}") from exc
+
             os.environ.setdefault("PADDLE_PDX_MODEL_SOURCE", "BOS")
             from paddleocr import TextDetection
         except ImportError as exc:
@@ -40,7 +50,7 @@ class PPTextDetector:
                 enable_mkldnn=False,
             )
         except Exception as exc:
-            raise RuntimeError(f"Could not initialise PP-OCR detector: {exc}") from exc
+            raise RuntimeError(f"Không thể khởi tạo PP-OCR detector (GPU={use_gpu}): {exc}") from exc
 
     def detect(self, image: Any) -> list[Detection]:
         """Detect regions from a BGR NumPy image without running recognition."""

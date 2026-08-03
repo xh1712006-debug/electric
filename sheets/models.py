@@ -84,8 +84,14 @@ class OcrJob(models.Model):
         ('FAILED', 'Thất bại'),
     )
 
+    DEVICE_CHOICES = (
+        ('CPU', 'CPU'),
+        ('GPU', 'GPU (CUDA)'),
+    )
+
     sheet = models.ForeignKey(SettingSheet, related_name='ocr_jobs', on_delete=models.CASCADE)
     correlation_id = models.CharField(max_length=128, unique=True, help_text="ID duy nhất để giao tiếp với hệ thống OCR")
+    device_mode = models.CharField(max_length=10, choices=DEVICE_CHOICES, default='CPU', help_text="Chế độ phần cứng xử lý (CPU/GPU)")
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='PENDING')
     review_status = models.CharField(max_length=50, null=True, blank=True)
     

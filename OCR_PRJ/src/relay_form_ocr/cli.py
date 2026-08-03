@@ -13,6 +13,14 @@ import sys
 from typing import Callable, Iterator, TextIO
 from uuid import uuid4
 
+try:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 from pydantic import ValidationError
 
 from .observability import stream_logger
@@ -54,6 +62,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Compatibility flag; JSON is always the adapter format",
+    )
+    parser.add_argument(
+        "--gpu",
+        action="store_true",
+        help="Sử dụng GPU (CUDA) để tăng tốc phát hiện và nhận dạng OCR",
     )
     parser.add_argument(
         "--output-json",
@@ -258,9 +271,9 @@ def main(
         except (TypeError, ValueError):
             accepts_logger = False
         factory: ServiceFactory = (
-            (lambda: RelayFormOcrService(logger=service_logger))
+            (lambda: RelayFormOcrService(use_gpu=args.gpu, logger=service_logger))
             if accepts_logger
-            else RelayFormOcrService
+            else (lambda: RelayFormOcrService(use_gpu=args.gpu))
         )
     else:
         factory = service_factory

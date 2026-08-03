@@ -35,6 +35,7 @@ services:
     volumes:
       - static_volume:/app/static
       - media_volume:/app/media
+      - .:/app
     ports:
       - "9000:9000"
     depends_on:
@@ -56,6 +57,21 @@ services:
     volumes:
       - static_volume:/app/static
       - media_volume:/app/media
+      - .:/app
+    # ============================================================
+    # GPU SUPPORT: Bỏ comment phần 'deploy' bên dưới nếu máy có
+    # NVIDIA GPU.
+    # - Windows: Docker Desktop + WSL2 (hỗ trợ GPU sẵn)
+    # - Linux:   sudo apt install nvidia-container-toolkit
+    #            sudo systemctl restart docker
+    # ============================================================
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
     depends_on:
       - db
       - redis

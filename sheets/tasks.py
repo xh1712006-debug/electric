@@ -168,6 +168,42 @@ def run_ocr_subprocess(self, job_id):
         job.save()
         return "Python exe not found"
 
+    # Kiểm tra GPU nếu được yêu cầu
+    device_mode = getattr(job, 'device_mode', 'CPU')
+    if device_mode == 'GPU':
+        try:
+            import torch
+            if not torch.cuda.is_available():
+                job.status = 'FAILED'
+                job.sheet.status = 'DRAFT'
+                job.sheet.save(update_fields=['status'])
+                job.error_detail = (
+                    '⚠️ GPU CUDA không khả dụng trên máy này. '
+                    'Máy chủ không có card đồ họa NVIDIA hoặc chưa cài driver CUDA. '
+                    'Vui lòng bấm "Thử lại bằng CPU" để trích xuất bằng CPU.'
+                )
+                job.save()
+                if channel_layer and job.sheet.created_by:
+                    async_to_sync(channel_layer.group_send)(
+                        f"user_{job.sheet.created_by.id}",
+                        {
+                            "type": "send_notification",
+                            "title": "Không tìm thấy GPU",
+                            "message": "Máy chủ không có GPU NVIDIA. Hãy dùng chế độ CPU để trích xuất.",
+                            "level": "error"
+                        }
+                    )
+                    async_to_sync(channel_layer.group_send)(
+                        f"user_{job.sheet.created_by.id}",
+                        {
+                            "type": "bulk_progress",
+                            "event_type": "update_badges"
+                        }
+                    )
+                return 'FAILED'
+        except ImportError:
+            pass  # torch không được cài, tiếp tục bình thường
+
     # Xây dựng lệnh gọi CLI
     cmd = [
         python_exe, "-m", "src.relay_form_ocr",
@@ -176,10 +212,14 @@ def run_ocr_subprocess(self, job_id):
         "--correlation-id", str(job.correlation_id),
         "--json"
     ]
+    if device_mode == 'GPU':
+        cmd.append("--gpu")
     
     # Đặt PYTHONPATH để OCR_PRJ hoạt động được đúng
     env = os.environ.copy()
     env['PYTHONPATH'] = ocr_prj_root
+    env['PYTHONIOENCODING'] = 'utf-8'
+    env['PYTHONUTF8'] = '1'
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, env=env, encoding='utf-8')
@@ -309,7 +349,7 @@ def run_ocr_subprocess(self, job_id):
                     if 'error' in parsed_data and parsed_data['error']:
                         job.error_code = parsed_data['error'].get('code')
                         job.error_stage = parsed_data['error'].get('stage')
-                        job.error_detail = f"Exit Code {result.returncode}: {parsed_data['error'].get('message', 'Lỗi hệ thống OCR')}"
+                        job.error_detail = parsed_data['error'].get('message', 'Lỗi hệ thống OCR')
                     else:
                         job.error_detail = result.stderr if result.stderr else f"Exit Code {result.returncode}"
                         

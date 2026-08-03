@@ -5,6 +5,8 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 # Bắt buộc Python hiển thị output trực tiếp vào console
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONIOENCODING=utf-8
+ENV PYTHONUTF8=1
 
 # Cài đặt các thư viện hệ thống cần thiết (đã bổ sung các thư viện cho OCR như poppler, opencv)
 RUN apt-get update \

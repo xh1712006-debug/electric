@@ -29,6 +29,7 @@
               x-data="{ 
                   isDragging: false, 
                   files: [], 
+                  deviceMode: 'CPU',
                   isUploading: false,
                   uploadedCount: 0,
                   async submitForm(e) {
@@ -42,6 +43,7 @@
                           let formData = new FormData();
                           formData.append('csrfmiddlewaretoken', csrfToken);
                           formData.append('scan_files', this.files[i]);
+                          formData.append('device_mode', this.deviceMode);
                           
                           try {
                               await fetch('/sheets/create/', {
@@ -129,6 +131,73 @@
                     </div>
 
                     <input x-ref="fileInput" @change="files = Array.from($event.target.files)" type="file" name="scan_files" multiple required accept=".pdf,image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-0">
+                </div>
+            </div>
+
+            <!-- Bộ chọn Chế độ Phần cứng OCR (CPU vs GPU) -->
+            <div x-show="!isUploading" class="space-y-3 pt-2">
+                <div class="flex items-center justify-between">
+                    <label class="block text-sm font-bold text-slate-700">
+                        Chế độ Xử lý OCR (Phần cứng)
+                    </label>
+                    <span class="text-xs text-slate-400">Chọn cấu hình phù hợp với máy tính / máy chủ của bạn</span>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- CPU Option -->
+                    <div @click="deviceMode = 'CPU'"
+                         :class="deviceMode === 'CPU' ? 'border-blue-600 bg-blue-50/40 ring-2 ring-blue-500/20 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'"
+                         class="relative flex items-start gap-3.5 p-4 rounded-2xl border-2 cursor-pointer transition-all duration-150">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors"
+                             :class="deviceMode === 'CPU' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-slate-100 text-slate-500'">
+                            <i class="fas fa-microchip text-lg"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-slate-800 text-sm">Chạy trên CPU (Mặc định)</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">
+                                    Khuyên dùng
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                                Tương thích mọi máy tính và VPS tiêu chuẩn. Độ ổn định cao, không yêu cầu Card đồ họa rời.
+                            </p>
+                        </div>
+                        <div class="shrink-0 text-blue-600" x-show="deviceMode === 'CPU'">
+                            <i class="fas fa-circle-check text-lg"></i>
+                        </div>
+                    </div>
+
+                    <!-- GPU Option -->
+                    <div @click="deviceMode = 'GPU'"
+                         :class="deviceMode === 'GPU' ? 'border-purple-600 bg-purple-50/40 ring-2 ring-purple-500/20 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'"
+                         class="relative flex items-start gap-3.5 p-4 rounded-2xl border-2 cursor-pointer transition-all duration-150">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors"
+                             :class="deviceMode === 'GPU' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20' : 'bg-slate-100 text-slate-500'">
+                            <i class="fas fa-bolt text-lg"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-slate-800 text-sm">Tăng tốc GPU (NVIDIA CUDA)</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700">
+                                    Tốc độ cao
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                                Xử lý bóc tách siêu tốc. Yêu cầu máy chủ có Card NVIDIA và driver CUDA khả dụng.
+                            </p>
+                        </div>
+                        <div class="shrink-0 text-purple-600" x-show="deviceMode === 'GPU'">
+                            <i class="fas fa-circle-check text-lg"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="hidden" name="device_mode" :value="deviceMode">
+
+                <div x-show="deviceMode === 'GPU'" class="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
+                    <i class="fas fa-triangle-exclamation text-amber-500 shrink-0"></i>
+                    <span><strong>Lưu ý:</strong> Nếu máy tính không có GPU NVIDIA hoặc chưa cài CUDA, hệ thống sẽ báo lỗi tại trang Tiến độ và cho phép bạn chuyển lại sang CPU chỉ với 1 click.</span>
                 </div>
             </div>
 

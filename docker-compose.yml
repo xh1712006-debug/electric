@@ -36,6 +36,13 @@ services:
       - static_volume:/app/static
       - media_volume:/app/media
       - .:/app
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
     ports:
       - "9000:9000"
     depends_on:

@@ -153,13 +153,13 @@ def sheet_create(request):
             
         import uuid
         from .models import OcrJob
-        from .tasks import run_ocr_subprocess
+        from .tasks import execute_parallel_ocr_batch
         
         device_mode = request.POST.get('device_mode', 'CPU').strip().upper()
         if device_mode not in ['CPU', 'GPU']:
             device_mode = 'CPU'
 
-        created_count = 0
+        job_ids = []
         for scan_file in scan_files:
             temp_uuid = uuid.uuid4().hex[:8]
             temp_sheet_code = f"OCR-TEMP-{temp_uuid}"
@@ -177,8 +177,14 @@ def sheet_create(request):
                 correlation_id=f"sheet_{sheet.id}_{temp_uuid}",
                 device_mode=device_mode
             )
-            run_ocr_subprocess.delay(job.id)
-            created_count += 1
+            job_ids.append(job.id)
+            
+        from .tasks import broadcast_ocr_job_update
+        for j_id in job_ids:
+            broadcast_ocr_job_update(job_id=j_id, stage_text='Đang chờ xử lý...')
+            
+        execute_parallel_ocr_batch.delay(job_ids, user_id=request.user.id, device_mode=device_mode)
+        created_count = len(job_ids)
             
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             from django.http import JsonResponse
@@ -980,8 +986,10 @@ def sheet_update_metadata(request, pk):
 
 @login_required
 def ocr_job_list(request):
-    """View hiển thị tiến độ trích xuất các phiếu (OcrJob)."""
+    """View hiển thị tiến độ trích xuất các phiếu (OcrJob). Hỗ trợ cả HTML và JSON API."""
+    import json
     from .models import OcrJob
+    from django.http import JsonResponse
     
     # Lấy 50 jobs mới nhất
     jobs = OcrJob.objects.select_related('sheet', 'sheet__created_by').order_by('-created_at')[:50]
@@ -989,6 +997,54 @@ def ocr_job_list(request):
     failed_count = OcrJob.objects.filter(status='FAILED').count()
     processing_count = OcrJob.objects.filter(status__in=['PENDING', 'PROCESSING']).count()
     success_count = OcrJob.objects.filter(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS']).count()
+    total_count = OcrJob.objects.count()
+
+    # Chuyển đổi dữ liệu sang danh sách dict
+    jobs_data = []
+    for job in jobs:
+        stage_text = cache.get(f"ocr_stage_{job.id}") or ''
+        if not stage_text and job.status == 'PROCESSING':
+            if cache.get(f"ocr_header_done_{job.id}"):
+                stage_text = "Đã xong Trang 1 & 2 ✓ — Đang bóc tách bảng thông số (Trang 3+)..."
+            else:
+                stage_text = "Đang bóc tách Trang 1 (Thông tin chung)..."
+        elif not stage_text and job.status in ('SUCCESS', 'SUCCESS_WITH_WARNINGS'):
+            stage_text = "Đã hoàn thành 100% ✓"
+
+        jobs_data.append({
+            'id': job.id,
+            'sheet_id': job.sheet.id if job.sheet else None,
+            'sheet_code': job.sheet.sheet_code if job.sheet else f"Job#{job.id}",
+            'sheet_title': job.sheet.title if job.sheet else '',
+            'created_by': (
+                job.sheet.created_by.get_full_name() or job.sheet.created_by.username
+                if job.sheet and job.sheet.created_by else "Hệ thống"
+            ),
+            'device_mode': getattr(job, 'device_mode', 'CPU') or 'CPU',
+            'status': job.status,
+            'created_at_date': job.created_at.strftime('%d/%m/%Y') if job.created_at else '',
+            'created_at_time': job.created_at.strftime('%H:%M:%S') if job.created_at else '',
+            'error_code': job.error_code or '',
+            'error_stage': job.error_stage or '',
+            'error_detail': job.error_detail or '',
+            'stage_text': stage_text,
+        })
+
+    # Hỗ trợ fetch API / AJAX polling mượt mà không reload trang
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.GET.get('format') == 'json':
+        return JsonResponse({
+            'status': 'ok',
+            'jobs': jobs_data,
+            'stats': {
+                'total': min(total_count, 50),
+                'actual_total': total_count,
+                'failed': failed_count,
+                'processing': processing_count,
+                'success': success_count,
+            }
+        })
+
+    jobs_json = json.dumps(jobs_data)
 
     # Kiểm tra GPU khả dụng để cảnh báo trên UI
     gpu_available = False
@@ -1003,9 +1059,11 @@ def ocr_job_list(request):
     
     return render(request, 'sheets/ocr_job_list.html', {
         'jobs': jobs,
+        'jobs_json': jobs_json,
         'failed_count': failed_count,
         'processing_count': processing_count,
         'success_count': success_count,
+        'total_count': total_count,
         'list_title': 'Tiến độ Trích xuất OCR',
         'gpu_available': gpu_available,
         'gpu_name': gpu_name,
@@ -1021,7 +1079,7 @@ def ocr_job_retry(request, pk):
         return redirect('ocr_job_list')
 
     from sheets.models import OcrJob
-    from sheets.tasks import run_ocr_subprocess
+    from sheets.tasks import run_ocr_subprocess, broadcast_ocr_job_update
     import uuid
 
     job = get_object_or_404(OcrJob.objects.select_related('sheet'), pk=pk)
@@ -1044,6 +1102,9 @@ def ocr_job_retry(request, pk):
         job.sheet.status = 'DRAFT'
         job.sheet.save(update_fields=['status'])
 
+    # Gửi thông báo cập nhật qua WebSocket ngay lập tức
+    broadcast_ocr_job_update(job=job, stage_text='Đang chờ xử lý...')
+
     # Gửi task vào Celery
     run_ocr_subprocess.delay(job.id)
 
@@ -1058,17 +1119,19 @@ def ocr_job_retry(request, pk):
 def ocr_job_retry_all(request):
     """View kích hoạt lại trích xuất cho tất cả các job đang bị FAILED."""
     if not request.user.is_superuser and not request.user.has_perm('sheets.can_create_sheet') and not request.user.has_perm('sheets.can_dispatch_sheet'):
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'status': 'error', 'message': 'Bạn không có quyền thực hiện thao tác này.'}, status=403)
         messages.error(request, "Bạn không có quyền thực hiện thao tác này.")
         return redirect('ocr_job_list')
 
     from sheets.models import OcrJob
-    from sheets.tasks import run_ocr_subprocess
+    from sheets.tasks import execute_parallel_ocr_batch, broadcast_ocr_job_update
     import uuid
 
     new_device = request.POST.get('device_mode') or request.GET.get('device_mode')
 
-    failed_jobs = OcrJob.objects.filter(status='FAILED').select_related('sheet')
-    count = 0
+    failed_jobs = list(OcrJob.objects.filter(status='FAILED').select_related('sheet'))
+    job_ids = []
     for job in failed_jobs:
         if new_device and new_device.upper() in ['CPU', 'GPU']:
             job.device_mode = new_device.upper()
@@ -1081,13 +1144,22 @@ def ocr_job_retry_all(request):
         if job.sheet.status != 'DRAFT':
             job.sheet.status = 'DRAFT'
             job.sheet.save(update_fields=['status'])
-        run_ocr_subprocess.delay(job.id)
-        count += 1
+        job_ids.append(job.id)
+        broadcast_ocr_job_update(job=job, stage_text='Đang chờ xử lý...')
 
-    if count > 0:
-        messages.success(request, f"Đã gửi yêu cầu trích xuất lại cho {count} file thất bại.")
+    if job_ids:
+        execute_parallel_ocr_batch.delay(job_ids, user_id=request.user.id, device_mode=new_device or 'CPU')
+        msg = f"Đã gửi yêu cầu trích xuất lại cho {len(job_ids)} file thất bại qua luồng song song."
     else:
-        messages.info(request, "Không có file nào đang ở trạng thái thất bại.")
+        msg = "Không có file nào đang ở trạng thái thất bại."
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'ok', 'message': msg, 'count': len(job_ids)})
+
+    if job_ids:
+        messages.success(request, msg)
+    else:
+        messages.info(request, msg)
 
     return redirect('ocr_job_list')
 

@@ -77,6 +77,28 @@ class LocalCliJsonAdapterTests(unittest.TestCase):
         self.assertEqual(args.output_json, result_path)
         self.assertTrue(args.overwrite_result)
 
+    def test_parser_accepts_stage_options(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            args_header = parse_cli_args(self._base_args(root) + ["--stage", "header"])
+            args_details = parse_cli_args(self._base_args(root) + ["--stage", "details"])
+        self.assertEqual(args_header.stage, "header")
+        self.assertEqual(args_details.stage, "details")
+
+    def test_stage_header_returns_input_error_when_missing_file(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            code = main(
+                self._base_args(root, correlation_id="cli-missing-header") + ["--stage", "header"],
+                stdout=stdout,
+                stderr=stderr,
+            )
+        self.assertEqual(code, CliExitCode.INPUT)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["error"]["code"], "INPUT_NOT_FOUND")
+
     def test_parser_rejects_invalid_option_combinations(self):
         with TemporaryDirectory() as temporary:
             with self.assertRaises(CliUsageError):

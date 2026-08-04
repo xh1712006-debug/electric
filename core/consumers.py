@@ -31,6 +31,10 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             await self.channel_layer.group_add("autocheck_updates", self.channel_name)
             self.groups_joined.append("autocheck_updates")
 
+        # Thêm vào group ocr_updates để nhận tiến trình bóc tách OCR thời gian thực
+        await self.channel_layer.group_add("ocr_updates", self.channel_name)
+        self.groups_joined.append("ocr_updates")
+
         await self.accept()
 
     async def disconnect(self, close_code):
@@ -68,6 +72,13 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
     async def bulk_progress(self, event):
         # Chuyển tiếp toàn bộ data tiến trình từ Celery sang Frontend
+        try:
+            await self.send(text_data=json.dumps(event))
+        except Exception:
+            pass
+
+    async def ocr_event(self, event):
+        # Chuyển tiếp sự kiện cập nhật tiến trình OCR thời gian thực sang Frontend
         try:
             await self.send(text_data=json.dumps(event))
         except Exception:

@@ -11,11 +11,6 @@
     </div>
     {% if request.user|has_group:'ADMIN' or request.user|has_group:'DISPATCHER' %}
     <div class="flex flex-wrap items-center gap-2">
-        {% if request.user.is_superuser or request.user|has_group:'DISPATCHER' %}
-        <a href="{% url 'bulk_create_ui' %}" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 md:px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl border border-slate-200 transition-colors text-sm">
-            <i class="fas fa-layer-group text-slate-500"></i> <span class="hidden sm:inline">Trích Xuất Hàng Loạt (Test)</span><span class="sm:hidden">Hàng loạt</span>
-        </a>
-        {% endif %}
         <a href="{% url 'sheet_create' %}" class="flex-1 sm:flex-none relative overflow-hidden group inline-flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-[0_4px_15px_rgba(79,70,229,0.3)] hover:shadow-[0_8px_20px_rgba(79,70,229,0.4)] transition-all hover:-translate-y-0.5 text-sm">
             <span class="relative z-10 flex items-center gap-2">
                 <i class="fas fa-plus-circle"></i> Khởi tạo Phiếu Mới

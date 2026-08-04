@@ -187,6 +187,7 @@ class DocumentOcrOrchestrator:
         *,
         progress: ProgressCallback | None = None,
         stage_event: StageEventCallback | None = None,
+        stage: str = "all",
     ) -> dict[str, Any]:
         """Extract a single PDF_x and persist page evidence plus a summary JSON."""
 
@@ -206,6 +207,11 @@ class DocumentOcrOrchestrator:
         if stage_event:
             stage_event(PipelineStageEvent(ErrorStage.RENDERING, "started"))
         try:
+            if stage == "header":
+                rendered = [Path(item) for item in self._renderer(source, output / "rendered", dpi=self.render_dpi, first_page=1, last_page=min(2, candidate.page_count))]
+            else:
+                rendered = [Path(item) for item in self._renderer(source, output / "rendered", dpi=self.render_dpi)]
+        except TypeError:
             rendered = [Path(item) for item in self._renderer(source, output / "rendered", dpi=self.render_dpi)]
         except Exception as exc:
             raise PipelineStageError(
@@ -222,6 +228,29 @@ class DocumentOcrOrchestrator:
                     total_pages=len(rendered),
                 )
             )
+
+        if stage == "details" and len(rendered) <= 2:
+            # File chỉ có tối đa 2 trang, không có trang 3+ nào để xử lý details
+            return {
+                "schema_version": "1.0",
+                "stage": "details",
+                "status": "success",
+                "document": candidate.as_dict(),
+                "setting_records": [],
+                "note_candidates": [],
+                "warnings": [],
+                "pages": [],
+                "summary": {
+                    "pages": len(rendered),
+                    "ocr_pages": 0,
+                    "skipped_pages": 0,
+                    "setting_records": 0,
+                    "note_candidates": 0,
+                    "warnings": 0,
+                    "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
+                },
+            }
+
         detector, recognizer = self.models()
 
         pages: list[dict[str, Any]] = []
@@ -235,7 +264,7 @@ class DocumentOcrOrchestrator:
             {"kind": "rendered_page", "relative_path": _relative_path(path, output)} for path in rendered
         ]
 
-        if candidate.page_count != len(rendered):
+        if candidate.page_count != len(rendered) and stage == "all":
             warnings.append(
                 {
                     "code": "page_count_mismatch",
@@ -254,9 +283,14 @@ class DocumentOcrOrchestrator:
                 retryable=True,
             ) from exc
         for page_number, image_path in enumerate(rendered, start=1):
+            if stage == "header" and page_number > 2:
+                break
+            if stage == "details" and page_number <= 2:
+                continue
+
             role = page_role(page_number)
             if progress:
-                progress(page_number - 1, len(rendered), f"{candidate.name}: trang {page_number}/{len(rendered)}")
+                progress(page_number, candidate.page_count, f"{candidate.name}: trang {page_number}/{candidate.page_count}")
 
             if role == "page2_skipped":
                 if stage_event:
@@ -446,6 +480,7 @@ class DocumentOcrOrchestrator:
 
         result = {
             "schema_version": "1.0",
+            "stage": stage,
             "document": candidate.as_dict(),
             "important_fields": important_fields,
             "important_source_labels": important_source_labels,

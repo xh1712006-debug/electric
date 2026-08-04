@@ -9,10 +9,36 @@
       "title": "Correlation Id",
       "type": "string"
     },
+    "first_page": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "First Page"
+    },
     "input_pdf": {
       "format": "path",
       "title": "Input Pdf",
       "type": "string"
+    },
+    "last_page": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Page"
     },
     "output_root": {
       "format": "path",

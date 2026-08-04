@@ -10,7 +10,7 @@ import json
 import os
 from pathlib import Path
 import sys
-from typing import Callable, Iterator, TextIO
+from typing import Any, Callable, Iterator, TextIO
 from uuid import uuid4
 
 try:
@@ -67,6 +67,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--gpu",
         action="store_true",
         help="Sử dụng GPU (CUDA) để tăng tốc phát hiện và nhận dạng OCR",
+    )
+    parser.add_argument(
+        "--stage",
+        choices=["all", "header", "details"],
+        default="all",
+        help="Giai đoạn bóc tách: all (mặc định), header (trang 1 & 2), details (trang 3+)",
     )
     parser.add_argument(
         "--output-json",
@@ -257,42 +263,135 @@ def main(
         return int(code)
 
     _log(log_stream, f"start correlation_id={request.correlation_id}")
-    if service_factory is None:
-        service_logger = stream_logger(
-            log_stream,
-            name=f"relay_form_ocr.cli.{request.correlation_id}",
-        )
-        try:
-            service_parameters = inspect.signature(RelayFormOcrService).parameters.values()
-            accepts_logger = any(
-                parameter.name == "logger" or parameter.kind == inspect.Parameter.VAR_KEYWORD
-                for parameter in service_parameters
-            )
-        except (TypeError, ValueError):
-            accepts_logger = False
-        factory: ServiceFactory = (
-            (lambda: RelayFormOcrService(use_gpu=args.gpu, logger=service_logger))
-            if accepts_logger
-            else (lambda: RelayFormOcrService(use_gpu=args.gpu))
-        )
-    else:
-        factory = service_factory
-    try:
-        with isolate_machine_stdout(machine_stdout, log_stream):
-            result = factory().process_pdf(request)
-        if not isinstance(result, OcrResult):
-            raise TypeError("service did not return OcrResult")
-        payload = result.model_dump_json()
-    except Exception:
-        code = CliExitCode.INTERNAL
-        _log(log_stream, "internal adapter failure")
-        _write_stdout_json(
-            _cli_error_payload("CLI_INTERNAL_ERROR", "The local CLI adapter failed.", code),
-            machine_stdout,
-        )
-        return int(code)
+    if getattr(args, "stage", "all") in ("header", "details"):
+        from .orchestrator import DocumentOcrOrchestrator, PdfCandidate
+        from src.pdf_form_splitter.pdf_io import pdf_page_count
 
-    code = exit_code_for_result(result)
+        if not input_pdf.exists():
+            code = CliExitCode.INPUT
+            _log(log_stream, "input PDF not found")
+            _write_stdout_json(
+                _cli_error_payload("INPUT_NOT_FOUND", "Không tìm thấy tệp PDF đầu vào.", code),
+                machine_stdout,
+            )
+            return int(code)
+
+        try:
+            page_count = pdf_page_count(input_pdf)
+        except Exception:
+            code = CliExitCode.INPUT
+            _log(log_stream, "invalid PDF input")
+            _write_stdout_json(
+                _cli_error_payload("INVALID_PDF", "Không thể đọc tệp PDF đầu vào.", code),
+                machine_stdout,
+            )
+            return int(code)
+
+        candidate = PdfCandidate(
+            candidate_id=f"doc_{request.correlation_id}",
+            name=input_pdf.name,
+            path=str(input_pdf),
+            page_count=page_count,
+            origin="cli",
+        )
+        orchestrator = DocumentOcrOrchestrator(use_gpu=args.gpu)
+        workspace_dir = output_root / request.correlation_id
+
+        def _cli_progress(curr: int, total: int, msg: str) -> None:
+            _log(log_stream, f"progress: trang {curr}/{total} - {msg}")
+
+        try:
+            with isolate_machine_stdout(machine_stdout, log_stream):
+                raw_res = orchestrator.extract_pdf_x(candidate, workspace_dir, stage=args.stage, progress=_cli_progress)
+
+            if args.stage == "header":
+                p1_fields = {}
+                for k, v in raw_res.get("important_fields", {}).items():
+                    p1_fields[k] = {"value": v}
+
+                payload_dict = {
+                    "stage": "header",
+                    "status": "success",
+                    "correlation_id": request.correlation_id,
+                    "business": {
+                        "page1_fields": p1_fields,
+                        "important_source_labels": raw_res.get("important_source_labels", {}),
+                        "important_field_resolution": raw_res.get("important_field_resolution", {}),
+                    },
+                    "pages": raw_res.get("pages", []),
+                    "warnings": raw_res.get("warnings", []),
+                    "summary": raw_res.get("summary", {}),
+                }
+            else:  # details
+                payload_dict = {
+                    "stage": "details",
+                    "status": "success",
+                    "correlation_id": request.correlation_id,
+                    "business": {
+                        "setting_records": raw_res.get("setting_records", []),
+                        "note_candidates": raw_res.get("note_candidates", []),
+                    },
+                    "pages": raw_res.get("pages", []),
+                    "warnings": raw_res.get("warnings", []),
+                    "summary": raw_res.get("summary", {}),
+                }
+            payload = json.dumps(payload_dict, ensure_ascii=False, indent=2)
+            code = CliExitCode.SUCCESS
+        except Exception as exc:
+            code = CliExitCode.PROCESSING
+            _log(log_stream, f"stage {args.stage} extraction failed: {exc}")
+            _write_stdout_json(
+                _cli_error_payload("PROCESSING_FAILED", f"Lỗi bóc tách giai đoạn {args.stage}: {str(exc)}", code),
+                machine_stdout,
+            )
+            return int(code)
+    else:
+        if service_factory is None:
+            service_logger = stream_logger(
+                log_stream,
+                name=f"relay_form_ocr.cli.{request.correlation_id}",
+            )
+            try:
+                service_parameters = inspect.signature(RelayFormOcrService).parameters.values()
+                accepts_logger = any(
+                    parameter.name == "logger" or parameter.kind == inspect.Parameter.VAR_KEYWORD
+                    for parameter in service_parameters
+                )
+                accepts_gpu = any(
+                    parameter.name == "use_gpu" or parameter.kind == inspect.Parameter.VAR_KEYWORD
+                    for parameter in service_parameters
+                )
+            except (TypeError, ValueError):
+                accepts_logger = False
+                accepts_gpu = False
+
+            def _create_service() -> RelayFormOcrService:
+                kwargs: dict[str, Any] = {}
+                if accepts_logger:
+                    kwargs["logger"] = service_logger
+                if accepts_gpu:
+                    kwargs["use_gpu"] = args.gpu
+                return RelayFormOcrService(**kwargs)
+
+            factory = _create_service
+        else:
+            factory = service_factory
+        try:
+            with isolate_machine_stdout(machine_stdout, log_stream):
+                result = factory().process_pdf(request)
+            if not isinstance(result, OcrResult):
+                raise TypeError("service did not return OcrResult")
+            payload = result.model_dump_json()
+        except Exception:
+            code = CliExitCode.INTERNAL
+            _log(log_stream, "internal adapter failure")
+            _write_stdout_json(
+                _cli_error_payload("CLI_INTERNAL_ERROR", "The local CLI adapter failed.", code),
+                machine_stdout,
+            )
+            return int(code)
+
+        code = exit_code_for_result(result)
     if output_json is None:
         _write_stdout_json(payload, machine_stdout)
     else:
@@ -307,7 +406,11 @@ def main(
             )
             return int(code)
 
-    _log(log_stream, f"finish correlation_id={request.correlation_id} status={result.status.value} exit={int(code)}")
+    # Ghi log kết thúc — chỉ nhánh `all` mới có biến `result`
+    if getattr(args, "stage", "all") not in ("header", "details"):
+        _log(log_stream, f"finish correlation_id={request.correlation_id} status={result.status.value} exit={int(code)}")
+    else:
+        _log(log_stream, f"finish correlation_id={request.correlation_id} stage={args.stage} exit={int(code)}")
     return int(code)
 
 

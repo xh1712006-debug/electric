@@ -1,462 +1,886 @@
 {% extends "base.html" %}
 {% load auth_extras %}
-{% block title %}Tiến độ Trích xuất OCR | RMS{% endblock %}
+{% block title %}Tiến độ Trích xuất OCR | RMS EVN{% endblock %}
 {% block header_title %}{{ list_title|default:"Tiến độ Trích xuất OCR" }}{% endblock %}
 
 {% block content %}
-<div x-data="{
-    showModal: false,
-    showErrorModal: false,
-    isLoading: false,
-    jsonData: '',
-    errorData: { title: '', code: '', stage: '', detail: '', jobId: null, deviceMode: 'CPU' },
-    isHovering: false,
-    isNavigating: false,
-    pollingInterval: null,
-    retryingId: null,
-    
-    async viewJson(jobId) {
-        this.showModal = true;
-        this.isLoading = true;
-        this.jsonData = '';
-        
-        try {
-            const response = await fetch(`/sheets/ocr-job/${jobId}/json/`);
-            const data = await response.json();
-            this.jsonData = JSON.stringify(data, null, 2);
-        } catch (error) {
-            this.jsonData = 'Lỗi không thể tải được dữ liệu JSON.\n\n' + error;
-        } finally {
-            this.isLoading = false;
-        }
-    },
+<div x-data="ocrProgressManager()" x-init="init()" class="space-y-6 max-w-[1600px] mx-auto pb-12">
 
-    viewError(title, code, stage, detail, jobId, deviceMode) {
-        this.errorData = {
-            title: title || 'Không có tên file',
-            code: code || 'Chưa xác định',
-            stage: stage || 'Trích xuất',
-            detail: detail || 'Hệ thống không ghi nhận được thông điệp lỗi chi tiết.',
-            jobId: jobId,
-            deviceMode: deviceMode || 'CPU'
-        };
-        this.showErrorModal = true;
-    },
-
-    async retryJob(jobId, deviceMode = null) {
-        this.retryingId = jobId;
-        try {
-            let formData = new FormData();
-            if (deviceMode) {
-                formData.append('device_mode', deviceMode);
-            }
-            const response = await fetch(`/sheets/ocr-job/${jobId}/retry/`, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
-            const data = await response.json();
-            if (data.status === 'ok') {
-                window.location.reload();
-            } else {
-                alert(data.message || 'Không thể trích xuất lại');
-            }
-        } catch (e) {
-            let url = `/sheets/ocr-job/${jobId}/retry/`;
-            if (deviceMode) {
-                url += `?device_mode=${deviceMode}`;
-            }
-            window.location.href = url;
-        } finally {
-            this.retryingId = null;
-        }
-    }
-}" 
-@mouseenter="isHovering = true"
-@mouseleave="isHovering = false"
-@mousedown="isHovering = true"
-@mouseup="isHovering = false"
-x-init="
-    if (sessionStorage.getItem('ocrScrollPos')) {
-        window.scrollTo(0, parseInt(sessionStorage.getItem('ocrScrollPos')));
-        sessionStorage.removeItem('ocrScrollPos');
-    }
-    
-    pollingInterval = setInterval(() => {
-        if (!showModal && !showErrorModal && !isHovering && !isNavigating && !retryingId) {
-            sessionStorage.setItem('ocrScrollPos', window.scrollY);
-            window.location.reload();
-        }
-    }, 6000);
-    
-    window.addEventListener('beforeunload', () => {
-        isNavigating = true;
-        clearInterval(pollingInterval);
-    });
-">
-
-<!-- Page Header & Actions -->
-<div class="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-    <div>
-        <h2 class="text-xl md:text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-            <span class="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 text-lg">
+    <!-- ==================== TOP HEADER & ACTIONS ==================== -->
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white/90 backdrop-blur-md p-5 md:p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/25 shrink-0 text-xl">
                 <i class="fas fa-microchip"></i>
-            </span>
-            <span>{{ list_title }}</span>
-        </h2>
-        <p class="text-slate-500 text-sm mt-1">Theo dõi tiến trình AI bóc tách thông số phiếu. Khi thành công, phiếu sẽ tự động xuất hiện ở mục <strong>Phiếu Chờ Rà Soát</strong>.</p>
-    </div>
-    <div class="flex flex-wrap items-center gap-2">
-        {% if failed_count and failed_count > 0 %}
-        <form method="POST" action="{% url 'ocr_job_retry_all' %}?device_mode=CPU" class="inline">
-            {% csrf_token %}
-            <button type="submit" class="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 transition-all text-sm" title="Chuyển toàn bộ file lỗi sang CPU và trích xuất lại">
-                <i class="fas fa-microchip"></i> Thử lại tất cả bằng CPU ({{ failed_count }})
+            </div>
+            <div>
+                <div class="flex items-center gap-3 flex-wrap">
+                    <h2 class="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
+                        {{ list_title }}
+                    </h2>
+                    <!-- Live WebSocket Status Pill -->
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-xs">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span>Đồng bộ Thời gian thực</span>
+                    </span>
+                </div>
+                <p class="text-slate-500 text-xs md:text-sm mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span>Theo dõi tiến trình AI bóc tách thông số phiếu. Khi hoàn thành, phiếu sẽ tự động xuất hiện ở mục</span>
+                    <a href="{% url 'sheet_list' %}?status=ISSUED" class="font-bold text-blue-600 hover:text-blue-800 underline decoration-blue-300 underline-offset-2">
+                        Phiếu Chờ Rà Soát
+                    </a>.
+                </p>
+            </div>
+        </div>
+
+        <!-- Action Controls -->
+        <div class="flex flex-wrap items-center gap-2.5 self-start lg:self-center">
+            <!-- Nút Thử lại tất cả bằng CPU khi có job lỗi -->
+            <template x-if="stats.failed > 0">
+                <div class="flex items-center gap-2">
+                    <button type="button" @click="retryAll('CPU')" :disabled="retryingAll"
+                            class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-blue-500/20 transition-all text-xs md:text-sm disabled:opacity-50 active:scale-95 cursor-pointer" 
+                            title="Chuyển toàn bộ file lỗi sang CPU và trích xuất lại">
+                        <i class="fas" :class="retryingAll ? 'fa-circle-notch fa-spin' : 'fa-microchip'"></i> 
+                        <span>Thử lại CPU (<span x-text="stats.failed"></span>)</span>
+                    </button>
+                    <button type="button" @click="retryAll()" :disabled="retryingAll"
+                            class="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-2xl shadow-lg shadow-amber-500/20 transition-all text-xs md:text-sm disabled:opacity-50 active:scale-95 cursor-pointer"
+                            title="Thử lại toàn bộ file thất bại">
+                        <i class="fas" :class="retryingAll ? 'fa-circle-notch fa-spin' : 'fa-rotate-right'"></i> 
+                        <span>Thử lại (<span x-text="stats.failed"></span>)</span>
+                    </button>
+                </div>
+            </template>
+
+            <!-- Nút Làm mới thủ công (không reload trang) -->
+            <button type="button" @click="fetchLatestData(true)" :disabled="isSyncing"
+                    class="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl transition-all text-xs md:text-sm active:scale-95 cursor-pointer"
+                    title="Làm mới dữ liệu ngay lập tức">
+                <i class="fas fa-arrows-rotate" :class="isSyncing ? 'fa-spin text-blue-600' : 'text-slate-500'"></i>
+                <span class="hidden sm:inline">Làm mới</span>
             </button>
-        </form>
-        <form method="POST" action="{% url 'ocr_job_retry_all' %}" class="inline">
-            {% csrf_token %}
-            <button type="submit" class="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all text-sm">
-                <i class="fas fa-rotate-right"></i> Thử lại ({{ failed_count }})
-            </button>
-        </form>
-        {% endif %}
-        <a href="{% url 'sheet_create' %}" class="inline-flex items-center justify-center gap-2 px-4 md:px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 transition-all text-sm">
-            <i class="fas fa-plus"></i> Tải Lên Phiếu Mới
-        </a>
-    </div>
-</div>
 
+            <!-- Nút Tải Lên Phiếu Mới -->
+            <a href="{% url 'sheet_create' %}" class="inline-flex items-center justify-center gap-2 px-4 md:px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-lg shadow-blue-500/20 transition-all text-xs md:text-sm active:scale-95">
+                <i class="fas fa-plus"></i>
+                <span>Tải Lên Phiếu Mới</span>
+            </a>
+        </div>
+    </div>
 
-<!-- GPU Status Banner -->
-{% if not gpu_available %}
-<div class="mb-5 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl px-4 py-3.5 text-sm flex items-start gap-3">
-    <i class="fas fa-triangle-exclamation text-amber-500 mt-0.5 shrink-0"></i>
-    <div>
-        <strong>GPU CUDA không khả dụng trên máy chủ.</strong>
-        Card NVIDIA GeForce 940MX không tương thích với CUDA 12.x (yêu cầu của PaddleOCR/PyTorch hiện tại).
-        Vui lòng dùng <strong>chế độ CPU</strong> để trích xuất bình thường.
-    </div>
-</div>
-{% else %}
-<div class="mb-5 bg-green-50 border border-green-200 text-green-800 rounded-2xl px-4 py-3 text-sm flex items-center gap-3">
-    <i class="fas fa-bolt text-green-500 shrink-0"></i>
-    <span><strong>GPU sẵn sàng:</strong> {{ gpu_name }} — Có thể dùng chế độ GPU CUDA để tăng tốc OCR.</span>
-</div>
-{% endif %}
-
-<!-- KPI Stats Cards -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3.5">
-        <div class="w-11 h-11 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-base shrink-0">
-            <i class="fas fa-layer-group"></i>
-        </div>
-        <div>
-            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tổng số Job</div>
-            <div class="text-xl font-black text-slate-800">{{ jobs|length }}</div>
-        </div>
-    </div>
-    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3.5">
-        <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base shrink-0">
-            <i class="fas fa-check-double"></i>
-        </div>
-        <div>
-            <div class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Thành công</div>
-            <div class="text-xl font-black text-emerald-700">{{ success_count|default:0 }}</div>
-        </div>
-    </div>
-    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3.5">
-        <div class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-base shrink-0">
-            <i class="fas fa-spinner fa-spin"></i>
-        </div>
-        <div>
-            <div class="text-xs font-semibold text-blue-600 uppercase tracking-wider">Đang trích xuất</div>
-            <div class="text-xl font-black text-blue-700">{{ processing_count|default:0 }}</div>
-        </div>
-    </div>
-    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3.5">
-        <div class="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-base shrink-0">
+    <!-- ==================== GPU / SYSTEM STATUS BANNER ==================== -->
+    {% if not gpu_available %}
+    <div class="bg-gradient-to-r from-amber-500/10 via-amber-50 to-orange-500/10 border border-amber-200/80 text-amber-900 rounded-3xl p-4 md:p-5 flex items-start gap-3.5 shadow-xs">
+        <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0 mt-0.5 text-base">
             <i class="fas fa-triangle-exclamation"></i>
         </div>
-        <div>
-            <div class="text-xs font-semibold text-rose-600 uppercase tracking-wider">Thất bại</div>
-            <div class="text-xl font-black text-rose-700">{{ failed_count|default:0 }}</div>
+        <div class="text-xs md:text-sm leading-relaxed">
+            <div class="font-bold text-amber-900 flex items-center gap-2">
+                <span>GPU CUDA chưa sẵn sàng trên máy chủ</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-md bg-amber-200/80 text-amber-800 uppercase font-black tracking-wider">Chế độ CPU</span>
+            </div>
+            <p class="text-amber-800/90 mt-1">
+                Hệ thống đang tự động trích xuất các phiếu bằng <strong>chế độ CPU</strong> đa luồng để đảm bảo độ chính xác và ổn định tuyệt đối.
+            </p>
         </div>
     </div>
-</div>
-
-<!-- Main Progress Table Card -->
-<div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden relative">
-    <!-- Toolbar -->
-    <div class="p-4 md:p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
-            <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span class="text-xs md:text-sm font-medium text-slate-500">Tự động cập nhật tiến độ theo thời gian thực (6s/lần)</span>
+    {% else %}
+    <div class="bg-gradient-to-r from-emerald-500/10 via-emerald-50 to-teal-500/10 border border-emerald-200/80 text-emerald-900 rounded-3xl p-4 md:p-5 flex items-center gap-3.5 shadow-xs">
+        <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-700 flex items-center justify-center shrink-0 text-base">
+            <i class="fas fa-bolt"></i>
         </div>
-        <div class="text-xs text-slate-400 font-medium">
-            Hiển thị <strong>50</strong> tiến trình gần nhất
+        <div class="text-xs md:text-sm">
+            <span class="font-bold text-emerald-900">GPU NVIDIA sẵn sàng:</span> {{ gpu_name }} — Có thể kích hoạt chế độ tăng tốc GPU CUDA khi trích xuất.
         </div>
     </div>
+    {% endif %}
 
-    <!-- Table -->
-    <div class="overflow-x-auto -webkit-overflow-scrolling-touch min-h-[420px]">
-        <table class="w-full text-left border-collapse">
-            <thead>
-                <tr class="bg-white border-b border-slate-100 text-slate-400 text-[11px] font-bold uppercase tracking-widest">
-                    <th class="px-6 py-4 whitespace-nowrap">Mã Phiếu</th>
-                    <th class="px-6 py-4">Tệp Scan / Tiêu đề</th>
-                    <th class="px-6 py-4">Cấu hình</th>
-                    <th class="px-6 py-4">Thời gian</th>
-                    <th class="px-6 py-4">Trạng thái Bóc tách</th>
-                    <th class="px-6 py-4 text-right">Thao tác</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-50 text-sm">
-                {% for job in jobs %}
-                <tr class="hover:bg-blue-50/40 transition-colors duration-150 relative z-10 {% if job.status == 'FAILED' %}bg-rose-50/20{% endif %}">
-                    <td class="px-6 py-4 font-bold text-slate-800 whitespace-nowrap">
-                        {% if job.status == 'SUCCESS' or job.status == 'SUCCESS_WITH_WARNINGS' %}
-                        <a href="{% url 'sheet_detail' job.sheet.pk %}" class="text-blue-600 hover:text-blue-800 font-bold hover:underline transition-colors flex items-center gap-1.5">
-                            <span>{{ job.sheet.sheet_code }}</span>
-                            <i class="fas fa-arrow-up-right-from-square text-[11px]"></i>
-                        </a>
-                        {% else %}
-                        <span class="text-slate-700">{{ job.sheet.sheet_code }}</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4">
-                        <div class="flex items-center gap-2.5">
-                            <div class="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
-                                <i class="fas fa-file-pdf text-sm"></i>
-                            </div>
-                            <div class="min-w-0 max-w-xs md:max-w-md">
-                                <p class="text-slate-800 font-semibold truncate">{{ job.sheet.title }}</p>
-                                <span class="text-slate-400 text-xs">Người tạo: {{ job.sheet.created_by.get_full_name|default:job.sheet.created_by.username|default:"Hệ thống" }}</span>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        {% if job.device_mode == 'GPU' %}
-                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200/80 shadow-xs" title="Chế độ xử lý GPU NVIDIA CUDA">
-                            <i class="fas fa-bolt text-[10px] text-purple-600"></i> GPU CUDA
-                        </span>
-                        {% else %}
-                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 shadow-xs" title="Chế độ xử lý CPU">
-                            <i class="fas fa-microchip text-[10px] text-slate-500"></i> CPU
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex flex-col">
-                            <span class="text-slate-700 font-medium text-xs">{{ job.created_at|date:"d/m/Y" }}</span>
-                            <span class="text-slate-400 text-[11px]"><i class="far fa-clock mr-1"></i>{{ job.created_at|date:"H:i:s" }}</span>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        {% if job.status == 'PENDING' %}
-                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                            <i class="fas fa-hourglass-start mr-1.5 text-slate-400"></i> Đang chờ xử lý
-                        </span>
-                        {% elif job.status == 'PROCESSING' %}
-                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200 animate-pulse">
-                            <i class="fas fa-circle-notch animate-spin mr-1.5 text-blue-500"></i> Đang trích xuất...
-                        </span>
-                        {% elif job.status == 'SUCCESS' or job.status == 'SUCCESS_WITH_WARNINGS' %}
-                        <div class="flex flex-col gap-1">
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200 w-fit">
-                                <i class="fas fa-check-circle mr-1.5 text-emerald-500"></i> Đã hoàn thành
-                            </span>
-                            <span class="text-[11px] text-emerald-600 font-medium ml-1">
-                                <i class="fas fa-arrow-right text-[10px] mr-1"></i>Đã đưa vào Phiếu Chờ Rà Soát
-                            </span>
-                        </div>
-                        {% elif job.status == 'FAILED' %}
-                        <div class="flex items-center gap-2">
-                            <button type="button" @click="viewError('{{ job.sheet.title|escapejs }}', '{{ job.error_code|default:''|escapejs }}', '{{ job.error_stage|default:''|escapejs }}', '{{ job.error_detail|default:job.error_code|default:'Lỗi không xác định'|escapejs }}', {{ job.pk }}, '{{ job.device_mode|default:'CPU'|escapejs }}')" 
-                                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-700 border border-rose-200 hover:bg-rose-200 transition-colors cursor-pointer" 
-                                    title="Bấm để xem chi tiết nguyên nhân lỗi">
-                                <i class="fas fa-triangle-exclamation mr-1.5 text-rose-500"></i> Thất bại
-                                <i class="fas fa-circle-info ml-1.5 text-[10px] text-rose-400"></i>
-                            </button>
-                        </div>
-                        {% else %}
-                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-800">
-                            {{ job.get_status_display }}
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4 text-right whitespace-nowrap space-x-2">
-                        <!-- Nút Trích xuất lại (Khi FAILED) -->
-                        {% if job.status == 'FAILED' %}
-                            {% if job.device_mode == 'GPU' %}
-                            <button type="button" @click="retryJob({{ job.pk }}, 'CPU')" :disabled="retryingId === {{ job.pk }}"
-                                    class="inline-flex items-center justify-center px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all text-xs shadow-sm shadow-blue-500/20 active:scale-95 disabled:opacity-50"
-                                    title="Chuyển sang CPU và trích xuất lại">
-                                <template x-if="retryingId === {{ job.pk }}">
-                                    <span class="flex items-center"><i class="fas fa-circle-notch fa-spin mr-1.5"></i> Đang gửi...</span>
-                                </template>
-                                <template x-if="retryingId !== {{ job.pk }}">
-                                    <span class="flex items-center"><i class="fas fa-microchip mr-1.5"></i> Thử lại bằng CPU</span>
-                                </template>
-                            </button>
-                            <button type="button" @click="retryJob({{ job.pk }})" :disabled="retryingId === {{ job.pk }}"
-                                    class="inline-flex items-center justify-center px-2.5 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold transition-all text-xs active:scale-95 disabled:opacity-50"
-                                    title="Thử lại với GPU">
-                                <i class="fas fa-rotate-right"></i>
-                            </button>
-                            {% else %}
-                            <button type="button" @click="retryJob({{ job.pk }})" :disabled="retryingId === {{ job.pk }}"
-                                    class="inline-flex items-center justify-center px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition-all text-xs shadow-sm shadow-amber-500/20 active:scale-95 disabled:opacity-50">
-                                <template x-if="retryingId === {{ job.pk }}">
-                                    <span class="flex items-center"><i class="fas fa-circle-notch fa-spin mr-1.5"></i> Đang gửi...</span>
-                                </template>
-                                <template x-if="retryingId !== {{ job.pk }}">
-                                    <span class="flex items-center"><i class="fas fa-rotate-right mr-1.5"></i> Trích xuất lại</span>
-                                </template>
-                            </button>
-                            {% endif %}
-                        {% endif %}
+    <!-- ==================== KPI STATS CARDS (INTERACTIVE FILTERS) ==================== -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-5">
+        <!-- Card 1: Tổng số Job -->
+        <button type="button" @click="setStatusFilter('ALL')" 
+                class="group bg-white p-4 md:p-5 rounded-3xl border transition-all text-left relative overflow-hidden shadow-xs hover:shadow-md active:scale-98 cursor-pointer"
+                :class="statusFilter === 'ALL' ? 'border-indigo-400 ring-2 ring-indigo-500/20 bg-indigo-50/20' : 'border-slate-100 hover:border-slate-200'">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng số Job</span>
+                <div class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm group-hover:scale-110 transition-transform">
+                    <i class="fas fa-layer-group"></i>
+                </div>
+            </div>
+            <div class="text-2xl md:text-3xl font-black text-slate-800" x-text="stats.total"></div>
+            <div class="text-[11px] text-slate-400 font-medium mt-1 flex items-center justify-between">
+                <span>50 phiếu gần nhất</span>
+                <i class="fas fa-filter text-[10px]" :class="statusFilter === 'ALL' ? 'text-indigo-600' : 'text-slate-300'"></i>
+            </div>
+        </button>
 
-                        <!-- Nút Xem JSON API -->
-                        {% if job.status == 'SUCCESS' or job.status == 'SUCCESS_WITH_WARNINGS' or job.status == 'FAILED' %}
-                        <button type="button" @click="viewJson({{ job.pk }})" class="inline-flex items-center justify-center px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition-colors text-xs border border-slate-200" title="Xem JSON API trả về">
-                            <i class="fas fa-code mr-1.5"></i> JSON
-                        </button>
-                        {% endif %}
-                        
-                        <!-- Nút Đi tới trang Rà soát (Khi Thành công) -->
-                        {% if job.status == 'SUCCESS' or job.status == 'SUCCESS_WITH_WARNINGS' %}
-                        <a href="{% url 'sheet_detail' job.sheet.pk %}" class="inline-flex items-center justify-center px-3.5 py-1.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all text-xs shadow-sm shadow-blue-500/20">
-                            <i class="fas fa-clipboard-check mr-1.5"></i> Cập nhật & Rà soát
-                        </a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="6" class="px-6 py-16 text-center">
-                        <div class="flex flex-col items-center justify-center max-w-sm mx-auto">
-                            <div class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 text-slate-300">
-                                <i class="fas fa-tasks text-3xl"></i>
-                            </div>
-                            <h3 class="text-base font-bold text-slate-700 mb-1">Chưa có tiến trình OCR nào</h3>
-                            <p class="text-slate-500 text-xs mb-6 text-center">Các phiếu bạn tải lên sẽ hiển thị tiến trình trích xuất tại đây.</p>
-                            <a href="{% url 'sheet_create' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-blue-700 transition-all">
-                                <i class="fas fa-plus"></i> Tải lên phiếu đầu tiên
-                            </a>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+        <!-- Card 2: Thành công -->
+        <button type="button" @click="setStatusFilter('SUCCESS')" 
+                class="group bg-white p-4 md:p-5 rounded-3xl border transition-all text-left relative overflow-hidden shadow-xs hover:shadow-md active:scale-98 cursor-pointer"
+                :class="statusFilter === 'SUCCESS' ? 'border-emerald-400 ring-2 ring-emerald-500/20 bg-emerald-50/20' : 'border-slate-100 hover:border-slate-200'">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Thành công</span>
+                <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm group-hover:scale-110 transition-transform">
+                    <i class="fas fa-circle-check"></i>
+                </div>
+            </div>
+            <div class="text-2xl md:text-3xl font-black text-emerald-700" x-text="stats.success"></div>
+            <div class="text-[11px] text-emerald-600 font-medium mt-1 flex items-center justify-between">
+                <span>Đã vào Chờ rà soát</span>
+                <i class="fas fa-filter text-[10px]" :class="statusFilter === 'SUCCESS' ? 'text-emerald-600' : 'text-slate-300'"></i>
+            </div>
+        </button>
 
-<!-- Modal Xem Chi Tiết Lỗi -->
-<div x-show="showErrorModal" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-    <div x-show="showErrorModal" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="showErrorModal = false"></div>
-    
-    <div x-show="showErrorModal" x-transition.scale.origin.center class="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 z-10 flex flex-col">
-        <div class="p-5 border-b border-slate-100 bg-rose-50/50 flex justify-between items-center shrink-0">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-sm font-bold">
+        <!-- Card 3: Đang trích xuất -->
+        <button type="button" @click="setStatusFilter('PROCESSING')" 
+                class="group bg-white p-4 md:p-5 rounded-3xl border transition-all text-left relative overflow-hidden shadow-xs hover:shadow-md active:scale-98 cursor-pointer"
+                :class="statusFilter === 'PROCESSING' ? 'border-blue-400 ring-2 ring-blue-500/20 bg-blue-50/20' : 'border-slate-100 hover:border-slate-200'">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-blue-600 uppercase tracking-wider">Đang trích xuất</span>
+                <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm group-hover:scale-110 transition-transform">
+                    <i class="fas fa-spinner" :class="stats.processing > 0 ? 'fa-spin text-blue-600' : 'text-blue-400'"></i>
+                </div>
+            </div>
+            <div class="text-2xl md:text-3xl font-black text-blue-700" x-text="stats.processing"></div>
+            <div class="text-[11px] text-blue-600 font-medium mt-1 flex items-center justify-between">
+                <span>2 Pipeline song song</span>
+                <i class="fas fa-filter text-[10px]" :class="statusFilter === 'PROCESSING' ? 'text-blue-600' : 'text-slate-300'"></i>
+            </div>
+        </button>
+
+        <!-- Card 4: Thất bại -->
+        <button type="button" @click="setStatusFilter('FAILED')" 
+                class="group bg-white p-4 md:p-5 rounded-3xl border transition-all text-left relative overflow-hidden shadow-xs hover:shadow-md active:scale-98 cursor-pointer"
+                :class="statusFilter === 'FAILED' ? 'border-rose-400 ring-2 ring-rose-500/20 bg-rose-50/20' : 'border-slate-100 hover:border-slate-200'">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-rose-600 uppercase tracking-wider">Cần xử lý lại</span>
+                <div class="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-sm group-hover:scale-110 transition-transform">
                     <i class="fas fa-triangle-exclamation"></i>
                 </div>
-                <div>
-                    <h3 class="font-bold text-slate-800 text-base">Chi tiết Sự cố Trích xuất</h3>
-                    <p class="text-slate-400 text-xs truncate max-w-xs" x-text="errorData.title"></p>
-                </div>
             </div>
-            <button @click="showErrorModal = false" class="text-slate-400 hover:text-slate-600 transition-colors p-1">
-                <i class="fas fa-times text-base"></i>
-            </button>
-        </div>
+            <div class="text-2xl md:text-3xl font-black text-rose-700" x-text="stats.failed"></div>
+            <div class="text-[11px] text-rose-600 font-medium mt-1 flex items-center justify-between">
+                <span>Bấm để lọc phiếu lỗi</span>
+                <i class="fas fa-filter text-[10px]" :class="statusFilter === 'FAILED' ? 'text-rose-600' : 'text-slate-300'"></i>
+            </div>
+        </button>
+    </div>
+
+    <!-- ==================== MAIN TABLE CARD WITH SMART FILTERS ==================== -->
+    <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden relative">
         
-        <div class="p-6 space-y-4">
-            <div class="grid grid-cols-2 gap-3">
-                <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                    <div class="text-[11px] font-bold text-slate-400 uppercase">Mã lỗi</div>
-                    <div class="text-sm font-bold text-rose-600 font-mono mt-0.5" x-text="errorData.code"></div>
-                </div>
-                <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                    <div class="text-[11px] font-bold text-slate-400 uppercase">Giai đoạn lỗi</div>
-                    <div class="text-sm font-bold text-slate-700 mt-0.5" x-text="errorData.stage"></div>
-                </div>
+        <!-- Filter & Search Toolbar -->
+        <div class="p-4 md:p-5 border-b border-slate-100 bg-slate-50/70 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            
+            <!-- Filter Tabs -->
+            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+                <button type="button" @click="setStatusFilter('ALL')"
+                        class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
+                        :class="statusFilter === 'ALL' ? 'bg-slate-800 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'">
+                    Tất cả (<span x-text="stats.total"></span>)
+                </button>
+                <button type="button" @click="setStatusFilter('PROCESSING')"
+                        class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5"
+                        :class="statusFilter === 'PROCESSING' ? 'bg-blue-600 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-blue-50 border border-slate-200/80'">
+                    <i class="fas fa-spinner" :class="stats.processing > 0 ? 'fa-spin' : ''"></i>
+                    <span>Đang xử lý (<span x-text="stats.processing"></span>)</span>
+                </button>
+                <button type="button" @click="setStatusFilter('SUCCESS')"
+                        class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5"
+                        :class="statusFilter === 'SUCCESS' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-emerald-50 border border-slate-200/80'">
+                    <i class="fas fa-check-double"></i>
+                    <span>Thành công (<span x-text="stats.success"></span>)</span>
+                </button>
+                <button type="button" @click="setStatusFilter('FAILED')"
+                        class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5"
+                        :class="statusFilter === 'FAILED' ? 'bg-rose-600 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-rose-50 border border-slate-200/80'">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    <span>Thất bại (<span x-text="stats.failed"></span>)</span>
+                </button>
             </div>
 
-            <div>
-                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Thông điệp chi tiết từ Hệ thống AI</label>
-                <div class="p-3.5 rounded-xl bg-slate-900 text-slate-200 text-xs font-mono leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto border border-slate-800" x-text="errorData.detail"></div>
-            </div>
+            <!-- Search Box & Device Filter -->
+            <div class="flex items-center gap-2.5 flex-1 max-w-md md:justify-end">
+                <div class="relative w-full">
+                    <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" x-model="searchQuery" placeholder="Tìm theo mã phiếu, tiêu đề, người tạo..."
+                           class="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all">
+                    <button x-show="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs p-1">
+                        <i class="fas fa-times-circle"></i>
+                    </button>
+                </div>
 
-            <!-- Gợi ý thông minh khi lỗi GPU -->
-            <template x-if="errorData.deviceMode === 'GPU' || (errorData.detail && (errorData.detail.includes('GPU') || errorData.detail.includes('CUDA')))">
-                <div class="p-3.5 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 text-xs leading-relaxed flex items-start gap-2.5">
-                    <i class="fas fa-bolt text-purple-600 text-sm mt-0.5 shrink-0"></i>
+                <!-- Device Filter Selector -->
+                <select x-model="deviceFilter" class="bg-white border border-slate-200 text-slate-700 text-xs rounded-xl px-2.5 py-2 focus:outline-none focus:border-blue-500 font-medium">
+                    <option value="ALL">Mọi cấu hình</option>
+                    <option value="CPU">Chỉ CPU</option>
+                    <option value="GPU">Chỉ GPU</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Sync Indicator Bar -->
+        <div class="px-5 py-2.5 bg-slate-50/40 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>Tự động cập nhật không tải lại trang • Vị trí cuộn được giữ nguyên</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span>Hiển thị <strong class="text-slate-800" x-text="filteredJobs.length"></strong> / <span x-text="jobs.length"></span> tiến trình</span>
+                <span x-show="lastUpdatedTime" class="text-slate-400 hidden sm:inline">• Cập nhật: <span x-text="lastUpdatedTime"></span></span>
+            </div>
+        </div>
+
+        <!-- Progress Table -->
+        <div class="overflow-x-auto -webkit-overflow-scrolling-touch min-h-[460px]">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50/90 border-b border-slate-100 text-slate-400 text-[11px] font-black uppercase tracking-wider">
+                        <th class="px-6 py-3.5 whitespace-nowrap">Mã Phiếu</th>
+                        <th class="px-6 py-3.5">Tệp Scan / Tiêu đề</th>
+                        <th class="px-6 py-3.5 text-center">Cấu hình</th>
+                        <th class="px-6 py-3.5">Thời gian</th>
+                        <th class="px-6 py-3.5">Trạng thái Bóc tách</th>
+                        <th class="px-6 py-3.5 text-right">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-sm">
+                    <!-- Alpine x-for for Real-time Reactive Rows -->
+                    <template x-for="job in filteredJobs" :key="job.id">
+                        <tr class="transition-colors duration-200 relative group"
+                            :class="{
+                                'bg-blue-50/70 ring-2 ring-blue-400/60 ring-inset': highlightedJobId === job.id,
+                                'bg-rose-50/30 hover:bg-rose-50/60': job.status === 'FAILED' && highlightedJobId !== job.id,
+                                'hover:bg-slate-50/80': job.status !== 'FAILED' && highlightedJobId !== job.id
+                            }">
+                            
+                            <!-- 1. Mã Phiếu -->
+                            <td class="px-6 py-4 font-bold text-slate-800 whitespace-nowrap">
+                                <template x-if="job.status === 'SUCCESS' || job.status === 'SUCCESS_WITH_WARNINGS'">
+                                    <a :href="'/sheets/' + job.sheet_id + '/'" 
+                                       class="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 font-extrabold hover:underline group-hover:translate-x-0.5 transition-all">
+                                        <span class="font-mono" x-text="job.sheet_code"></span>
+                                        <i class="fas fa-arrow-up-right-from-square text-[10px] opacity-70 group-hover:opacity-100"></i>
+                                    </a>
+                                </template>
+                                <template x-if="!(job.status === 'SUCCESS' || job.status === 'SUCCESS_WITH_WARNINGS')">
+                                    <div class="flex items-center gap-1.5 font-mono text-slate-700">
+                                        <i class="fas fa-hashtag text-[11px] text-slate-400"></i>
+                                        <span x-text="job.sheet_code"></span>
+                                    </div>
+                                </template>
+                            </td>
+
+                            <!-- 2. Tệp Scan / Tiêu đề -->
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-xl bg-red-50 text-red-500 border border-red-100 flex items-center justify-center shrink-0 shadow-2xs">
+                                        <i class="fas fa-file-pdf text-base"></i>
+                                    </div>
+                                    <div class="min-w-0 max-w-xs md:max-w-md">
+                                        <p class="text-slate-800 font-semibold truncate text-xs md:text-sm" :title="job.sheet_title || ('Phiếu ' + job.sheet_code)" x-text="job.sheet_title || ('Phiếu ' + job.sheet_code)"></p>
+                                        <div class="flex items-center gap-2 text-slate-400 text-xs mt-0.5">
+                                            <span class="flex items-center gap-1">
+                                                <i class="far fa-user text-[10px]"></i>
+                                                <span x-text="job.created_by"></span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- 3. Cấu hình (CPU / GPU) -->
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                <template x-if="job.device_mode === 'GPU'">
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200/80 shadow-2xs" title="Chế độ xử lý GPU CUDA">
+                                        <i class="fas fa-bolt text-[10px] text-purple-600"></i> GPU CUDA
+                                    </span>
+                                </template>
+                                <template x-if="job.device_mode !== 'GPU'">
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/70 shadow-2xs" title="Chế độ xử lý CPU">
+                                        <i class="fas fa-microchip text-[10px] text-slate-500"></i> CPU
+                                    </span>
+                                </template>
+                            </td>
+
+                            <!-- 4. Thời gian -->
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex flex-col text-xs">
+                                    <span class="text-slate-700 font-medium" x-text="job.created_at_date"></span>
+                                    <span class="text-slate-400 text-[11px] flex items-center gap-1 mt-0.5">
+                                        <i class="far fa-clock text-[10px]"></i>
+                                        <span x-text="job.created_at_time"></span>
+                                    </span>
+                                </div>
+                            </td>
+
+                            <!-- 5. Trạng thái & Tiến trình Bóc tách (Live progress badge) -->
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <!-- PENDING -->
+                                <template x-if="job.status === 'PENDING'">
+                                    <div class="flex items-center gap-2">
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 shadow-2xs">
+                                            <i class="fas fa-hourglass-half text-slate-400 text-[11px]"></i>
+                                            <span x-text="job.stage_text || 'Đang chờ hàng đợi...'"></span>
+                                        </span>
+                                    </div>
+                                </template>
+
+                                <!-- PROCESSING -->
+                                <template x-if="job.status === 'PROCESSING'">
+                                    <div class="flex flex-col gap-1.5 min-w-[220px] max-w-xs">
+                                        <!-- Stage 1 Done / Stage 2 in progress -->
+                                        <template x-if="job.stage_text && (job.stage_text.includes('Trang 1 & 2 hoàn tất') || job.stage_text.includes('Đã xong Trang 1 & 2') || job.stage_text.includes('Bảng thông số'))">
+                                            <div class="flex flex-col gap-1">
+                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 w-fit">
+                                                    <i class="fas fa-check-circle text-emerald-500 text-[10px]"></i>
+                                                    <span>Đã xong Trang 1 & 2</span>
+                                                </span>
+                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/90 shadow-2xs w-fit">
+                                                    <i class="fas fa-circle-notch fa-spin text-indigo-600 text-[11px]"></i>
+                                                    <span x-text="job.stage_text.includes('Bảng thông số') ? job.stage_text : 'Đang bóc tách Bảng thông số (Trang 3+)...'"></span>
+                                                </span>
+                                            </div>
+                                        </template>
+                                        <!-- Stage 1 in progress -->
+                                        <template x-if="!job.stage_text || (!job.stage_text.includes('Trang 1 & 2 hoàn tất') && !job.stage_text.includes('Đã xong Trang 1 & 2') && !job.stage_text.includes('Bảng thông số'))">
+                                            <div class="flex flex-col gap-1">
+                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/90 shadow-2xs w-fit">
+                                                    <i class="fas fa-circle-notch fa-spin text-blue-600 text-[11px]"></i>
+                                                    <span x-text="job.stage_text || 'Đang bóc tách Trang 1 (Thông tin chung)...'"></span>
+                                                </span>
+                                                <span class="text-[11px] text-slate-400 font-medium ml-1 flex items-center gap-1">
+                                                    <i class="fas fa-clock text-[9px]"></i> Trang 3+ đang chờ
+                                                </span>
+                                            </div>
+                                        </template>
+                                        <!-- Mini animated progress bar -->
+                                        <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                                            <div class="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 rounded-full animate-pulse" style="width: 80%;"></div>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <!-- SUCCESS -->
+                                <template x-if="job.status === 'SUCCESS' || job.status === 'SUCCESS_WITH_WARNINGS'">
+                                    <div class="flex flex-col gap-1">
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs w-fit">
+                                            <i class="fas fa-circle-check text-emerald-600 text-[12px]"></i>
+                                            <span>Đã hoàn thành 100% ✓</span>
+                                        </span>
+                                        <span class="text-[11px] text-emerald-700 font-medium ml-1 flex items-center gap-1">
+                                            <i class="fas fa-arrow-right text-[9px] text-emerald-500"></i>
+                                            <span>Đã vào Phiếu Chờ Rà Soát</span>
+                                        </span>
+                                    </div>
+                                </template>
+
+                                <!-- FAILED -->
+                                <template x-if="job.status === 'FAILED'">
+                                    <div class="flex flex-col gap-1">
+                                        <button type="button" @click="viewError(job.sheet_title, job.error_code, job.error_stage, job.error_detail, job.id, job.device_mode)" 
+                                                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200/80 hover:bg-rose-100 hover:border-rose-300 transition-all cursor-pointer shadow-2xs w-fit" 
+                                                title="Bấm để xem chi tiết nguyên nhân lỗi">
+                                            <i class="fas fa-triangle-exclamation text-rose-500 text-[11px]"></i>
+                                            <span>Bóc tách thất bại</span>
+                                            <i class="fas fa-circle-info ml-0.5 text-[10px] text-rose-400"></i>
+                                        </button>
+                                        <span class="text-[11px] text-rose-500 font-medium ml-1 truncate max-w-[200px]" x-text="job.error_detail ? (job.error_detail.substring(0, 35) + '...') : 'Bấm để xem chi tiết'"></span>
+                                    </div>
+                                </template>
+                            </td>
+
+                            <!-- 6. Thao tác -->
+                            <td class="px-6 py-4 text-right whitespace-nowrap">
+                                <div class="inline-flex items-center justify-end gap-2">
+                                    <!-- Khi THÀNH CÔNG: Nút Cập nhật & Rà soát (Primary) + JSON -->
+                                    <template x-if="job.status === 'SUCCESS' || job.status === 'SUCCESS_WITH_WARNINGS'">
+                                        <div class="flex items-center gap-2">
+                                            <a :href="'/sheets/' + job.sheet_id + '/'" 
+                                               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold text-xs shadow-md shadow-blue-500/25 hover:shadow-lg hover:shadow-blue-500/35 transition-all active:scale-95 group">
+                                                <i class="fas fa-clipboard-check text-[13px] group-hover:scale-110 transition-transform"></i>
+                                                <span>Cập nhật & Rà soát</span>
+                                            </a>
+                                            <button type="button" @click="viewJson(job.id)" 
+                                                    class="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-200/80 transition-all active:scale-95 cursor-pointer shadow-2xs" 
+                                                    title="Xem dữ liệu JSON trả về từ OCR">
+                                                <i class="fas fa-code text-[11px] text-slate-500"></i>
+                                                <span>JSON</span>
+                                            </button>
+                                        </div>
+                                    </template>
+
+                                    <!-- Khi THẤT BẠI: Menu Dropdown (Trích xuất lại, Chi tiết, JSON) -->
+                                    <template x-if="job.status === 'FAILED'">
+                                        <div class="relative inline-block text-left" x-data="{ open: false }" @click.away="open = false" @keydown.escape.window="open = false">
+                                            <button type="button" @click="open = !open" 
+                                                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs border border-slate-200 shadow-2xs transition-all active:scale-95 cursor-pointer">
+                                                <i class="fas fa-ellipsis text-slate-400"></i>
+                                                <span>Thao tác</span>
+                                                <i class="fas fa-chevron-down text-[10px] text-slate-400 ml-0.5 transition-transform duration-200" :class="{'rotate-180': open}"></i>
+                                            </button>
+
+                                            <div x-show="open" style="display: none;"
+                                                 x-transition:enter="transition ease-out duration-100"
+                                                 x-transition:enter-start="transform opacity-0 scale-95 translate-y-1"
+                                                 x-transition:enter-end="transform opacity-100 scale-100 translate-y-0"
+                                                 x-transition:leave="transition ease-in duration-75"
+                                                 x-transition:leave-start="transform opacity-100 scale-100 translate-y-0"
+                                                 x-transition:leave-end="transform opacity-0 scale-95 translate-y-1"
+                                                 class="absolute right-0 z-50 mt-1.5 w-44 origin-top-right rounded-xl bg-white shadow-xl ring-1 ring-slate-900/5 focus:outline-none divide-y divide-slate-50 overflow-hidden">
+                                                 
+                                                <div class="p-1">
+                                                    <template x-if="job.device_mode === 'GPU'">
+                                                        <button type="button" @click="retryJob(job.id, 'CPU'); open = false" :disabled="retryingId === job.id"
+                                                                class="w-full text-left inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-blue-50 hover:text-blue-700 text-slate-700 disabled:opacity-50 transition-colors cursor-pointer">
+                                                            <i class="fas w-4 text-center" :class="retryingId === job.id ? 'fa-circle-notch fa-spin text-blue-500' : 'fa-microchip text-slate-400'"></i>
+                                                            <span x-text="retryingId === job.id ? 'Đang gửi...' : 'Thử lại bằng CPU'"></span>
+                                                        </button>
+                                                    </template>
+                                                    <template x-if="job.device_mode !== 'GPU'">
+                                                        <button type="button" @click="retryJob(job.id); open = false" :disabled="retryingId === job.id"
+                                                                class="w-full text-left inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-amber-50 hover:text-amber-700 text-slate-700 disabled:opacity-50 transition-colors cursor-pointer">
+                                                            <i class="fas w-4 text-center" :class="retryingId === job.id ? 'fa-circle-notch fa-spin text-amber-500' : 'fa-rotate-right text-slate-400'"></i>
+                                                            <span x-text="retryingId === job.id ? 'Đang gửi...' : 'Trích xuất lại'"></span>
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                                <div class="p-1">
+                                                    <button type="button" @click="viewError(job.sheet_title, job.error_code, job.error_stage, job.error_detail, job.id, job.device_mode); open = false" 
+                                                            class="w-full text-left inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer">
+                                                        <i class="fas fa-circle-info w-4 text-center text-slate-400"></i>
+                                                        Chi tiết lỗi
+                                                    </button>
+                                                    <button type="button" @click="viewJson(job.id); open = false" 
+                                                            class="w-full text-left inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer">
+                                                        <i class="fas fa-code w-4 text-center text-slate-400"></i>
+                                                        Xem JSON
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- Khi ĐANG XỬ LÝ (PROCESSING / PENDING) -->
+                                    <template x-if="job.status === 'PROCESSING' || job.status === 'PENDING'">
+                                        <div class="flex items-center gap-2">
+                                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200/80 text-xs font-bold shadow-2xs">
+                                                <i class="fas fa-circle-notch fa-spin text-blue-600 text-[11px]"></i>
+                                                <span>Đang bóc tách...</span>
+                                            </span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+
+                    <!-- Empty State -->
+                    <template x-if="filteredJobs.length === 0">
+                        <tr>
+                            <td colspan="6" class="px-6 py-16 text-center">
+                                <div class="flex flex-col items-center justify-center max-w-sm mx-auto">
+                                    <div class="w-16 h-16 bg-slate-100 rounded-3xl flex items-center justify-center mb-4 text-slate-400">
+                                        <i class="fas fa-filter-circle-xmark text-2xl"></i>
+                                    </div>
+                                    <h3 class="text-base font-bold text-slate-800 mb-1">Không tìm thấy tiến trình phù hợp</h3>
+                                    <p class="text-slate-500 text-xs mb-4 text-center">Hãy thử thay đổi từ khóa tìm kiếm hoặc chọn bộ lọc trạng thái khác.</p>
+                                    <button type="button" @click="resetFilters()" class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer">
+                                        <i class="fas fa-rotate-left"></i> Xóa bộ lọc
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL XEM CHI TIẾT LỖI ==================== -->
+    <div x-show="showErrorModal" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" x-cloak>
+        <div x-show="showErrorModal" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="showErrorModal = false"></div>
+        
+        <div x-show="showErrorModal" x-transition.scale.origin.center class="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 z-10 flex flex-col max-h-[90vh]">
+            <div class="p-5 border-b border-slate-100 bg-rose-50/70 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-base font-bold">
+                        <i class="fas fa-triangle-exclamation"></i>
+                    </div>
                     <div>
-                        <p class="font-bold">Máy tính không có GPU NVIDIA hoặc thiếu môi trường CUDA!</p>
-                        <p class="mt-1 text-purple-700">Bạn có thể bấm ngay nút <strong>"Thử lại bằng CPU"</strong> bên dưới để hệ thống chuyển sang chế độ CPU chuẩn và bóc tách phiếu bình thường.</p>
+                        <h3 class="font-bold text-slate-800 text-base">Chi tiết Sự cố Trích xuất</h3>
+                        <p class="text-slate-500 text-xs truncate max-w-xs" x-text="errorData.title"></p>
                     </div>
                 </div>
-            </template>
-
-            <!-- Gợi ý thông thường -->
-            <template x-if="!(errorData.deviceMode === 'GPU' || (errorData.detail && (errorData.detail.includes('GPU') || errorData.detail.includes('CUDA'))))">
-                <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs leading-relaxed flex items-start gap-2">
-                    <i class="fas fa-lightbulb text-amber-500 text-sm mt-0.5 shrink-0"></i>
-                    <span>Gợi ý: Nếu ảnh mờ hoặc mạng gián đoạn, bạn có thể bấm <strong>"Trích xuất lại ngay"</strong> để yêu cầu AI phân tích lại file.</span>
-                </div>
-            </template>
-        </div>
-        
-        <div class="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2.5 shrink-0">
-            <button @click="showErrorModal = false" class="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl transition-colors font-semibold text-xs">
-                Đóng
-            </button>
-            <template x-if="errorData.deviceMode === 'GPU' || (errorData.detail && (errorData.detail.includes('GPU') || errorData.detail.includes('CUDA')))">
-                <button @click="showErrorModal = false; retryJob(errorData.jobId, 'CPU')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all font-bold text-xs shadow-md shadow-blue-500/20 flex items-center gap-1.5">
-                    <i class="fas fa-microchip"></i> Thử lại bằng CPU
+                <button @click="showErrorModal = false" class="text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-xl hover:bg-rose-100/50 cursor-pointer">
+                    <i class="fas fa-times text-base"></i>
                 </button>
-            </template>
-            <button @click="showErrorModal = false; retryJob(errorData.jobId)" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all font-bold text-xs shadow-md shadow-amber-500/20 flex items-center gap-1.5">
-                <i class="fas fa-rotate-right"></i> Trích xuất lại
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Xem JSON -->
-<div x-show="showModal" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-    <div x-show="showModal" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="showModal = false"></div>
-    
-    <div x-show="showModal" x-transition.scale.origin.bottom class="relative bg-slate-900 text-slate-300 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden border border-slate-700 z-10">
-        <div class="p-4 border-b border-slate-800 bg-slate-900 flex justify-between items-center shrink-0">
-            <h3 class="font-bold text-emerald-400 flex items-center gap-2 text-sm">
-                <i class="fas fa-terminal"></i> Dữ liệu trích xuất JSON (OcrResult)
-            </h3>
-            <button @click="showModal = false" class="text-slate-500 hover:text-white transition-colors p-1">
-                <i class="fas fa-times text-lg"></i>
-            </button>
-        </div>
-        
-        <div class="p-0 overflow-y-auto flex-1 bg-[#1e1e1e] relative">
-            <div x-show="isLoading" class="absolute inset-0 flex items-center justify-center bg-[#1e1e1e]/80 z-10">
-                <i class="fas fa-circle-notch fa-spin text-3xl text-emerald-500"></i>
             </div>
-            <pre class="p-5 text-xs font-mono leading-relaxed" x-text="jsonData" style="color: #d4d4d4;"></pre>
-        </div>
-        
-        <div class="p-3.5 border-t border-slate-800 bg-slate-900 flex justify-end shrink-0">
-            <button @click="showModal = false" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors font-semibold text-xs">
-                Đóng
-            </button>
+            
+            <div class="p-6 space-y-4 overflow-y-auto">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Mã lỗi</div>
+                        <div class="text-xs font-bold text-rose-600 font-mono mt-1 truncate" x-text="errorData.code"></div>
+                    </div>
+                    <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Giai đoạn lỗi</div>
+                        <div class="text-xs font-bold text-slate-700 mt-1 truncate" x-text="errorData.stage"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Thông báo chi tiết từ Hệ thống AI</label>
+                    <div class="p-4 rounded-2xl bg-slate-900 text-slate-200 text-xs font-mono leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto border border-slate-800 selection:bg-rose-500" x-text="errorData.detail"></div>
+                </div>
+
+                <!-- Gợi ý thông minh khi lỗi GPU -->
+                <template x-if="errorData.deviceMode === 'GPU' || (errorData.detail && (errorData.detail.includes('GPU') || errorData.detail.includes('CUDA')))">
+                    <div class="p-4 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 text-xs leading-relaxed flex items-start gap-3">
+                        <i class="fas fa-bolt text-purple-600 text-base mt-0.5 shrink-0"></i>
+                        <div>
+                            <p class="font-bold">Máy chủ không hỗ trợ GPU NVIDIA hoặc thiếu driver CUDA!</p>
+                            <p class="mt-1 text-purple-700">Bạn có thể bấm ngay nút <strong>"Thử lại bằng CPU"</strong> bên dưới để hệ thống chuyển sang chế độ CPU chuẩn và bóc tách phiếu bình thường.</p>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Gợi ý thông thường -->
+                <template x-if="!(errorData.deviceMode === 'GPU' || (errorData.detail && (errorData.detail.includes('GPU') || errorData.detail.includes('CUDA'))))">
+                    <div class="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs leading-relaxed flex items-start gap-2.5">
+                        <i class="fas fa-lightbulb text-amber-500 text-base mt-0.5 shrink-0"></i>
+                        <span>Gợi ý: Nếu ảnh mờ hoặc mạng gián đoạn, bạn có thể bấm <strong>"Trích xuất lại ngay"</strong> để yêu cầu AI phân tích lại file.</span>
+                    </div>
+                </template>
+            </div>
+            
+            <div class="p-4 border-t border-slate-100 bg-slate-50/70 flex justify-end gap-2.5 shrink-0">
+                <button @click="showErrorModal = false" class="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl transition-colors font-semibold text-xs cursor-pointer">
+                    Đóng
+                </button>
+                <template x-if="errorData.deviceMode === 'GPU' || (errorData.detail && (errorData.detail.includes('GPU') || errorData.detail.includes('CUDA')))">
+                    <button @click="showErrorModal = false; retryJob(errorData.jobId, 'CPU')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all font-bold text-xs shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer">
+                        <i class="fas fa-microchip"></i> Thử lại bằng CPU
+                    </button>
+                </template>
+                <button @click="showErrorModal = false; retryJob(errorData.jobId)" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all font-bold text-xs shadow-md shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer">
+                    <i class="fas fa-rotate-right"></i> Trích xuất lại
+                </button>
+            </div>
         </div>
     </div>
-</div>
+
+    <!-- ==================== MODAL XEM JSON ==================== -->
+    <div x-show="showModal" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" x-cloak>
+        <div x-show="showModal" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="showModal = false"></div>
+        
+        <div x-show="showModal" x-transition.scale.origin.bottom class="relative bg-slate-900 text-slate-300 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden border border-slate-800 z-10">
+            <div class="p-4 border-b border-slate-800 bg-slate-900 flex justify-between items-center shrink-0">
+                <h3 class="font-bold text-emerald-400 flex items-center gap-2 text-sm">
+                    <i class="fas fa-terminal"></i> Dữ liệu trích xuất JSON (OcrResult)
+                </h3>
+                <button @click="showModal = false" class="text-slate-400 hover:text-white transition-colors p-1.5 rounded-xl hover:bg-slate-800 cursor-pointer">
+                    <i class="fas fa-times text-base"></i>
+                </button>
+            </div>
+            
+            <div class="p-0 overflow-y-auto flex-1 bg-[#18181b] relative">
+                <div x-show="isLoading" class="absolute inset-0 flex items-center justify-center bg-[#18181b]/80 z-10">
+                    <i class="fas fa-circle-notch fa-spin text-3xl text-emerald-500"></i>
+                </div>
+                <pre class="p-5 text-xs font-mono leading-relaxed" x-text="jsonData" style="color: #e4e4e7;"></pre>
+            </div>
+            
+            <div class="p-3.5 border-t border-slate-800 bg-slate-900 flex justify-between items-center shrink-0">
+                <button type="button" @click="copyJson()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition-colors font-semibold text-xs flex items-center gap-1.5 cursor-pointer">
+                    <i class="fas fa-copy"></i>
+                    <span x-text="copiedJson ? 'Đã sao chép!' : 'Sao chép JSON'"></span>
+                </button>
+                <button @click="showModal = false" class="px-5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors font-semibold text-xs cursor-pointer">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    </div>
 
 </div>
+
+<!-- ==================== ALPINE.JS REACTIVE COMPONENT ==================== -->
+<script>
+function ocrProgressManager() {
+    return {
+        jobs: {{ jobs_json|safe|default:"[]" }},
+        stats: {
+            total: {{ total_count|default:0 }},
+            success: {{ success_count|default:0 }},
+            processing: {{ processing_count|default:0 }},
+            failed: {{ failed_count|default:0 }}
+        },
+        statusFilter: 'ALL',
+        deviceFilter: 'ALL',
+        searchQuery: '',
+        showModal: false,
+        showErrorModal: false,
+        isLoading: false,
+        isSyncing: false,
+        jsonData: '',
+        copiedJson: false,
+        errorData: { title: '', code: '', stage: '', detail: '', jobId: null, deviceMode: 'CPU' },
+        retryingId: null,
+        retryingAll: false,
+        highlightedJobId: null,
+        lastUpdatedTime: '',
+        syncTimer: null,
+
+        init() {
+            this.updateLastTime();
+            try { sessionStorage.removeItem('ocr_progress_scroll'); } catch(e) {}
+
+            // 1. Lắng nghe sự kiện WebSocket toàn cục được dispatch từ base.html
+            window.addEventListener('ws-message', (e) => {
+                const data = e.detail;
+                if (!data) return;
+
+                if (data.event_type === 'ocr_update' || data.type === 'ocr_event') {
+                    this.handleOcrUpdate(data);
+                }
+            });
+
+            // 2. Polling ngầm nhẹ nhàng mỗi 5 giây (Background in-place sync) mà hoàn toàn KHÔNG reload trang
+            this.syncTimer = setInterval(() => {
+                this.fetchLatestData(false);
+            }, 5000);
+        },
+
+        updateLastTime() {
+            const now = new Date();
+            this.lastUpdatedTime = now.toLocaleTimeString('vi-VN');
+        },
+
+        setStatusFilter(filter) {
+            this.statusFilter = filter;
+        },
+
+        resetFilters() {
+            this.statusFilter = 'ALL';
+            this.deviceFilter = 'ALL';
+            this.searchQuery = '';
+        },
+
+        get filteredJobs() {
+            return this.jobs.filter(job => {
+                // Filter theo Status
+                if (this.statusFilter === 'SUCCESS' && !(job.status === 'SUCCESS' || job.status === 'SUCCESS_WITH_WARNINGS')) return false;
+                if (this.statusFilter === 'PROCESSING' && !(job.status === 'PROCESSING' || job.status === 'PENDING')) return false;
+                if (this.statusFilter === 'FAILED' && job.status !== 'FAILED') return false;
+
+                // Filter theo Device Mode
+                if (this.deviceFilter === 'CPU' && job.device_mode === 'GPU') return false;
+                if (this.deviceFilter === 'GPU' && job.device_mode !== 'GPU') return false;
+
+                // Filter theo Search Query
+                if (this.searchQuery.trim()) {
+                    const q = this.searchQuery.toLowerCase().trim();
+                    const sheetCode = (job.sheet_code || '').toLowerCase();
+                    const sheetTitle = (job.sheet_title || '').toLowerCase();
+                    const createdBy = (job.created_by || '').toLowerCase();
+                    if (!sheetCode.includes(q) && !sheetTitle.includes(q) && !createdBy.includes(q)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+        },
+
+        handleOcrUpdate(payload) {
+            this.updateLastTime();
+
+            // Cập nhật stats KPI
+            if (payload.stats) {
+                this.stats = Object.assign({}, this.stats, payload.stats);
+            }
+
+            const incomingJob = payload.job;
+            if (!incomingJob) return;
+
+            const existingIndex = this.jobs.findIndex(j => j.id === incomingJob.id);
+            if (existingIndex !== -1) {
+                // Cập nhật in-place từng thuộc tính mà KHÔNG làm thay đổi DOM node gốc
+                for (const key in incomingJob) {
+                    if (this.jobs[existingIndex][key] !== incomingJob[key]) {
+                        this.jobs[existingIndex][key] = incomingJob[key];
+                    }
+                }
+            } else {
+                // Thêm job mới lên đầu danh sách
+                this.jobs.unshift(incomingJob);
+                if (this.jobs.length > 50) {
+                    this.jobs.pop();
+                }
+                this.stats.total = this.jobs.length;
+            }
+
+            // Hiệu ứng highlight nhẹ dòng vừa thay đổi
+            this.highlightedJobId = incomingJob.id;
+            setTimeout(() => {
+                if (this.highlightedJobId === incomingJob.id) {
+                    this.highlightedJobId = null;
+                }
+            }, 3000);
+        },
+
+        // Đồng bộ dữ liệu ngầm không reload trang
+        async fetchLatestData(showIndicator = false) {
+            if (this.isSyncing) return;
+            if (showIndicator) this.isSyncing = true;
+
+            try {
+                const response = await fetch('/sheets/ocr-progress/?format=json', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const data = await response.json();
+                if (data.status === 'ok' && data.jobs) {
+                    this.updateLastTime();
+                    if (data.stats) {
+                        this.stats = Object.assign({}, this.stats, data.stats);
+                    }
+
+                    // Cập nhật in-place từng job
+                    data.jobs.forEach(incoming => {
+                        const idx = this.jobs.findIndex(j => j.id === incoming.id);
+                        if (idx !== -1) {
+                            for (const key in incoming) {
+                                if (this.jobs[idx][key] !== incoming[key]) {
+                                    this.jobs[idx][key] = incoming[key];
+                                }
+                            }
+                        } else {
+                            this.jobs.unshift(incoming);
+                            if (this.jobs.length > 50) this.jobs.pop();
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn("Background OCR sync error:", e);
+            } finally {
+                if (showIndicator) {
+                    setTimeout(() => { this.isSyncing = false; }, 400);
+                }
+            }
+        },
+
+        async retryJob(jobId, deviceMode = null) {
+            this.retryingId = jobId;
+            try {
+                let formData = new FormData();
+                if (deviceMode) {
+                    formData.append('device_mode', deviceMode);
+                }
+                const response = await fetch(`/sheets/ocr-job/${jobId}/retry/`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const data = await response.json();
+                if (data.status === 'ok') {
+                    const job = this.jobs.find(j => j.id === jobId);
+                    if (job) {
+                        job.status = 'PENDING';
+                        job.stage_text = 'Đang chờ xử lý...';
+                        if (deviceMode) job.device_mode = deviceMode;
+                    }
+                    if (this.stats.failed > 0) this.stats.failed--;
+                    this.stats.processing++;
+                } else {
+                    alert(data.message || 'Không thể trích xuất lại');
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.retryingId = null;
+            }
+        },
+
+        async retryAll(deviceMode = null) {
+            this.retryingAll = true;
+            try {
+                let formData = new FormData();
+                if (deviceMode) {
+                    formData.append('device_mode', deviceMode);
+                }
+                const response = await fetch(`/sheets/ocr-job/retry-all/`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const data = await response.json();
+                if (data.status === 'ok') {
+                    this.jobs.forEach(j => {
+                        if (j.status === 'FAILED') {
+                            j.status = 'PENDING';
+                            j.stage_text = 'Đang chờ xử lý...';
+                            if (deviceMode) j.device_mode = deviceMode;
+                        }
+                    });
+                    this.stats.processing += this.stats.failed;
+                    this.stats.failed = 0;
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.retryingAll = false;
+            }
+        },
+
+        async viewJson(jobId) {
+            this.showModal = true;
+            this.isLoading = true;
+            this.jsonData = '';
+            this.copiedJson = false;
+            
+            try {
+                const response = await fetch(`/sheets/ocr-job/${jobId}/json/`);
+                const data = await response.json();
+                this.jsonData = JSON.stringify(data, null, 2);
+            } catch (error) {
+                this.jsonData = 'Lỗi không thể tải được dữ liệu JSON.\n\n' + error;
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        copyJson() {
+            if (!this.jsonData) return;
+            navigator.clipboard.writeText(this.jsonData).then(() => {
+                this.copiedJson = true;
+                setTimeout(() => { this.copiedJson = false; }, 2500);
+            });
+        },
+
+        viewError(title, code, stage, detail, jobId, deviceMode) {
+            this.errorData = {
+                title: title || 'Không có tên file',
+                code: code || 'Chưa xác định',
+                stage: stage || 'Trích xuất',
+                detail: detail || 'Hệ thống không ghi nhận được thông điệp lỗi chi tiết.',
+                jobId: jobId,
+                deviceMode: deviceMode || 'CPU'
+            };
+            this.showErrorModal = true;
+        }
+    };
+}
+</script>
 {% endblock %}

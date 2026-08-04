@@ -41,15 +41,30 @@ def poppler_binary(name: str) -> str:
     raise RuntimeError(f"{name} was not found. Install Poppler and add its bin directory to PATH.")
 
 
-def render_pdf(path: Path, output_dir: Path, *, dpi: int = 150) -> list[Path]:
-    """Render every page with Poppler for OCR and visual review."""
+def render_pdf(
+    path: Path,
+    output_dir: Path,
+    *,
+    dpi: int = 150,
+    first_page: int | None = None,
+    last_page: int | None = None,
+) -> list[Path]:
+    """Render pages with Poppler for OCR and visual review."""
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for old in output_dir.glob("page-*.png"):
-        old.unlink()
+        if first_page is None and last_page is None:
+            old.unlink()
     prefix = output_dir / "page"
+    cmd = [poppler_binary("pdftoppm"), "-png", "-r", str(dpi)]
+    if first_page is not None:
+        cmd.extend(["-f", str(first_page)])
+    if last_page is not None:
+        cmd.extend(["-l", str(last_page)])
+    cmd.extend([str(path), str(prefix)])
+
     completed = subprocess.run(
-        [poppler_binary("pdftoppm"), "-png", "-r", str(dpi), str(path), str(prefix)],
+        cmd,
         capture_output=True,
         text=True,
         check=False,
@@ -57,9 +72,6 @@ def render_pdf(path: Path, output_dir: Path, *, dpi: int = 150) -> list[Path]:
     if completed.returncode != 0:
         raise RuntimeError(f"pdftoppm failed: {completed.stderr.strip()}")
     pages = sorted(output_dir.glob("page-*.png"), key=lambda item: int(re.search(r"(\d+)$", item.stem).group(1)))
-    expected = pdf_page_count(path)
-    if len(pages) != expected:
-        raise RuntimeError(f"Rendered {len(pages)} pages but PDF contains {expected}.")
     return pages
 
 

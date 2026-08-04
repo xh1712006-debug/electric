@@ -72,13 +72,13 @@ services:
     # - Linux:   sudo apt install nvidia-container-toolkit
     #            sudo systemctl restart docker
     # ============================================================
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     depends_on:
       - db
       - redis

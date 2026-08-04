@@ -21,20 +21,21 @@ class PPTextDetector:
     engine_version = "PP-OCRv5_mobile_det"
 
     def __init__(self, use_gpu: bool = False, model_name: str = engine_version) -> None:
+        paddle_device = "cpu"
         try:
-            if not use_gpu:
-                # Prevent the Windows CPU oneDNN fused-convolution failure seen
-                # during detector verification; this does not alter model output.
-                os.environ.setdefault("FLAGS_use_mkldnn", "0")
-            else:
+            if use_gpu:
                 try:
                     import paddle
-                    if not paddle.is_compiled_with_cuda():
-                        raise RuntimeError("PaddlePaddle hiện tại chưa được biên dịch hỗ trợ CUDA/GPU trên máy tính này.")
-                    if paddle.device.cuda.device_count() == 0:
-                        raise RuntimeError("Máy tính không tìm thấy card đồ họa GPU NVIDIA khả dụng cho PaddlePaddle.")
-                except Exception as exc:
-                    raise RuntimeError(f"Kiểm tra PaddlePaddle GPU thất bại: {exc}") from exc
+                    if paddle.is_compiled_with_cuda() and paddle.device.cuda.device_count() > 0:
+                        paddle_device = "gpu:0"
+                    else:
+                        os.environ.setdefault("FLAGS_use_mkldnn", "0")
+                        paddle_device = "cpu"
+                except Exception:
+                    os.environ.setdefault("FLAGS_use_mkldnn", "0")
+                    paddle_device = "cpu"
+            else:
+                os.environ.setdefault("FLAGS_use_mkldnn", "0")
 
             os.environ.setdefault("PADDLE_PDX_MODEL_SOURCE", "BOS")
             from paddleocr import TextDetection
@@ -46,11 +47,21 @@ class PPTextDetector:
         try:
             self._detector = TextDetection(
                 model_name=model_name,
-                device="gpu:0" if use_gpu else "cpu",
+                device=paddle_device,
                 enable_mkldnn=False,
             )
-        except Exception as exc:
-            raise RuntimeError(f"Không thể khởi tạo PP-OCR detector (GPU={use_gpu}): {exc}") from exc
+        except Exception:
+            if paddle_device != "cpu":
+                try:
+                    self._detector = TextDetection(
+                        model_name=model_name,
+                        device="cpu",
+                        enable_mkldnn=False,
+                    )
+                except Exception as exc:
+                    raise RuntimeError(f"Không thể khởi tạo PP-OCR detector (CPU fallback): {exc}") from exc
+            else:
+                raise
 
     def detect(self, image: Any) -> list[Detection]:
         """Detect regions from a BGR NumPy image without running recognition."""

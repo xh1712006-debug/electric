@@ -88,9 +88,6 @@
                 <span class="ml-1.5 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">{{ total_diff_count }}</span>
                 {% endif %}
             </button>
-            <button @click="activeTab = 'info'" :class="activeTab === 'info' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200">
-                <i class="fas fa-info-circle mr-1"></i> Thông tin
-            </button>
             {% if request.user.is_superuser or request.user|has_group:'ADMIN' %}
             <button @click="activeTab = 'autocheck'" :class="activeTab === 'autocheck' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200">
                 <i class="fas fa-satellite-dish mr-1"></i> Đối chiếu API
@@ -271,148 +268,14 @@
                     </div>
                 </div>
 
-                {% if sheet.extracted_data %}
-                    {% if not sheet.relay %}
-                    <!-- Yêu cầu gán Relay trước -->
-                    <div class="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50 h-full">
-                        <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl mb-6 shadow-inner relative">
-                            <i class="fas fa-microchip"></i>
-                            <div class="absolute -right-1 -bottom-1 bg-green-500 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-50"><i class="fas fa-check"></i></div>
-                        </div>
-                        <h2 class="text-xl font-bold text-slate-800 mb-3">AI đã đọc xong Bản PDF!</h2>
-                        <p class="text-slate-500 mb-8 max-w-md text-sm leading-relaxed">Hệ thống đã nhận diện được các thông số thô từ file. Để chuẩn hóa và hiển thị thành bảng kỹ thuật chính xác, vui lòng chỉ định <b>Trạm</b> và <b>Rơ-le</b> cho phiếu này.</p>
-                        
-                        <button @click="activeTab = 'info'" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-blue-500/30 transition-all font-bold flex items-center gap-2 hover:-translate-y-0.5">
-                            Cập nhật Thông tin & Rơ-le <i class="fas fa-arrow-right"></i>
-                        </button>
-                    </div>
-                    {% else %}
-                    <form method="POST" action="{% url 'sheet_save_actual_data' sheet.pk %}" class="flex-1 flex flex-col min-h-0">
-                        {% csrf_token %}
-                        <input type="hidden" name="_original_updated_at" value="{{ sheet.updated_at.timestamp }}">
-                        
-                        <!-- Vùng cuộn chứa dữ liệu -->
-                        <div id="ocrDataScrollContainer" class="flex-1 overflow-y-auto p-5 space-y-4 scroll-smooth relative">
-                            <!-- Bảng thông số dạng Grid List gọn gàng -->
-                            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                                <!-- Table Header -->
-                                <div class="grid grid-cols-12 gap-3 p-3 bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider sticky top-0 z-20 shadow-sm">
-                                    <div class="col-span-8">Thông số Cài đặt</div>
-                                    <div class="col-span-4 text-center">
-                                        {% if 'AUTO-CORRECT' in sheet.sheet_code %}
-                                        Dữ liệu Hệ thống (RMS)
-                                        {% else %}
-                                        Giá trị (Thiết kế)
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                
-                                <!-- Table Body -->
-                                <div class="divide-y divide-slate-100">
-                                    {% for item in display_data %}
-                                    
-                                    {% ifchanged item.page_number %}
-                                    <!-- Page Header Divider -->
-                                    <div class="bg-blue-50 border-y border-blue-100 p-2 text-center sticky top-[45px] z-10 shadow-sm ocr-page-group" data-page="{{ item.page_number|default:1 }}">
-                                        <span class="text-xs font-black text-blue-800 uppercase tracking-widest"><i class="fas fa-file-alt mr-1"></i> Trang {{ item.page_number|default:"Chưa phân trang" }}</span>
-                                    </div>
-                                    {% endifchanged %}
-                                    
-                                    <div class="grid grid-cols-12 gap-3 p-3 items-center hover:bg-slate-50 transition-colors ocr-data-row"
-                                         data-page="{{ item.page_number|default:1 }}"
-                                         data-code="{{ item.parameter_code|escapejs }}"
-                                         data-name="{{ item.parameter_name|escapejs }}"
-                                         x-show="searchQuery === '' || $el.dataset.code.toLowerCase().includes(searchQuery.toLowerCase()) || $el.dataset.name.toLowerCase().includes(searchQuery.toLowerCase())">
-                                        <!-- Cột Thông số -->
-                                        <div class="col-span-8 flex flex-col justify-center">
-                                            <div class="flex items-center gap-2">
-                                                <span class="text-sm font-bold text-slate-800">
-                                                    {% if item.parameter_code and item.parameter_code != 'None' %}{{ item.parameter_code }}{% else %}{{ item.parameter_name }}{% endif %}
-                                                </span>
-                                                {% if 'AUTO-CORRECT' not in sheet.sheet_code %}
-                                                    {% if item.confidence and item.confidence != 'None' %}
-                                                    <span class="text-[9px] {% if item.confidence > 95 %}bg-green-100 text-green-700{% elif item.confidence > 90 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %} px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                                                        {{ item.confidence }}% AI
-                                                    </span>
-                                                    {% else %}
-                                                    <span class="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider" title="AI không cung cấp độ tin cậy">
-                                                        N/A AI
-                                                    </span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            </div>
-                                            <p class="text-xs text-slate-500 truncate" title="{{ item.parameter_name }}">
-                                                {% if item.parameter_code and item.parameter_code != 'None' %}{{ item.parameter_name }}{% endif %}
-                                            </p>
-                                        </div>
-                                        
-                                        <!-- Cột Giá trị -->
-                                        <div class="col-span-4 flex flex-col justify-center gap-1">
-                                            <div class="flex items-center bg-slate-100 px-3 py-2 rounded-lg w-full border border-slate-200 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-colors">
-                                                {% if request.user|has_group:'DISPATCHER' and sheet.status in 'DRAFT ISSUED' %}
-                                                    <input type="text" name="ocr_value_{{ forloop.counter0 }}" value="{% if item.value and item.value != 'None' %}{{ item.value }}{% endif %}" class="w-full text-sm font-bold bg-transparent text-center focus:outline-none text-slate-800">
-                                                {% else %}
-                                                    <span class="w-full text-sm font-bold text-center text-slate-800">{% if item.value and item.value != 'None' %}{{ item.value }}{% endif %}</span>
-                                                {% endif %}
-                                                <span class="text-xs text-slate-500 font-medium w-8 text-right">{% if item.unit and item.unit != 'None' %}{{ item.unit }}{% endif %}</span>
-                                            </div>
-                                            {% if item.original_value and item.original_value|stringformat:"s" != item.value|stringformat:"s" %}
-                                            <div class="text-[10px] text-orange-600 flex items-center justify-center font-bold bg-orange-50 py-0.5 px-2 rounded border border-orange-100 w-fit mx-auto mt-0.5">
-                                                <i class="fas fa-exclamation-triangle mr-1 opacity-70"></i> OCR gốc: {{ item.original_value }}
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            
-                            <div class="text-xs text-slate-400 text-center mt-2 italic pb-4">* Kỹ thuật viên (KTV) tuân thủ cài đặt rơ-le theo đúng thông số Giá trị (Thiết kế) trên.</div>
-                        </div>
 
-                        <!-- Sticky Footer (Nút Lưu) - Nằm ngoài vùng cuộn, luôn hiển thị ở đáy -->
-                        <div class="bg-white border-t border-slate-200 p-4 flex justify-end items-center shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] relative z-10">
-                            
-                            {% if request.user|has_group:'DISPATCHER' and sheet.status in 'DRAFT ISSUED' %}
-                            <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all flex items-center gap-2 transform hover:-translate-y-0.5">
-                                <i class="fas fa-save"></i> Lưu Dữ Liệu
-                            </button>
-                            {% else %}
-                            <div class="text-sm font-medium text-slate-500 italic"><i class="fas fa-lock mr-1"></i> Dữ liệu OCR đã được khóa</div>
-                            {% endif %}
-                        </div>
-                    </form>
-                    {% endif %}
-                
-                {% else %}
-                    <!-- Show mock OCR button -->
-                    <div class="flex flex-col items-center justify-center h-full pt-10 pb-10" x-data="{ loading: false }">
-                        <i class="fas fa-robot text-5xl text-slate-300 mb-4" :class="loading ? 'animate-bounce text-primary' : ''"></i>
-                        <p class="text-slate-500 text-sm mb-6 text-center" x-show="!loading">Phiếu chưa được chạy bóc tách dữ liệu.<br>Bấm nút bên dưới để giả lập AI OCR.</p>
-                        <p class="text-primary text-sm mb-6 text-center font-medium" x-show="loading" style="display: none;">Đang phân tích PDF bằng Tesseract...<br>Vui lòng đợi vài giây.</p>
-                        
-                        {% if perms.sheets.can_create_sheet %}
-                        {% if sheet.status in 'DRAFT ISSUED' %}
-                        <form method="POST" action="{% url 'run_mock_ocr' sheet.pk %}" @submit="loading = true">
-                            {% csrf_token %}
-                            <button type="submit" class="px-5 py-2.5 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition-colors shadow-sm inline-flex items-center gap-2" :disabled="loading" :class="loading ? 'opacity-50 cursor-not-allowed' : ''">
-                                <i class="fas fa-search" :class="loading ? 'fa-spin' : ''"></i> 
-                                <span x-text="loading ? 'Đang xử lý...' : 'Chạy Quét AI OCR (Mock)'"></span>
-                            </button>
-                        </form>
-                        {% else %}
-                        <p class="text-sm text-slate-500 font-medium italic"><i class="fas fa-lock mr-1"></i> Phiếu đã duyệt. Dữ liệu đã bị khóa.</p>
-                        {% endif %}
-                        {% else %}
-                        <p class="text-sm text-red-500 font-medium">Bạn không có quyền chạy AI OCR. Vui lòng liên hệ Admin.</p>
-                        {% endif %}
-                    </div>
-                {% endif %}
-            </div> <!-- CLOSE OCR TAB -->
+    <div id="ocrDataScrollContainer" class="flex-1 overflow-y-auto p-5 space-y-6 scroll-smooth relative custom-scrollbar bg-slate-50">
+        <!-- TRANG 1 HEADER -->
+        <div class="bg-blue-50 border-y border-blue-100 p-2 text-center sticky top-0 z-30 shadow-sm ocr-page-group mb-4" data-page="1">
+            <span class="text-xs font-black text-blue-800 uppercase tracking-widest"><i class="fas fa-file-alt mr-1"></i> Trang 1 (Thông tin chung)</span>
+        </div>
 
-            <!-- Tab Info (Metadata) -->
-            <div x-show="activeTab === 'info'" class="absolute inset-0 overflow-y-auto bg-slate-50/50" style="display: none;">
-                <!-- Metadata Panel -->
+                        <!-- Metadata Panel -->
         <div class="p-0">
             <div class="p-5 border-b border-slate-200 bg-white sticky top-0 z-10 shadow-sm flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-slate-800">Thông tin Chung</h3>
@@ -534,6 +397,132 @@
         </div>
         {% endif %}
         
+
+
+                {% if sheet.extracted_data %}
+                    {% if not sheet.relay %}
+                    <!-- Yêu cầu gán Relay trước -->
+                    <div class="flex flex-col items-center justify-center p-8 text-center bg-white border border-slate-200 rounded-xl mt-6 shadow-sm">
+                        <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl mb-6 shadow-inner relative">
+                            <i class="fas fa-microchip"></i>
+                            <div class="absolute -right-1 -bottom-1 bg-green-500 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-50"><i class="fas fa-check"></i></div>
+                        </div>
+                        <h2 class="text-xl font-bold text-slate-800 mb-3">AI đã đọc xong Bản PDF!</h2>
+                        <p class="text-slate-500 mb-8 max-w-md text-sm leading-relaxed">Hệ thống đã nhận diện được các thông số thô từ file. Để chuẩn hóa và hiển thị thành bảng kỹ thuật chính xác, vui lòng chỉ định <b>Trạm</b> và <b>Rơ-le</b> cho phiếu này.</p>
+                        
+                    </div>
+                    {% else %}
+                    <form id="ocrForm" method="POST" action="{% url 'sheet_save_actual_data' sheet.pk %}" class="flex flex-col mt-6 border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                        {% csrf_token %}
+                        <input type="hidden" name="_original_updated_at" value="{{ sheet.updated_at.timestamp }}">
+                        
+                        <!-- Vùng cuộn chứa dữ liệu -->
+                        <div class="space-y-4">
+                            <!-- Bảng thông số dạng Grid List gọn gàng -->
+                            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                                <!-- Table Header -->
+                                <div class="grid grid-cols-12 gap-3 p-3 bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider sticky top-0 z-20 shadow-sm">
+                                    <div class="col-span-8">Thông số Cài đặt</div>
+                                    <div class="col-span-4 text-center">
+                                        {% if 'AUTO-CORRECT' in sheet.sheet_code %}
+                                        Dữ liệu Hệ thống (RMS)
+                                        {% else %}
+                                        Giá trị (Thiết kế)
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <!-- Table Body -->
+                                <div class="divide-y divide-slate-100">
+                                    {% for item in display_data %}
+                                    
+                                    {% ifchanged item.page_number %}
+                                    <!-- Page Header Divider -->
+                                    <div class="bg-blue-50 border-y border-blue-100 p-2 text-center sticky top-[45px] z-10 shadow-sm ocr-page-group" data-page="{{ item.page_number|default:1 }}">
+                                        <span class="text-xs font-black text-blue-800 uppercase tracking-widest"><i class="fas fa-file-alt mr-1"></i> Trang {{ item.page_number|default:"Chưa phân trang" }}</span>
+                                    </div>
+                                    {% endifchanged %}
+                                    
+                                    <div class="grid grid-cols-12 gap-3 p-3 items-center hover:bg-slate-50 transition-colors ocr-data-row"
+                                         data-page="{{ item.page_number|default:1 }}"
+                                         data-code="{{ item.parameter_code|escapejs }}"
+                                         data-name="{{ item.parameter_name|escapejs }}"
+                                         x-show="searchQuery === '' || $el.dataset.code.toLowerCase().includes(searchQuery.toLowerCase()) || $el.dataset.name.toLowerCase().includes(searchQuery.toLowerCase())">
+                                        <!-- Cột Thông số -->
+                                        <div class="col-span-8 flex flex-col justify-center">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-sm font-bold text-slate-800">
+                                                    {% if item.parameter_code and item.parameter_code != 'None' %}{{ item.parameter_code }}{% else %}{{ item.parameter_name }}{% endif %}
+                                                </span>
+                                                {% if 'AUTO-CORRECT' not in sheet.sheet_code %}
+                                                    {% if item.confidence and item.confidence != 'None' %}
+                                                    <span class="text-[9px] {% if item.confidence > 95 %}bg-green-100 text-green-700{% elif item.confidence > 90 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %} px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                                        {{ item.confidence }}% AI
+                                                    </span>
+                                                    {% else %}
+                                                    <span class="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider" title="AI không cung cấp độ tin cậy">
+                                                        N/A AI
+                                                    </span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </div>
+                                            <p class="text-xs text-slate-500 truncate" title="{{ item.parameter_name }}">
+                                                {% if item.parameter_code and item.parameter_code != 'None' %}{{ item.parameter_name }}{% endif %}
+                                            </p>
+                                        </div>
+                                        
+                                        <!-- Cột Giá trị -->
+                                        <div class="col-span-4 flex flex-col justify-center gap-1">
+                                            <div class="flex items-center bg-slate-100 px-3 py-2 rounded-lg w-full border border-slate-200 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-colors">
+                                                {% if request.user|has_group:'DISPATCHER' and sheet.status in 'DRAFT ISSUED' %}
+                                                    <input type="text" name="ocr_value_{{ forloop.counter0 }}" value="{% if item.value and item.value != 'None' %}{{ item.value }}{% endif %}" class="w-full text-sm font-bold bg-transparent text-center focus:outline-none text-slate-800">
+                                                {% else %}
+                                                    <span class="w-full text-sm font-bold text-center text-slate-800">{% if item.value and item.value != 'None' %}{{ item.value }}{% endif %}</span>
+                                                {% endif %}
+                                                <span class="text-xs text-slate-500 font-medium w-8 text-right">{% if item.unit and item.unit != 'None' %}{{ item.unit }}{% endif %}</span>
+                                            </div>
+                                            {% if item.original_value and item.original_value|stringformat:"s" != item.value|stringformat:"s" %}
+                                            <div class="text-[10px] text-orange-600 flex items-center justify-center font-bold bg-orange-50 py-0.5 px-2 rounded border border-orange-100 w-fit mx-auto mt-0.5">
+                                                <i class="fas fa-exclamation-triangle mr-1 opacity-70"></i> OCR gốc: {{ item.original_value }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <div class="text-xs text-slate-400 text-center mt-2 italic pb-4">* Kỹ thuật viên (KTV) tuân thủ cài đặt rơ-le theo đúng thông số Giá trị (Thiết kế) trên.</div>
+                        </div>
+
+                        </form>
+                    {% endif %}
+                
+                {% else %}
+                    <!-- Show mock OCR button -->
+                    <div class="flex flex-col items-center justify-center pt-10 pb-10 mt-6 bg-white border border-slate-200 rounded-xl shadow-sm" x-data="{ loading: false }">
+                        <i class="fas fa-robot text-5xl text-slate-300 mb-4" :class="loading ? 'animate-bounce text-primary' : ''"></i>
+                        <p class="text-slate-500 text-sm mb-6 text-center" x-show="!loading">Phiếu chưa được chạy bóc tách dữ liệu.<br>Bấm nút bên dưới để giả lập AI OCR.</p>
+                        <p class="text-primary text-sm mb-6 text-center font-medium" x-show="loading" style="display: none;">Đang phân tích PDF bằng Tesseract...<br>Vui lòng đợi vài giây.</p>
+                        
+                        {% if perms.sheets.can_create_sheet %}
+                        {% if sheet.status in 'DRAFT ISSUED' %}
+                        <form method="POST" action="{% url 'run_mock_ocr' sheet.pk %}" @submit="loading = true">
+                            {% csrf_token %}
+                            <button type="submit" class="px-5 py-2.5 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition-colors shadow-sm inline-flex items-center gap-2" :disabled="loading" :class="loading ? 'opacity-50 cursor-not-allowed' : ''">
+                                <i class="fas fa-search" :class="loading ? 'fa-spin' : ''"></i> 
+                                <span x-text="loading ? 'Đang xử lý...' : 'Chạy Quét AI OCR (Mock)'"></span>
+                            </button>
+                        </form>
+                        {% else %}
+                        <p class="text-sm text-slate-500 font-medium italic"><i class="fas fa-lock mr-1"></i> Phiếu đã duyệt. Dữ liệu đã bị khóa.</p>
+                        {% endif %}
+                        {% else %}
+                        <p class="text-sm text-red-500 font-medium">Bạn không có quyền chạy AI OCR. Vui lòng liên hệ Admin.</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
         <!-- History Timeline -->
         <div class="p-0 mt-4 border-t border-slate-200">
             <div class="p-5 border-b border-slate-200 bg-white shadow-sm flex items-center gap-2">
@@ -563,7 +552,24 @@
             </div>
         </div>
 
-            </div>
+
+    </div> <!-- End ocrDataScrollContainer -->
+
+    {% if sheet.extracted_data and sheet.relay %}
+<!-- Sticky Footer (Nút Lưu) - Nằm ngoài vùng cuộn, luôn hiển thị ở đáy -->
+                        <div class="bg-white border-t border-slate-200 p-4 flex justify-end items-center shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] relative z-10">
+                            
+                            {% if request.user|has_group:'DISPATCHER' and sheet.status in 'DRAFT ISSUED' %}
+                            <button type="submit" form="ocrForm" class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all flex items-center gap-2 transform hover:-translate-y-0.5">
+                                <i class="fas fa-save"></i> Lưu Dữ Liệu OCR
+                            </button>
+                            {% else %}
+                            <div class="text-sm font-medium text-slate-500 italic"><i class="fas fa-lock mr-1"></i> Dữ liệu OCR đã được khóa</div>
+                            {% endif %}
+                        </div>
+                    
+    {% endif %}
+</div> <!-- CLOSE OCR TAB -->
 
             <!-- Tab Compare (Differences) -->
             <div x-show="activeTab === 'compare'" class="absolute inset-0 overflow-y-auto bg-slate-50/50" style="display: none;">

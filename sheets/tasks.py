@@ -187,7 +187,11 @@ def _run_ocr_cli(input_pdf, output_root, correlation_id, stage="all", device_mod
     t_stderr = threading.Thread(target=_read_stderr, daemon=True)
     t_stderr.start()
 
-    stdout_data, _ = proc.communicate()
+    # ĐỌC STDOUT TRỰC TIẾP — KHÔNG DÙNG communicate() vì _read_stderr đang giữ stderr.
+    # communicate() sẽ cạnh tranh đọc stderr với thread trên → deadlock pipe → treo mãi tại "Trang 2/2".
+    stdout_data = proc.stdout.read()
+    proc.stdout.close()
+    proc.wait()
     t_stderr.join(timeout=5)
 
     output_json = (stdout_data or '').strip()

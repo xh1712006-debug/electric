@@ -31,23 +31,33 @@
     
     {% if not request.user|has_group:'TECHNICIAN' and not request.user|has_group:'SUPERVISOR' and not request.user|has_group:'STATION_LEADER' %}
     <!-- Left Column: Document Viewer (Split View 60%) -->
-    <div class="w-full md:w-3/5 bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden flex flex-col min-h-0 shrink-0">
-        <div class="h-12 bg-slate-900 flex items-center justify-between px-4 border-b border-slate-700">
+    <div class="w-full md:w-3/5 bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden flex flex-col min-h-0 shrink-0 relative">
+        <div class="h-12 bg-slate-900 flex items-center justify-between px-4 border-b border-slate-700 shrink-0 relative z-10">
             <span class="text-slate-300 text-sm font-medium"><i class="fas fa-file-pdf text-red-400 mr-2"></i> Bản scan gốc</span>
             <div class="flex gap-2">
-                <button class="w-8 h-8 rounded hover:bg-slate-700 text-slate-400 transition-colors"><i class="fas fa-search-minus"></i></button>
-                <button class="w-8 h-8 rounded hover:bg-slate-700 text-slate-400 transition-colors"><i class="fas fa-search-plus"></i></button>
+                <button onclick="zoomOutPdf()" type="button" class="w-8 h-8 rounded hover:bg-slate-700 text-slate-400 transition-colors" title="Thu nhỏ"><i class="fas fa-search-minus"></i></button>
+                <span id="pdfZoomStatus" class="text-slate-400 text-xs flex items-center min-w-[40px] justify-center">100%</span>
+                <button onclick="zoomInPdf()" type="button" class="w-8 h-8 rounded hover:bg-slate-700 text-slate-400 transition-colors" title="Phóng to"><i class="fas fa-search-plus"></i></button>
             </div>
         </div>
-        <div class="flex-1 relative bg-slate-800 p-4">
+        <div class="flex-1 relative bg-slate-800 overflow-hidden">
             {% if sheet.scan_file %}
                 {% if ".pdf" in sheet.scan_file.name|lower %}
-                    <iframe src="{{ sheet.scan_file.url }}" class="w-full h-full border-0 rounded bg-white"></iframe>
+                    <!-- Thay thế iframe bằng div cuộn cho PDF.js -->
+                    <div id="pdfScrollContainer" class="absolute inset-0 overflow-y-auto p-4 custom-scrollbar flex flex-col items-center gap-4 scroll-smooth">
+                        <div id="pdfLoadingIndicator" class="text-white text-sm flex flex-col items-center justify-center h-full my-auto">
+                            <i class="fas fa-spinner fa-spin text-3xl mb-3 text-blue-400"></i>
+                            <p>Đang tải tài liệu PDF...</p>
+                        </div>
+                        <!-- Thẻ <canvas> cho từng trang sẽ được JS chèn vào đây -->
+                    </div>
                 {% else %}
-                    <img src="{{ sheet.scan_file.url }}" class="max-w-full max-h-full object-contain mx-auto" alt="Scan">
+                    <div class="w-full h-full p-4 overflow-auto">
+                        <img src="{{ sheet.scan_file.url }}" class="max-w-full object-contain mx-auto" alt="Scan">
+                    </div>
                 {% endif %}
             {% else %}
-                <div class="flex flex-col items-center justify-center h-full text-slate-500">
+                <div class="flex flex-col items-center justify-center h-full text-slate-500 p-4">
                     <i class="fas fa-file-image text-4xl mb-3 opacity-50"></i>
                     <p>Không có file đính kèm</p>
                 </div>
@@ -282,14 +292,11 @@
                         <input type="hidden" name="_original_updated_at" value="{{ sheet.updated_at.timestamp }}">
                         
                         <!-- Vùng cuộn chứa dữ liệu -->
-                        <div class="flex-1 overflow-y-auto p-5 space-y-4">
-                            
-
-                            
+                        <div id="ocrDataScrollContainer" class="flex-1 overflow-y-auto p-5 space-y-4 scroll-smooth relative">
                             <!-- Bảng thông số dạng Grid List gọn gàng -->
                             <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                                 <!-- Table Header -->
-                                <div class="grid grid-cols-12 gap-3 p-3 bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                                <div class="grid grid-cols-12 gap-3 p-3 bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider sticky top-0 z-20 shadow-sm">
                                     <div class="col-span-8">Thông số Cài đặt</div>
                                     <div class="col-span-4 text-center">
                                         {% if 'AUTO-CORRECT' in sheet.sheet_code %}
@@ -303,7 +310,16 @@
                                 <!-- Table Body -->
                                 <div class="divide-y divide-slate-100">
                                     {% for item in display_data %}
-                                    <div class="grid grid-cols-12 gap-3 p-3 items-center hover:bg-slate-50 transition-colors"
+                                    
+                                    {% ifchanged item.page_number %}
+                                    <!-- Page Header Divider -->
+                                    <div class="bg-blue-50 border-y border-blue-100 p-2 text-center sticky top-[45px] z-10 shadow-sm ocr-page-group" data-page="{{ item.page_number|default:1 }}">
+                                        <span class="text-xs font-black text-blue-800 uppercase tracking-widest"><i class="fas fa-file-alt mr-1"></i> Trang {{ item.page_number|default:"Chưa phân trang" }}</span>
+                                    </div>
+                                    {% endifchanged %}
+                                    
+                                    <div class="grid grid-cols-12 gap-3 p-3 items-center hover:bg-slate-50 transition-colors ocr-data-row"
+                                         data-page="{{ item.page_number|default:1 }}"
                                          data-code="{{ item.parameter_code|escapejs }}"
                                          data-name="{{ item.parameter_name|escapejs }}"
                                          x-show="searchQuery === '' || $el.dataset.code.toLowerCase().includes(searchQuery.toLowerCase()) || $el.dataset.name.toLowerCase().includes(searchQuery.toLowerCase())">
@@ -883,6 +899,138 @@
             }
         }
     }
+</script>
+
+<!-- PDF.js and Sync Scroll Logic -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    let pdfDoc = null;
+    let pdfScale = 1.2;
+    let isSyncing = false;
+    let syncTimeout = null;
+
+    const pdfScrollContainer = document.getElementById('pdfScrollContainer');
+    const ocrDataScrollContainer = document.getElementById('ocrDataScrollContainer');
+    const pdfLoadingIndicator = document.getElementById('pdfLoadingIndicator');
+    const pdfZoomStatus = document.getElementById('pdfZoomStatus');
+
+    {% if sheet.scan_file and ".pdf" in sheet.scan_file.name|lower %}
+    const pdfUrl = '{{ sheet.scan_file.url }}';
+
+    pdfjsLib.getDocument(pdfUrl).promise.then(pdf => {
+        pdfDoc = pdf;
+        if(pdfLoadingIndicator) pdfLoadingIndicator.style.display = 'none';
+        renderAllPages();
+    }).catch(err => {
+        console.error('Error loading PDF:', err);
+        if(pdfLoadingIndicator) pdfLoadingIndicator.innerHTML = '<p class="text-red-500 font-bold">Lỗi tải PDF</p>';
+    });
+
+    function renderAllPages() {
+        if (!pdfDoc) return;
+        pdfScrollContainer.innerHTML = '';
+        if(pdfZoomStatus) pdfZoomStatus.innerText = Math.round(pdfScale * 100) + '%';
+
+        for (let i = 1; i <= pdfDoc.numPages; i++) {
+            const pageWrapper = document.createElement('div');
+            pageWrapper.className = 'pdf-page-wrapper bg-white shadow-md mb-4 relative flex-shrink-0';
+            pageWrapper.dataset.page = i;
+            
+            const pageLabel = document.createElement('div');
+            pageLabel.className = 'absolute top-0 left-0 bg-blue-600 text-white text-xs px-2 py-1 font-bold rounded-br z-10 opacity-80 shadow-sm';
+            pageLabel.innerText = 'Trang ' + i;
+            pageWrapper.appendChild(pageLabel);
+
+            const canvas = document.createElement('canvas');
+            pageWrapper.appendChild(canvas);
+            pdfScrollContainer.appendChild(pageWrapper);
+
+            pdfDoc.getPage(i).then(page => {
+                const viewport = page.getViewport({ scale: pdfScale });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                const renderContext = {
+                    canvasContext: canvas.getContext('2d'),
+                    viewport: viewport
+                };
+                page.render(renderContext);
+            });
+        }
+    }
+
+    window.zoomInPdf = function() {
+        if(pdfScale < 3.0) { pdfScale += 0.2; renderAllPages(); }
+    }
+    window.zoomOutPdf = function() {
+        if(pdfScale > 0.6) { pdfScale -= 0.2; renderAllPages(); }
+    }
+
+    // Synchronization Logic
+    function getMostVisibleElement(container, selector) {
+        const elements = container.querySelectorAll(selector);
+        let maxVisibleArea = 0;
+        let mostVisibleEl = null;
+        const containerRect = container.getBoundingClientRect();
+
+        elements.forEach(el => {
+            const rect = el.getBoundingClientRect();
+            const top = Math.max(rect.top, containerRect.top);
+            const bottom = Math.min(rect.bottom, containerRect.bottom);
+            const visibleHeight = Math.max(0, bottom - top);
+            if (visibleHeight > maxVisibleArea) {
+                maxVisibleArea = visibleHeight;
+                mostVisibleEl = el;
+            }
+        });
+        return mostVisibleEl;
+    }
+
+    if (pdfScrollContainer && ocrDataScrollContainer) {
+        pdfScrollContainer.addEventListener('scroll', () => {
+            if (isSyncing) return;
+            clearTimeout(syncTimeout);
+            syncTimeout = setTimeout(() => {
+                const visiblePdfPage = getMostVisibleElement(pdfScrollContainer, '.pdf-page-wrapper');
+                if (visiblePdfPage) {
+                    const pageNum = visiblePdfPage.dataset.page;
+                    const targetOcrGroup = ocrDataScrollContainer.querySelector(`.ocr-page-group[data-page="${pageNum}"]`);
+                    if (targetOcrGroup) {
+                        isSyncing = true;
+                        const containerRect = ocrDataScrollContainer.getBoundingClientRect();
+                        const targetRect = targetOcrGroup.getBoundingClientRect();
+                        const scrollTop = ocrDataScrollContainer.scrollTop + (targetRect.top - containerRect.top) - 10;
+                        
+                        ocrDataScrollContainer.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' });
+                        setTimeout(() => { isSyncing = false; }, 800);
+                    }
+                }
+            }, 100);
+        });
+
+        ocrDataScrollContainer.addEventListener('scroll', () => {
+            if (isSyncing) return;
+            clearTimeout(syncTimeout);
+            syncTimeout = setTimeout(() => {
+                const visibleRow = getMostVisibleElement(ocrDataScrollContainer, '.ocr-data-row');
+                if (visibleRow) {
+                    const pageNum = visibleRow.dataset.page;
+                    const targetPdfPage = pdfScrollContainer.querySelector(`.pdf-page-wrapper[data-page="${pageNum}"]`);
+                    if (targetPdfPage) {
+                        isSyncing = true;
+                        const containerRect = pdfScrollContainer.getBoundingClientRect();
+                        const targetRect = targetPdfPage.getBoundingClientRect();
+                        const scrollTop = pdfScrollContainer.scrollTop + (targetRect.top - containerRect.top) - 20;
+                        
+                        pdfScrollContainer.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' });
+                        setTimeout(() => { isSyncing = false; }, 800);
+                    }
+                }
+            }, 100);
+        });
+    }
+    {% endif %}
 </script>
 {% endblock %}
 {% endblock %}

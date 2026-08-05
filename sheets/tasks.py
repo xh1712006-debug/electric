@@ -607,13 +607,16 @@ def execute_parallel_ocr_batch(job_ids, user_id=None, device_mode='CPU'):
       - Pipeline 1: Bóc tách Trang 1 → Trang 2 theo thứ tự cho từng file.
       - Pipeline 2: Chờ Pipeline 1 xong rồi bóc tách Trang 3 → Trang 4 → ... theo thứ tự.
     """
-    from concurrent.futures import ThreadPoolExecutor
+    import concurrent.futures
     from sheets.models import OcrJob
 
     if not isinstance(job_ids, list):
         job_ids = [job_ids]
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    # Giới hạn số lượng tiến trình OCR song song tối đa là 2 để tránh nghẽn CPU và RAM.
+    # PaddleOCR tự thân nó đã chạy đa luồng rất mạnh, nếu gọi quá nhiều process một lúc sẽ dẫn đến thắt cổ chai (Thrashing).
+    max_workers = min(len(job_ids), 2)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         f_header  = executor.submit(_pipeline_header_worker,  job_ids, user_id, device_mode)
         f_details = executor.submit(_pipeline_details_worker, job_ids, user_id, device_mode)
         for future in (f_header, f_details):

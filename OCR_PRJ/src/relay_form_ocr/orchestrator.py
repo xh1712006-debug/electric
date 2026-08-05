@@ -293,6 +293,11 @@ class DocumentOcrOrchestrator:
                 displayed_total = min(2, candidate.page_count) if stage == "header" else candidate.page_count
                 progress(page_number, displayed_total, f"{candidate.name}: trang {page_number}/{displayed_total}")
 
+            def _sub_progress(sub_label: str) -> None:
+                if progress:
+                    displayed_total = min(2, candidate.page_count) if stage == "header" else candidate.page_count
+                    progress(page_number, displayed_total, f"{candidate.name}: trang {page_number}/{displayed_total} — {sub_label}")
+
             if role == "page2_skipped":
                 if stage_event:
                     stage_event(
@@ -331,6 +336,7 @@ class DocumentOcrOrchestrator:
                         )
                     )
                 try:
+                    _sub_progress("Nhận diện vùng văn bản...")
                     detection = detector.detect_page(image_path)
                     detection_payload = detection.as_dict()
                 except Exception as exc:
@@ -360,6 +366,7 @@ class DocumentOcrOrchestrator:
                         )
                     )
                 try:
+                    _sub_progress("Đọc ký tự OCR...")
                     recognition = recognizer.recognise_page(image_path, detection.detections)
                     recognition_payload = recognition.as_dict()
                     regions = recognition_payload["regions"]
@@ -390,6 +397,7 @@ class DocumentOcrOrchestrator:
                         )
                     )
                 try:
+                    _sub_progress("Phân tích bố cục...")
                     if role == "page1":
                         layout = self._page1.analyse_page(
                             image_path,

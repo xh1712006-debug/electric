@@ -396,20 +396,40 @@
                             <!-- 6. Thao tác -->
                             <td class="px-6 py-4 text-right whitespace-nowrap">
                                 <div class="inline-flex items-center justify-end gap-2">
-                                    <!-- Khi THÀNH CÔNG: Nút Cập nhật & Rà soát (Primary) + JSON -->
+                                    <!-- Khi THÀNH CÔNG: Menu Dropdown (Cập nhật & Rà soát, JSON) -->
                                     <template x-if="job.status === 'SUCCESS' || job.status === 'SUCCESS_WITH_WARNINGS'">
-                                        <div class="flex items-center gap-2">
-                                            <a :href="'/sheets/' + job.sheet_id + '/'" 
-                                               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold text-xs shadow-md shadow-blue-500/25 hover:shadow-lg hover:shadow-blue-500/35 transition-all active:scale-95 group">
-                                                <i class="fas fa-clipboard-check text-[13px] group-hover:scale-110 transition-transform"></i>
-                                                <span>Cập nhật & Rà soát</span>
-                                            </a>
-                                            <button type="button" @click="viewJson(job.id)" 
-                                                    class="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-200/80 transition-all active:scale-95 cursor-pointer shadow-2xs" 
-                                                    title="Xem dữ liệu JSON trả về từ OCR">
-                                                <i class="fas fa-code text-[11px] text-slate-500"></i>
-                                                <span>JSON</span>
+                                        <div class="relative inline-block text-left" x-data="{ open: false }" @click.away="open = false" @keydown.escape.window="open = false">
+                                            <button type="button" @click="open = !open" 
+                                                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs border border-slate-200 shadow-2xs transition-all active:scale-95 cursor-pointer">
+                                                <i class="fas fa-ellipsis text-slate-400"></i>
+                                                <span>Thao tác</span>
+                                                <i class="fas fa-chevron-down text-[10px] text-slate-400 ml-0.5 transition-transform duration-200" :class="{'rotate-180': open}"></i>
                                             </button>
+
+                                            <div x-show="open" style="display: none;"
+                                                 x-transition:enter="transition ease-out duration-100"
+                                                 x-transition:enter-start="transform opacity-0 scale-95 translate-y-1"
+                                                 x-transition:enter-end="transform opacity-100 scale-100 translate-y-0"
+                                                 x-transition:leave="transition ease-in duration-75"
+                                                 x-transition:leave-start="transform opacity-100 scale-100 translate-y-0"
+                                                 x-transition:leave-end="transform opacity-0 scale-95 translate-y-1"
+                                                 class="absolute right-0 z-50 mt-1.5 w-44 origin-top-right rounded-xl bg-white shadow-xl ring-1 ring-slate-900/5 focus:outline-none divide-y divide-slate-50 overflow-hidden">
+                                                 
+                                                <div class="p-1">
+                                                    <a :href="'/sheets/' + job.sheet_id + '/'" 
+                                                       class="w-full text-left inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors cursor-pointer group">
+                                                        <i class="fas fa-clipboard-check w-4 text-center text-blue-500 group-hover:scale-110 transition-transform"></i>
+                                                        <span>Cập nhật & Rà soát</span>
+                                                    </a>
+                                                </div>
+                                                <div class="p-1">
+                                                    <button type="button" @click="viewJson(job.id); open = false" 
+                                                            class="w-full text-left inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer">
+                                                        <i class="fas fa-code w-4 text-center text-slate-400"></i>
+                                                        Xem JSON
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </template>
 

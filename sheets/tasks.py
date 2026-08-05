@@ -127,6 +127,7 @@ def _run_ocr_cli(input_pdf, output_root, correlation_id, stage="all", device_mod
     import os
     import sys
     import threading
+    import tempfile
     from django.conf import settings
 
     project_root = settings.BASE_DIR
@@ -141,6 +142,11 @@ def _run_ocr_cli(input_pdf, output_root, correlation_id, stage="all", device_mod
     if not os.path.exists(python_exe):
         return -1, None, f"Không tìm thấy Python OCR tại {python_exe}"
 
+    # Dùng file tạm để nhận JSON output — tránh hoàn toàn vấn đề pipe deadlock
+    # khi nhiều job chạy song song (orphaned PaddleOCR child processes giữ pipe mở).
+    result_fd, result_path = tempfile.mkstemp(suffix='.json', prefix=f'ocr_{correlation_id}_')
+    os.close(result_fd)
+
     cmd = [
         python_exe, "-m", "src.relay_form_ocr",
         "--input", str(input_pdf),
@@ -148,6 +154,8 @@ def _run_ocr_cli(input_pdf, output_root, correlation_id, stage="all", device_mod
         "--correlation-id", f"{correlation_id}_{stage}",
         "--stage", stage,
         "--json",
+        "--output-json", result_path,
+        "--overwrite-result",
     ]
     if device_mode == 'GPU':
         cmd.append("--gpu")
@@ -160,7 +168,7 @@ def _run_ocr_cli(input_pdf, output_root, correlation_id, stage="all", device_mod
     # ── Chạy subprocess, đọc stderr theo từng dòng để bắt tiến trình trang ───
     proc = subprocess.Popen(
         cmd,
-        stdout=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,   # stdout không dùng nữa (kết quả ở file)
         stderr=subprocess.PIPE,
         cwd=ocr_prj_root,
         env=env,
@@ -187,22 +195,25 @@ def _run_ocr_cli(input_pdf, output_root, correlation_id, stage="all", device_mod
     t_stderr = threading.Thread(target=_read_stderr, daemon=True)
     t_stderr.start()
 
-    # ĐỌC STDOUT TRỰC TIẾP — KHÔNG DÙNG communicate() vì _read_stderr đang giữ stderr.
-    # communicate() sẽ cạnh tranh đọc stderr với thread trên → deadlock pipe → treo mãi tại "Trang 2/2".
-    stdout_data = proc.stdout.read()
-    proc.stdout.close()
     proc.wait()
     t_stderr.join(timeout=5)
 
-    output_json = (stdout_data or '').strip()
+    # Đọc kết quả từ file — không bị ảnh hưởng bởi orphaned child processes
     data = None
-    if output_json:
+    try:
+        if os.path.exists(result_path) and os.path.getsize(result_path) > 0:
+            with open(result_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+    except Exception:
+        pass
+    finally:
         try:
-            data = json.loads(output_json)
+            os.unlink(result_path)
         except Exception:
             pass
 
     return proc.returncode, data, '\n'.join(stderr_lines)
+
 
 
 def _safe_send_ws(channel_layer, user_id, payload):

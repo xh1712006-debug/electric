@@ -431,7 +431,7 @@ def _pipeline_header_worker(job_ids, user_id=None, device_mode='CPU'):
         cache.set(f"ocr_header_done_{job_id}", True, timeout=86400)
 
         # ── Thông báo Pipeline 1 hoàn tất, Pipeline 2 được giải phóng ─────────
-        broadcast_ocr_job_update(job=job, stage_text='Trang 1 & 2 hoàn tất ✓ — Đang chờ bóc tách bảng thông số...')
+        broadcast_ocr_job_update(job=job, stage_text='Hoàn thành thông tin chung, đang chờ bóc tách bảng thông số...')
         _safe_send_ws(channel_layer, user_id, {"type": "bulk_progress", "event_type": "update_badges"})
 
 

@@ -625,6 +625,8 @@ def execute_parallel_ocr_batch(job_ids, user_id=None, device_mode='CPU'):
       - Tối đa 2 cặp job chạy song song cùng lúc để tránh nghẽn CPU.
     """
     import concurrent.futures
+    import logging
+    logger = logging.getLogger(__name__)
 
     if not isinstance(job_ids, list):
         job_ids = [job_ids]
@@ -637,17 +639,18 @@ def execute_parallel_ocr_batch(job_ids, user_id=None, device_mode='CPU'):
     # Mỗi job chạy như 1 unit độc lập (P1 + P2 nối tiếp nhau trong cùng 1 thread).
     # Tối đa 2 job song song để tránh thrashing CPU/RAM.
     max_workers = min(len(job_ids), 2)
+    logger.info("[OCR Batch] Bắt đầu xử lý %d job(s), max_workers=%d", len(job_ids), max_workers)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(_run_single_job, job_id): job_id for job_id in job_ids}
         for future in concurrent.futures.as_completed(futures):
             try:
                 future.result()
             except Exception as exc:
-                import logging
-                logging.getLogger(__name__).exception(
-                    "OCR job %s raised an exception: %s", futures[future], exc
+                logger.exception(
+                    "[OCR Batch] Job %s raised an exception: %s", futures[future], exc
                 )
 
+    logger.info("[OCR Batch] Hoàn thành %d job(s)", len(job_ids))
     return f"Processed batch of {len(job_ids)} OCR jobs"
 
 

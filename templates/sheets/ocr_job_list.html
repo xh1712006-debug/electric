@@ -484,13 +484,10 @@
                                         </div>
                                     </template>
 
-                                    <!-- Khi ĐANG XỬ LÝ (PROCESSING / PENDING) -->
+                                    <!-- Khi ĐANG XỬ LÝ (PROCESSING / PENDING) - Không hiển thị thao tác -->
                                     <template x-if="job.status === 'PROCESSING' || job.status === 'PENDING'">
                                         <div class="flex items-center gap-2">
-                                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200/80 text-xs font-bold shadow-2xs">
-                                                <i class="fas fa-circle-notch fa-spin text-blue-600 text-[11px]"></i>
-                                                <span>Đang bóc tách...</span>
-                                            </span>
+                                            <!-- Trống theo yêu cầu -->
                                         </div>
                                     </template>
                                 </div>

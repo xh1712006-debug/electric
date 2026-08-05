@@ -290,7 +290,8 @@ class DocumentOcrOrchestrator:
 
             role = page_role(page_number)
             if progress:
-                progress(page_number, candidate.page_count, f"{candidate.name}: trang {page_number}/{candidate.page_count}")
+                displayed_total = min(2, candidate.page_count) if stage == "header" else candidate.page_count
+                progress(page_number, displayed_total, f"{candidate.name}: trang {page_number}/{displayed_total}")
 
             if role == "page2_skipped":
                 if stage_event:

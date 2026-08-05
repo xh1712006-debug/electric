@@ -501,9 +501,20 @@ def _pipeline_details_worker(job_ids, user_id=None, device_mode='CPU'):
             continue
 
         sheet_code = job.sheet.sheet_code or f"Job#{job_id}"
-        broadcast_ocr_job_update(job=job, stage_text='Đang khởi tạo OCR (Trang 3+)...')
-
-        # ── Thông báo bắt đầu Pipeline 2 ─────────────────────────────────────
+        page_count = 0
+        try:
+            import fitz
+            with fitz.open(input_pdf) as doc:
+                page_count = len(doc)
+        except Exception:
+            pass
+            
+        if page_count > 0:
+            stage_txt = f'Đang khởi tạo OCR (Trang 3/{page_count})...'
+        else:
+            stage_txt = 'Đang khởi tạo OCR (Trang 3+)...'
+            
+        broadcast_ocr_job_update(job=job, stage_text=stage_txt)
         _safe_send_ws(channel_layer, user_id, {
             "type": "send_notification",
             "title": "Bắt đầu bóc tách Bảng thông số",

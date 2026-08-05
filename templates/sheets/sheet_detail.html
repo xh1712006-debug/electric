@@ -15,23 +15,22 @@
 
 {% block content %}
 <style>
-    /* Force main content to be a rigid flex container so we can have internal scrollbars */
+    /* Allow main content to scroll if it gets taller */
     #main-content {
-        overflow: hidden !important;
         display: flex;
         flex-direction: column;
         padding-bottom: 0 !important;
     }
 </style>
-<div class="flex-1 flex flex-col gap-4 min-h-0">
+<div class="flex-1 flex flex-col gap-4 min-h-[85vh]">
     <!-- Stepper Component -->
     {% include "sheets/partials/_status_stepper.html" with sheet=sheet %}
 
-    <div class="flex-1 flex flex-col md:flex-row gap-6 overflow-hidden">
+    <div class="flex-1 flex flex-col lg:flex-row gap-6 overflow-hidden">
     
     {% if not request.user|has_group:'TECHNICIAN' and not request.user|has_group:'SUPERVISOR' and not request.user|has_group:'STATION_LEADER' %}
-    <!-- Left Column: Document Viewer (Split View 60%) -->
-    <div class="w-full md:w-3/5 bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden flex flex-col min-h-0 shrink-0 relative">
+    <!-- Left Column: Document Viewer (Split View 40%) -->
+    <div class="w-full lg:w-2/5 bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden flex flex-col min-h-[85vh] shrink-0 relative">
         <div class="h-12 bg-slate-900 flex items-center justify-between px-4 border-b border-slate-700 shrink-0 relative z-10">
             <span class="text-slate-300 text-sm font-medium"><i class="fas fa-file-pdf text-red-400 mr-2"></i> Bản scan gốc</span>
             <div class="flex gap-2">
@@ -67,7 +66,7 @@
     {% endif %}
 
     <!-- Right Column: Metadata & Form -->
-    <div class="w-full {% if not request.user|has_group:'TECHNICIAN' and not request.user|has_group:'SUPERVISOR' and not request.user|has_group:'STATION_LEADER' %}md:w-2/5{% endif %} flex flex-col min-h-0 overflow-hidden" x-data="{ activeTab: localStorage.getItem('activeTab_sheet_{{ sheet.pk }}') || 'ocr' }" x-init="$watch('activeTab', value => localStorage.setItem('activeTab_sheet_{{ sheet.pk }}', value))">
+    <div class="w-full {% if not request.user|has_group:'TECHNICIAN' and not request.user|has_group:'SUPERVISOR' and not request.user|has_group:'STATION_LEADER' %}lg:w-3/5{% endif %} flex flex-col min-h-[85vh] overflow-hidden" x-data="{ activeTab: localStorage.getItem('activeTab_sheet_{{ sheet.pk }}') || 'ocr' }" x-init="$watch('activeTab', value => localStorage.setItem('activeTab_sheet_{{ sheet.pk }}', value))">
 
         
         <!-- Tabs Header -->

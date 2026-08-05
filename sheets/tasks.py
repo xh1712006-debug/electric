@@ -501,7 +501,7 @@ def _pipeline_details_worker(job_ids, user_id=None, device_mode='CPU'):
             continue
 
         sheet_code = job.sheet.sheet_code or f"Job#{job_id}"
-        broadcast_ocr_job_update(job=job, stage_text='Đã xong Trang 1 & 2 ✓ — Đang bóc tách bảng thông số (Trang 3+)...')
+        broadcast_ocr_job_update(job=job, stage_text='Đang khởi tạo OCR (Trang 3+)...')
 
         # ── Thông báo bắt đầu Pipeline 2 ─────────────────────────────────────
         _safe_send_ws(channel_layer, user_id, {

@@ -1046,16 +1046,23 @@ def ocr_job_list(request):
 
     jobs_json = json.dumps(jobs_data)
 
-    # Kiểm tra GPU khả dụng để cảnh báo trên UI
-    gpu_available = False
-    gpu_name = None
-    try:
-        import torch
-        gpu_available = torch.cuda.is_available()
-        if gpu_available:
-            gpu_name = torch.cuda.get_device_name(0)
-    except Exception:
-        pass
+    # Kiểm tra GPU khả dụng để cảnh báo trên UI (Sử dụng Cache để tối ưu hiệu suất)
+    gpu_info = cache.get('ocr_gpu_info')
+    if gpu_info is None:
+        gpu_available = False
+        gpu_name = None
+        try:
+            import torch
+            gpu_available = torch.cuda.is_available()
+            if gpu_available:
+                gpu_name = torch.cuda.get_device_name(0)
+        except Exception:
+            pass
+        gpu_info = {'available': gpu_available, 'name': gpu_name}
+        cache.set('ocr_gpu_info', gpu_info, timeout=86400) # Cache trong 24 giờ
+        
+    gpu_available = gpu_info['available']
+    gpu_name = gpu_info['name']
     
     return render(request, 'sheets/ocr_job_list.html', {
         'jobs': jobs,

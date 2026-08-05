@@ -60,7 +60,7 @@ services:
     build: .
     container_name: rms_celery
     restart: always
-    command: celery -A rms_project worker --pool=threads --concurrency=4 -l info
+    command: celery -A rms_project worker --pool=threads --concurrency=1 -l info
     volumes:
       - static_volume:/app/static
       - media_volume:/app/media

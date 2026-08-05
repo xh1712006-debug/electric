@@ -276,21 +276,23 @@
         </div>
 
                         <!-- Metadata Panel -->
-        <div class="p-0">
-            <div class="p-5 border-b border-slate-200 bg-white sticky top-0 z-10 shadow-sm flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-slate-800">Thông tin Chung</h3>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mx-1 mb-6">
+            <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <h3 class="text-sm font-bold text-slate-800"><i class="fas fa-info-circle text-blue-500 mr-2"></i>Thông tin Chung (Trang 1)</h3>
             </div>
-            <div class="p-4">
+            <div class="p-5">
                 {% if request.user|has_group:'DISPATCHER' and sheet.status in 'DRAFT ISSUED' %}
                 <!-- Form edit cho Dispatcher -->
                 <form method="POST" action="{% url 'sheet_update_metadata' sheet.pk %}" class="space-y-4" x-data="metadataForm()">
                     {% csrf_token %}
                     
-                    <div x-show="autoSuggestMessage" x-transition class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
-                        <i class="fas fa-magic text-blue-500 mt-0.5"></i>
-                        <div>
-                            <p class="text-sm text-blue-800 font-medium">Gợi ý từ dữ liệu OCR:</p>
-                            <p class="text-xs text-blue-600 mt-1" x-html="autoSuggestMessage"></p>
+                    <div x-show="autoSuggestMessage" x-transition class="mb-5 p-3.5 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-3 shadow-sm">
+                        <div class="bg-indigo-100 text-indigo-600 w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="w-full">
+                            <p class="text-sm text-indigo-900 font-bold mb-1">AI đã trích xuất các thông tin sau:</p>
+                            <p class="text-[13px] text-indigo-700 leading-relaxed" x-html="autoSuggestMessage"></p>
                         </div>
                     </div>
 
@@ -408,11 +410,8 @@
                             <div class="absolute -right-1 -bottom-1 bg-green-500 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-50"><i class="fas fa-check"></i></div>
                         </div>
                         <h2 class="text-xl font-bold text-slate-800 mb-3">AI đã đọc xong Bản PDF!</h2>
-                        <p class="text-slate-500 mb-6 max-w-md text-sm leading-relaxed">Hệ thống đã nhận diện được các thông số thô từ file. Để chuẩn hóa và hiển thị thành bảng kỹ thuật chính xác, vui lòng chỉ định <b>Trạm</b> và <b>Rơ-le</b> cho phiếu này.</p>
+                        <p class="text-slate-500 mb-8 max-w-md text-sm leading-relaxed">Hệ thống đã nhận diện được các thông số thô từ file. Để chuẩn hóa và hiển thị thành bảng kỹ thuật chính xác, vui lòng chỉ định <b>Trạm</b> và <b>Rơ-le</b> cho phiếu này.</p>
                         
-                        <button type="button" onclick="document.getElementById('ocrDataScrollContainer').scrollTo({top: 0, behavior: 'smooth'}); setTimeout(() => document.getElementById('stationSelect').focus(), 500);" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-blue-500/30 transition-all font-bold flex items-center gap-2 hover:-translate-y-0.5">
-                            <i class="fas fa-arrow-up"></i> Cuộn lên để Chọn Trạm & Rơ-le
-                        </button>
                     </div>
                     {% else %}
                     <form id="ocrForm" method="POST" action="{% url 'sheet_save_actual_data' sheet.pk %}" class="flex flex-col mt-6 border border-slate-200 rounded-xl overflow-hidden shadow-sm">
@@ -778,50 +777,70 @@
                 let msg = [];
                 
                 const ocrStation = PAGE1_FIELDS['Trạm'] || '';
-                const ocrBay = PAGE1_FIELDS['Máy Cắt'] || PAGE1_FIELDS['Thiết Bị Được Bảo Vệ'] || '';
+                const ocrBay = PAGE1_FIELDS['Thiết Bị Được Bảo Vệ'] || PAGE1_FIELDS['Máy Cắt'] || '';
                 const ocrRelay = PAGE1_FIELDS['Tên Rơ-le'] || PAGE1_FIELDS['Số Hiệu Rơ-le'] || '';
                 
-                if (ocrStation) {
-                    const normalizedOcrStation = ocrStation.toLowerCase().replace(/[^a-z0-9]/g, '');
+                let hasOcrData = false;
+                
+                if (ocrStation && ocrStation.trim() !== '-' && ocrStation.trim() !== '') {
+                    hasOcrData = true;
+                    // Bỏ các từ khóa rườm rà
+                    let cleanStation = ocrStation.replace(/trạm\s*(biến áp|220\s*kv|110\s*kv|500\s*kv|kv)?\s*:?/i, '').trim();
+                    const normalizedOcrStation = cleanStation.toLowerCase().replace(/[^a-z0-9]/g, '');
                     const match = this.stations.find(s => {
                         const normalizedS = s.station_name.toLowerCase().replace(/[^a-z0-9]/g, '');
                         return normalizedS.includes(normalizedOcrStation) || normalizedOcrStation.includes(normalizedS);
                     });
                     if (match) {
                         suggestedStationId = match.id;
-                        msg.push(`Trạm đích <b>${match.station_name}</b>`);
+                        msg.push(`Trạm: <b class="text-green-700">${match.station_name}</b> <i class="fas fa-check-circle text-green-500" title="Đã tự động chọn"></i>`);
+                    } else {
+                        msg.push(`Trạm: <b class="text-orange-600">${ocrStation}</b> <i class="fas fa-exclamation-circle text-orange-500" title="Không khớp CSDL, vui lòng tự chọn"></i>`);
                     }
                 }
                 
-                if (suggestedStationId && ocrBay) {
-                    const match = this.bays.filter(b => b.station_id == suggestedStationId).find(b => {
-                        return ocrBay.toLowerCase().includes(b.bay_name.toLowerCase());
+                if (ocrBay && ocrBay.trim() !== '-' && ocrBay.trim() !== '') {
+                    hasOcrData = true;
+                    let cleanBay = ocrBay.replace(/ngăn\s*(lộ)?\s*:?/i, '').trim();
+                    const normalizedOcrBay = cleanBay.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const match = this.bays.filter(b => !suggestedStationId || b.station_id == suggestedStationId).find(b => {
+                        const normalizedS = b.bay_name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        return normalizedS.includes(normalizedOcrBay) || normalizedOcrBay.includes(normalizedS);
                     });
                     if (match) {
                         suggestedBayId = match.id;
-                        msg.push(`Ngăn lộ <b>${match.bay_name}</b>`);
+                        msg.push(`Ngăn: <b class="text-green-700">${match.bay_name}</b>`);
+                    } else {
+                        msg.push(`Ngăn: <b class="text-orange-600">${ocrBay}</b>`);
                     }
                 }
                 
-                if (suggestedStationId && ocrRelay && ocrRelay.trim() !== '-' && ocrRelay.trim() !== '') {
+                if (ocrRelay && ocrRelay.trim() !== '-' && ocrRelay.trim() !== '') {
+                    hasOcrData = true;
+                    let cleanRelay = ocrRelay.replace(/tên\s*rơ-?le\s*:?/i, '').trim();
                     let possibleRelays = this.relays;
                     if (suggestedBayId) possibleRelays = possibleRelays.filter(r => r.bay_id == suggestedBayId);
                     
+                    const normalizedOcrRelay = cleanRelay.toLowerCase().replace(/[^a-z0-9]/g, '');
                     const match = possibleRelays.find(r => {
-                        return ocrRelay.toLowerCase().includes(r.relay_code.toLowerCase()) || 
-                               (r.relay_name && ocrRelay.toLowerCase().includes(r.relay_name.toLowerCase()));
+                        const normalizedCode = r.relay_code.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        const normalizedName = (r.relay_name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        return normalizedCode.includes(normalizedOcrRelay) || normalizedOcrRelay.includes(normalizedCode) ||
+                               (normalizedName && (normalizedName.includes(normalizedOcrRelay) || normalizedOcrRelay.includes(normalizedName)));
                     });
                     if (match) {
                         suggestedRelayId = match.id;
-                        msg.push(`Rơ-le <b>${match.relay_code}</b>`);
+                        msg.push(`Rơ-le: <b class="text-green-700">${match.relay_code}</b>`);
+                    } else {
+                        msg.push(`Rơ-le: <b class="text-orange-600">${ocrRelay}</b>`);
                     }
                 }
                 
-                if (suggestedStationId) {
-                    this.selectedStation = suggestedStationId;
-                    this.selectedBay = suggestedBayId || '';
-                    this.selectedRelay = suggestedRelayId || '';
-                    this.autoSuggestMessage = msg.length ? msg.join(' &middot; ') : '';
+                if (hasOcrData) {
+                    if (suggestedStationId) this.selectedStation = suggestedStationId;
+                    if (suggestedBayId) this.selectedBay = suggestedBayId;
+                    if (suggestedRelayId) this.selectedRelay = suggestedRelayId;
+                    this.autoSuggestMessage = msg.length ? msg.join(' <span class="text-slate-300 mx-2">|</span> ') : '';
                 }
             },
             

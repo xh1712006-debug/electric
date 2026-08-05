@@ -618,11 +618,9 @@ def _pipeline_details_worker(job_ids, user_id=None, device_mode='CPU'):
 @shared_task
 def execute_parallel_ocr_batch(job_ids, user_id=None, device_mode='CPU'):
     """
-    Điều phối Pipeline OCR song song:
-      - Mỗi job có 1 cặp (Pipeline 1 → Pipeline 2) chạy song song với nhau.
-      - Pipeline 1: Bóc tách Trang 1 & 2.
-      - Pipeline 2: Chờ Pipeline 1 của CÙNG JOB xong rồi bóc tách Trang 3+.
-      - Tối đa 2 cặp job chạy song song cùng lúc để tránh nghẽn CPU.
+    Điều phối 2 Pipeline OCR chạy song song ngầm:
+      - Pipeline 1: Bóc tách Trang 1 → Trang 2 theo thứ tự cho từng file.
+      - Pipeline 2: Đi theo sau, chờ Pipeline 1 bóc tách xong file nào thì bóc Trang 3+ của file đó.
     """
     import concurrent.futures
     import logging
@@ -631,27 +629,21 @@ def execute_parallel_ocr_batch(job_ids, user_id=None, device_mode='CPU'):
     if not isinstance(job_ids, list):
         job_ids = [job_ids]
 
-    def _run_single_job(job_id):
-        """Chạy đầy đủ 2 pipeline cho 1 job: header rồi details."""
-        _pipeline_header_worker([job_id], user_id=user_id, device_mode=device_mode)
-        _pipeline_details_worker([job_id], user_id=user_id, device_mode=device_mode)
-
-    # Mỗi job chạy như 1 unit độc lập (P1 + P2 nối tiếp nhau trong cùng 1 thread).
-    # Tối đa 2 job song song để tránh thrashing CPU/RAM.
-    max_workers = min(len(job_ids), 2)
-    logger.info("[OCR Batch] Bắt đầu xử lý %d job(s), max_workers=%d", len(job_ids), max_workers)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(_run_single_job, job_id): job_id for job_id in job_ids}
-        for future in concurrent.futures.as_completed(futures):
+    logger.info("[OCR Batch] Bắt đầu xử lý %d job(s) qua 2 luồng Pipeline song song", len(job_ids))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        f_header  = executor.submit(_pipeline_header_worker,  job_ids, user_id, device_mode)
+        f_details = executor.submit(_pipeline_details_worker, job_ids, user_id, device_mode)
+        
+        for future in (f_header, f_details):
             try:
                 future.result()
             except Exception as exc:
                 logger.exception(
-                    "[OCR Batch] Job %s raised an exception: %s", futures[future], exc
+                    "[OCR Batch] Pipeline worker raised an exception: %s", exc
                 )
 
     logger.info("[OCR Batch] Hoàn thành %d job(s)", len(job_ids))
-    return f"Processed batch of {len(job_ids)} OCR jobs"
+    return f"Processed batch of {len(job_ids)} OCR jobs via 2 parallel pipelines"
 
 
 

@@ -19,7 +19,7 @@ def sheet_list(request):
     page_number = request.GET.get('page', 1)
     
 
-    sheets = SettingSheet.objects.select_related('created_by', 'relay', 'relay__bay', 'relay__bay__station', 'station').all().order_by('-created_at')
+    sheets = SettingSheet.objects.select_related('created_by', 'relay', 'relay__bay', 'relay__bay__station', 'station').all().order_by('-updated_at', '-created_at')
     
     # PBAC Data Filtering
     if request.user.is_superuser or request.user.has_perm('sheets.can_manage_users') or request.user.has_perm('sheets.can_approve_sheet'):

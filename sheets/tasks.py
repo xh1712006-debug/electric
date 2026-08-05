@@ -603,32 +603,38 @@ def _pipeline_details_worker(job_ids, user_id=None, device_mode='CPU'):
 @shared_task
 def execute_parallel_ocr_batch(job_ids, user_id=None, device_mode='CPU'):
     """
-    Điều phối 2 Pipeline OCR chạy song song ngầm:
-      - Pipeline 1: Bóc tách Trang 1 → Trang 2 theo thứ tự cho từng file.
-      - Pipeline 2: Chờ Pipeline 1 xong rồi bóc tách Trang 3 → Trang 4 → ... theo thứ tự.
+    Điều phối Pipeline OCR song song:
+      - Mỗi job có 1 cặp (Pipeline 1 → Pipeline 2) chạy song song với nhau.
+      - Pipeline 1: Bóc tách Trang 1 & 2.
+      - Pipeline 2: Chờ Pipeline 1 của CÙNG JOB xong rồi bóc tách Trang 3+.
+      - Tối đa 2 cặp job chạy song song cùng lúc để tránh nghẽn CPU.
     """
     import concurrent.futures
-    from sheets.models import OcrJob
 
     if not isinstance(job_ids, list):
         job_ids = [job_ids]
 
-    # Giới hạn số lượng tiến trình OCR song song tối đa là 2 để tránh nghẽn CPU và RAM.
-    # PaddleOCR tự thân nó đã chạy đa luồng rất mạnh, nếu gọi quá nhiều process một lúc sẽ dẫn đến thắt cổ chai (Thrashing).
+    def _run_single_job(job_id):
+        """Chạy đầy đủ 2 pipeline cho 1 job: header rồi details."""
+        _pipeline_header_worker([job_id], user_id=user_id, device_mode=device_mode)
+        _pipeline_details_worker([job_id], user_id=user_id, device_mode=device_mode)
+
+    # Mỗi job chạy như 1 unit độc lập (P1 + P2 nối tiếp nhau trong cùng 1 thread).
+    # Tối đa 2 job song song để tránh thrashing CPU/RAM.
     max_workers = min(len(job_ids), 2)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        f_header  = executor.submit(_pipeline_header_worker,  job_ids, user_id, device_mode)
-        f_details = executor.submit(_pipeline_details_worker, job_ids, user_id, device_mode)
-        for future in (f_header, f_details):
+        futures = {executor.submit(_run_single_job, job_id): job_id for job_id in job_ids}
+        for future in concurrent.futures.as_completed(futures):
             try:
                 future.result()
             except Exception as exc:
                 import logging
                 logging.getLogger(__name__).exception(
-                    "OCR pipeline worker raised an exception: %s", exc
+                    "OCR job %s raised an exception: %s", futures[future], exc
                 )
 
-    return f"Processed batch of {len(job_ids)} OCR jobs via 2 parallel pipelines"
+    return f"Processed batch of {len(job_ids)} OCR jobs"
+
 
 
 @shared_task(bind=True, max_retries=3)

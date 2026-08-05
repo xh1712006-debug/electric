@@ -770,79 +770,140 @@
                 });
             },
             
-            runAutoSuggest() {
+                        runAutoSuggest() {
                 let suggestedStationId = null;
                 let suggestedBayId = null;
                 let suggestedRelayId = null;
                 let msg = [];
                 
-                const ocrStation = PAGE1_FIELDS['Trạm'] || '';
-                const ocrBay = PAGE1_FIELDS['Thiết Bị Được Bảo Vệ'] || PAGE1_FIELDS['Máy Cắt'] || '';
-                const ocrRelay = PAGE1_FIELDS['Tên Rơ-le'] || PAGE1_FIELDS['Số Hiệu Rơ-le'] || '';
+                const ocrStationRaw = PAGE1_FIELDS['Trạm'] || '';
+                const ocrBayRaw = PAGE1_FIELDS['Thiết Bị Được Bảo Vệ'] || PAGE1_FIELDS['Máy Cắt'] || '';
+                const ocrRelayRaw = PAGE1_FIELDS['Tên Rơ-le'] || PAGE1_FIELDS['Số Hiệu Rơ-le'] || '';
                 
-                let hasOcrData = false;
-                
-                if (ocrStation && ocrStation.trim() !== '-' && ocrStation.trim() !== '') {
-                    hasOcrData = true;
-                    // Bỏ các từ khóa rườm rà
-                    let cleanStation = ocrStation.replace(/trạm\s*(biến áp|220\s*kv|110\s*kv|500\s*kv|kv)?\s*:?/i, '').trim();
-                    const normalizedOcrStation = cleanStation.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    const match = this.stations.find(s => {
-                        const normalizedS = s.station_name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                        return normalizedS.includes(normalizedOcrStation) || normalizedOcrStation.includes(normalizedS);
-                    });
-                    if (match) {
-                        suggestedStationId = match.id;
-                        msg.push(`Trạm: <b class="text-green-700">${match.station_name}</b> <i class="fas fa-check-circle text-green-500" title="Đã tự động chọn"></i>`);
-                    } else {
-                        msg.push(`Trạm: <b class="text-orange-600">${ocrStation}</b> <i class="fas fa-exclamation-circle text-orange-500" title="Không khớp CSDL, vui lòng tự chọn"></i>`);
-                    }
-                }
-                
-                if (ocrBay && ocrBay.trim() !== '-' && ocrBay.trim() !== '') {
-                    hasOcrData = true;
-                    let cleanBay = ocrBay.replace(/ngăn\s*(lộ)?\s*:?/i, '').trim();
-                    const normalizedOcrBay = cleanBay.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    const match = this.bays.filter(b => !suggestedStationId || b.station_id == suggestedStationId).find(b => {
-                        const normalizedS = b.bay_name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                        return normalizedS.includes(normalizedOcrBay) || normalizedOcrBay.includes(normalizedS);
-                    });
-                    if (match) {
-                        suggestedBayId = match.id;
-                        msg.push(`Ngăn: <b class="text-green-700">${match.bay_name}</b>`);
-                    } else {
-                        msg.push(`Ngăn: <b class="text-orange-600">${ocrBay}</b>`);
-                    }
-                }
-                
-                if (ocrRelay && ocrRelay.trim() !== '-' && ocrRelay.trim() !== '') {
-                    hasOcrData = true;
-                    let cleanRelay = ocrRelay.replace(/tên\s*rơ-?le\s*:?/i, '').trim();
-                    let possibleRelays = this.relays;
-                    if (suggestedBayId) possibleRelays = possibleRelays.filter(r => r.bay_id == suggestedBayId);
+                if (!ocrStationRaw && !ocrBayRaw && !ocrRelayRaw) return;
+
+                // Hàm tính điểm (Fuzzy Scoring)
+                const calculateScore = (targetName, contextString) => {
+                    if (!targetName) return 0;
+                    const cleanName = targetName.toLowerCase().replace(/trạm\s*(biến áp|220\s*kv|110\s*kv|500\s*kv|kv)?\s*:?/i, '').replace(/ngăn\s*(lộ)?\s*:?/i, '').replace(/[^a-z0-9\s]/g, ' ').trim();
+                    const words = cleanName.split(/\s+/).filter(w => w.length > 1);
+                    if (words.length === 0) return 0;
                     
-                    const normalizedOcrRelay = cleanRelay.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    const match = possibleRelays.find(r => {
-                        const normalizedCode = r.relay_code.toLowerCase().replace(/[^a-z0-9]/g, '');
-                        const normalizedName = (r.relay_name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                        return normalizedCode.includes(normalizedOcrRelay) || normalizedOcrRelay.includes(normalizedCode) ||
-                               (normalizedName && (normalizedName.includes(normalizedOcrRelay) || normalizedOcrRelay.includes(normalizedName)));
+                    let score = 0;
+                    const context = contextString.toLowerCase();
+                    for (const w of words) {
+                        if (context.includes(w)) score += 1;
+                    }
+                    // Thưởng điểm nếu chứa toàn bộ chuỗi lõi
+                    if (context.includes(cleanName.replace(/\s+/g, ''))) score += 5;
+                    return score;
+                };
+
+                const contextString = (ocrStationRaw + " " + ocrBayRaw + " " + ocrRelayRaw).toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
+
+                let foundRelay = null;
+                let foundBay = null;
+                let foundStation = null;
+
+                // --- BƯỚC 1: TÌM TỪ RƠ-LE (BOTTOM-UP) ---
+                if (ocrRelayRaw) {
+                    const cleanRelay = ocrRelayRaw.replace(/tên\s*rơ-?le\s*:?/i, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                    // Tìm các rơ le có mã hoặc tên chứa chuỗi OCR (hoặc ngược lại)
+                    const matchedRelays = this.relays.filter(r => {
+                        const code = (r.relay_code || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        const name = (r.relay_name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        return (code && (code.includes(cleanRelay) || cleanRelay.includes(code))) || 
+                               (name && (name.includes(cleanRelay) || cleanRelay.includes(name)));
                     });
-                    if (match) {
-                        suggestedRelayId = match.id;
-                        msg.push(`Rơ-le: <b class="text-green-700">${match.relay_code}</b>`);
-                    } else {
-                        msg.push(`Rơ-le: <b class="text-orange-600">${ocrRelay}</b>`);
+
+                    if (matchedRelays.length === 1) {
+                        foundRelay = matchedRelays[0];
+                    } else if (matchedRelays.length > 1) {
+                        // Trùng mã -> Chấm điểm ngữ cảnh để chọn Rơ-le đúng
+                        let maxScore = -1;
+                        for (const r of matchedRelays) {
+                            const b = this.bays.find(bay => bay.id == r.bay_id);
+                            const s = b ? this.stations.find(st => st.id == b.station_id) : null;
+                            const contextScore = calculateScore(b?.bay_name || '', contextString) + calculateScore(s?.station_name || '', contextString);
+                            if (contextScore > maxScore) {
+                                maxScore = contextScore;
+                                foundRelay = r;
+                            }
+                        }
                     }
                 }
-                
-                if (hasOcrData) {
-                    if (suggestedStationId) this.selectedStation = suggestedStationId;
-                    if (suggestedBayId) this.selectedBay = suggestedBayId;
-                    if (suggestedRelayId) this.selectedRelay = suggestedRelayId;
-                    this.autoSuggestMessage = msg.length ? msg.join(' <span class="text-slate-300 mx-2">|</span> ') : '';
+
+                if (foundRelay) {
+                    suggestedRelayId = foundRelay.id;
+                    foundBay = this.bays.find(b => b.id == foundRelay.bay_id);
+                    if (foundBay) {
+                        suggestedBayId = foundBay.id;
+                        foundStation = this.stations.find(s => s.id == foundBay.station_id);
+                        if (foundStation) suggestedStationId = foundStation.id;
+                    }
+                    msg.push(`Rơ-le: <b class="text-green-700">${foundRelay.relay_code}</b> <i class="fas fa-check-circle text-green-500"></i>`);
+                } 
+                // --- BƯỚC 2: TÌM TỪ NGĂN LỘ (Nếu Rơ-le không thấy) ---
+                else {
+                    if (ocrRelayRaw) msg.push(`Rơ-le: <b class="text-orange-600">${ocrRelayRaw}</b> <i class="fas fa-exclamation-circle text-orange-500" title="Không có trong CSDL"></i>`);
+
+                    if (ocrBayRaw) {
+                        let maxScore = 0;
+                        for (const b of this.bays) {
+                            let score = calculateScore(b.bay_name, contextString);
+                            // Thưởng nếu tên ngăn lộ khớp chuỗi OCR ngăn lộ
+                            const cleanOcrBay = ocrBayRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            const cleanDbBay = b.bay_name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            if (cleanOcrBay.includes(cleanDbBay) || cleanDbBay.includes(cleanOcrBay)) score += 10;
+                            
+                            if (score > maxScore) {
+                                maxScore = score;
+                                foundBay = b;
+                            }
+                        }
+
+                        if (foundBay && maxScore > 0) {
+                            suggestedBayId = foundBay.id;
+                            foundStation = this.stations.find(s => s.id == foundBay.station_id);
+                            if (foundStation) suggestedStationId = foundStation.id;
+                            msg.push(`Ngăn: <b class="text-green-700">${foundBay.bay_name}</b> <i class="fas fa-check-circle text-green-500"></i>`);
+                        } else {
+                            msg.push(`Ngăn: <b class="text-orange-600">${ocrBayRaw}</b> <i class="fas fa-exclamation-circle text-orange-500" title="Không có"></i>`);
+                        }
+                    }
                 }
+
+                // --- BƯỚC 3: TÌM TRẠM (Nếu cả Rơ-le và Ngăn đều không thấy) ---
+                if (!foundStation && ocrStationRaw) {
+                    let maxScore = 0;
+                    for (const s of this.stations) {
+                        let score = calculateScore(s.station_name, contextString);
+                        if (score > maxScore) {
+                            maxScore = score;
+                            foundStation = s;
+                        }
+                    }
+
+                    if (foundStation && maxScore > 0) {
+                        suggestedStationId = foundStation.id;
+                        msg.push(`Trạm: <b class="text-green-700">${foundStation.station_name}</b> <i class="fas fa-check-circle text-green-500"></i>`);
+                    } else {
+                        msg.push(`Trạm: <b class="text-orange-600">${ocrStationRaw}</b> <i class="fas fa-exclamation-circle text-orange-500" title="Không có"></i>`);
+                    }
+                } else if (foundStation) {
+                    // Trạm đã được nội suy từ Rơ-le hoặc Ngăn lộ, hiển thị xác nhận
+                    msg.unshift(`Trạm: <b class="text-green-700">${foundStation.station_name}</b> <i class="fas fa-check-circle text-green-500"></i>`);
+                }
+
+                // Cập nhật State
+                if (suggestedStationId) this.selectedStation = suggestedStationId;
+                if (suggestedBayId) this.selectedBay = suggestedBayId;
+                if (suggestedRelayId) this.selectedRelay = suggestedRelayId;
+                
+                this.autoSuggestMessage = msg.length ? msg.join(' <span class="text-slate-300 mx-2">|</span> ') : '';
             },
+
+
             
             initTomSelects() {
                 // 1. Station

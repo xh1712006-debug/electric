@@ -354,7 +354,7 @@ def _pipeline_header_worker(job_ids, user_id=None, device_mode='CPU'):
         job.sheet.status = 'DRAFT'
         job.sheet.save(update_fields=['status'])
         job.save(update_fields=['status'])
-        broadcast_ocr_job_update(job=job, stage_text='Đang bóc tách Trang 1 (Thông tin chung)...')
+        broadcast_ocr_job_update(job=job, stage_text='Khởi động OCR (Thông tin chung)...')
 
         sheet_code = job.sheet.sheet_code or f"Job#{job_id}"
 

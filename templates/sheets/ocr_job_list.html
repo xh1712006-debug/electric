@@ -331,36 +331,11 @@
 
                                 <!-- PROCESSING -->
                                 <template x-if="job.status === 'PROCESSING'">
-                                    <div class="flex flex-col gap-1.5 min-w-[220px] max-w-xs">
-                                        <!-- Stage 1 Done / Stage 2 in progress -->
-                                        <template x-if="job.stage_text && (job.stage_text.includes('Trang 1 & 2 hoàn tất') || job.stage_text.includes('Đã xong Trang 1 & 2') || job.stage_text.includes('Bảng thông số'))">
-                                            <div class="flex flex-col gap-1">
-                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 w-fit">
-                                                    <i class="fas fa-check-circle text-emerald-500 text-[10px]"></i>
-                                                    <span>Đã xong Trang 1 & 2</span>
-                                                </span>
-                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/90 shadow-2xs w-fit">
-                                                    <i class="fas fa-circle-notch fa-spin text-indigo-600 text-[11px]"></i>
-                                                    <span x-text="job.stage_text.includes('Bảng thông số') ? job.stage_text : 'Đang bóc tách Bảng thông số (Trang 3+)...'"></span>
-                                                </span>
-                                            </div>
-                                        </template>
-                                        <!-- Stage 1 in progress -->
-                                        <template x-if="!job.stage_text || (!job.stage_text.includes('Trang 1 & 2 hoàn tất') && !job.stage_text.includes('Đã xong Trang 1 & 2') && !job.stage_text.includes('Bảng thông số'))">
-                                            <div class="flex flex-col gap-1">
-                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/90 shadow-2xs w-fit">
-                                                    <i class="fas fa-circle-notch fa-spin text-blue-600 text-[11px]"></i>
-                                                    <span x-text="job.stage_text || 'Đang bóc tách Trang 1 (Thông tin chung)...'"></span>
-                                                </span>
-                                                <span class="text-[11px] text-slate-400 font-medium ml-1 flex items-center gap-1">
-                                                    <i class="fas fa-clock text-[9px]"></i> Trang 3+ đang chờ
-                                                </span>
-                                            </div>
-                                        </template>
-                                        <!-- Mini animated progress bar -->
-                                        <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
-                                            <div class="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 rounded-full animate-pulse" style="width: 80%;"></div>
-                                        </div>
+                                    <div class="flex flex-col gap-1.5 min-w-[150px] max-w-xs">
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/90 shadow-2xs w-fit">
+                                            <i class="fas fa-circle-notch fa-spin text-blue-600 text-[11px]"></i>
+                                            <span x-text="(job.stage_text && job.stage_text.match(/Trang \d+(\/\d+)?/i)) ? job.stage_text.match(/Trang \d+(\/\d+)?/i)[0] : 'Đang bóc tách...'"></span>
+                                        </span>
                                     </div>
                                 </template>
 

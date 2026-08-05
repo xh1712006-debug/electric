@@ -297,12 +297,8 @@ def broadcast_ocr_job_update(job=None, job_id=None, stage_text=None):
 
 def _notify_page_progress(channel_layer, user_id, sheet_code, page_no, total_pages, stage_label):
     """Gửi thông báo WebSocket tiến trình bóc tách từng trang."""
-    _safe_send_ws(channel_layer, user_id, {
-        "type": "send_notification",
-        "title": f"Đang bóc tách {stage_label}",
-        "message": f"Phiếu {sheet_code}: Trang {page_no}/{total_pages} — {stage_label}",
-        "level": "info",
-    })
+    # Đã tắt thông báo popup để tránh spam màn hình khi xử lý nhiều phiếu
+    pass
 
 
 def _pipeline_header_worker(job_ids, user_id=None, device_mode='CPU'):
@@ -363,12 +359,7 @@ def _pipeline_header_worker(job_ids, user_id=None, device_mode='CPU'):
         sheet_code = job.sheet.sheet_code or f"Job#{job_id}"
 
         # ── Thông báo bắt đầu Pipeline 1 ─────────────────────────────────────
-        _safe_send_ws(channel_layer, user_id, {
-            "type": "send_notification",
-            "title": "Bắt đầu bóc tách Trang 1 & 2",
-            "message": f"Phiếu {sheet_code}: Đang xử lý trang bìa và thông tin chung...",
-            "level": "info",
-        })
+        # Đã tắt thông báo popup
 
         # ── Định nghĩa callback cập nhật tiến trình trang ─────────────────────
         def _page_cb(page_no, total_pages, _msg, _chl=channel_layer, _uid=user_id,
@@ -441,12 +432,6 @@ def _pipeline_header_worker(job_ids, user_id=None, device_mode='CPU'):
 
         # ── Thông báo Pipeline 1 hoàn tất, Pipeline 2 được giải phóng ─────────
         broadcast_ocr_job_update(job=job, stage_text='Trang 1 & 2 hoàn tất ✓ — Đang chờ bóc tách bảng thông số...')
-        _safe_send_ws(channel_layer, user_id, {
-            "type": "send_notification",
-            "title": "Trang 1 & 2 hoàn tất ✓",
-            "message": f"Phiếu {sheet_code}: Đã nhận diện xong thông tin chung. Pipeline 2 đang bóc tách bảng thông số...",
-            "level": "info",
-        })
         _safe_send_ws(channel_layer, user_id, {"type": "bulk_progress", "event_type": "update_badges"})
 
 
@@ -530,12 +515,6 @@ def _pipeline_details_worker(job_ids, user_id=None, device_mode='CPU'):
             stage_txt = 'Đang khởi tạo OCR (Trang 3+)...'
             
         broadcast_ocr_job_update(job=job, stage_text=stage_txt)
-        _safe_send_ws(channel_layer, user_id, {
-            "type": "send_notification",
-            "title": "Bắt đầu bóc tách Bảng thông số",
-            "message": f"Phiếu {sheet_code}: Đang xử lý Trang 3 trở đi (bảng thông số chỉnh định)...",
-            "level": "info",
-        })
 
         # ── Định nghĩa callback cập nhật tiến trình trang ─────────────────────
         def _page_cb(page_no, total_pages, _msg, _chl=channel_layer, _uid=user_id,
@@ -606,12 +585,6 @@ def _pipeline_details_worker(job_ids, user_id=None, device_mode='CPU'):
         broadcast_ocr_job_update(job=job, stage_text='Đã hoàn thành ✓')
 
         # ── Thông báo hoàn tất toàn bộ phiếu ─────────────────────────────────
-        _safe_send_ws(channel_layer, user_id, {
-            "type": "send_notification",
-            "title": "Trích xuất OCR Thành công ✓",
-            "message": f"Phiếu {sheet_code} đã bóc tách xong và chuyển vào 'Phiếu Chờ Rà Soát'.",
-            "level": "success",
-        })
         _safe_send_ws(channel_layer, user_id, {"type": "bulk_progress", "event_type": "update_badges"})
 
 

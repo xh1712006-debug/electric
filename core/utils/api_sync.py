@@ -301,4 +301,23 @@ def run_api_sync(config_key=None, config_id=None):
         # Default generic mapping handler
         count = len(lst_data)
         
+    # --- AUTO-LINK RELATIONS ---
+    # Nối Ngăn Lộ (Bay) vào Trạm (Station)
+    if config.key in ['API_TRAM', 'API_NGAN_LO']:
+        orphaned_bays = Bay.objects.filter(station__isnull=True).exclude(id_tba__isnull=True).exclude(id_tba='')
+        for bay in orphaned_bays:
+            station = Station.objects.filter(id_tba=bay.id_tba).first()
+            if station:
+                bay.station = station
+                bay.save(update_fields=['station'])
+                
+    # Nối Rơ-le (Relay) vào Ngăn Lộ (Bay)
+    if config.key in ['API_NGAN_LO', 'API_THIET_BI']:
+        orphaned_relays = Relay.objects.filter(bay__isnull=True).exclude(id_vtri_dat__isnull=True).exclude(id_vtri_dat='')
+        for relay in orphaned_relays:
+            bay = Bay.objects.filter(id_nlo=relay.id_vtri_dat).first()
+            if bay:
+                relay.bay = bay
+                relay.save(update_fields=['bay'])
+                
     return True, count, ""

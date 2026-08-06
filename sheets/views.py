@@ -986,22 +986,62 @@ def sheet_update_metadata(request, pk):
 
 @login_required
 def ocr_job_list(request):
-    """View hiển thị tiến độ trích xuất các phiếu (OcrJob). Hỗ trợ cả HTML và JSON API."""
+    """View hiển thị tiến độ trích xuất các phiếu (OcrJob). Hỗ trợ cả HTML và JSON API (Phân trang Server-side)."""
     import json
     from .models import OcrJob
     from django.http import JsonResponse
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    from django.db.models import Q
     
-    # Lấy 50 jobs mới nhất
-    jobs = OcrJob.objects.select_related('sheet', 'sheet__created_by').order_by('-created_at')[:50]
-    
+    # 1. Thống kê tổng quan (Luôn query toàn bộ DB, không phụ thuộc filter)
     failed_count = OcrJob.objects.filter(status='FAILED').count()
     processing_count = OcrJob.objects.filter(status__in=['PENDING', 'PROCESSING']).count()
     success_count = OcrJob.objects.filter(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS']).count()
     total_count = OcrJob.objects.count()
 
-    # Chuyển đổi dữ liệu sang danh sách dict
+    # 2. Xử lý Filters
+    status_filter = request.GET.get('status', 'ALL')
+    device_filter = request.GET.get('device_mode', 'ALL')
+    search_query = request.GET.get('q', '').strip()
+    
+    queryset = OcrJob.objects.select_related('sheet', 'sheet__created_by').order_by('-created_at')
+    
+    if status_filter == 'SUCCESS':
+        queryset = queryset.filter(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS'])
+    elif status_filter == 'PROCESSING':
+        queryset = queryset.filter(status__in=['PENDING', 'PROCESSING'])
+    elif status_filter == 'FAILED':
+        queryset = queryset.filter(status='FAILED')
+        
+    if device_filter == 'CPU':
+        queryset = queryset.filter(device_mode='CPU')
+    elif device_filter == 'GPU':
+        queryset = queryset.filter(device_mode='GPU')
+        
+    if search_query:
+        queryset = queryset.filter(
+            Q(sheet__sheet_code__icontains=search_query) |
+            Q(sheet__title__icontains=search_query) |
+            Q(sheet__created_by__username__icontains=search_query) |
+            Q(sheet__created_by__first_name__icontains=search_query)
+        )
+        
+    # 3. Phân trang (15 items/trang)
+    paginator = Paginator(queryset, 15)
+    page_number = request.GET.get('page', 1)
+    
+    try:
+        page_obj = paginator.page(page_number)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+        page_number = 1
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+        page_number = paginator.num_pages
+
+    # 4. Chuyển đổi dữ liệu trang hiện tại sang danh sách dict
     jobs_data = []
-    for job in jobs:
+    for job in page_obj:
         stage_text = cache.get(f"ocr_stage_{job.id}") or ''
         if not stage_text and job.status == 'PROCESSING':
             if cache.get(f"ocr_header_done_{job.id}"):
@@ -1035,9 +1075,15 @@ def ocr_job_list(request):
         return JsonResponse({
             'status': 'ok',
             'jobs': jobs_data,
+            'pagination': {
+                'current_page': int(page_number),
+                'total_pages': paginator.num_pages,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous(),
+                'total_items': paginator.count,
+            },
             'stats': {
-                'total': min(total_count, 50),
-                'actual_total': total_count,
+                'total': total_count,
                 'failed': failed_count,
                 'processing': processing_count,
                 'success': success_count,
@@ -1045,6 +1091,13 @@ def ocr_job_list(request):
         })
 
     jobs_json = json.dumps(jobs_data)
+    pagination_json = json.dumps({
+        'current_page': int(page_number),
+        'total_pages': paginator.num_pages,
+        'has_next': page_obj.has_next(),
+        'has_previous': page_obj.has_previous(),
+        'total_items': paginator.count,
+    })
 
     # Kiểm tra GPU khả dụng để cảnh báo trên UI (Sử dụng Cache để tối ưu hiệu suất)
     gpu_info = cache.get('ocr_gpu_info')
@@ -1065,8 +1118,8 @@ def ocr_job_list(request):
     gpu_name = gpu_info['name']
     
     return render(request, 'sheets/ocr_job_list.html', {
-        'jobs': jobs,
         'jobs_json': jobs_json,
+        'pagination_json': pagination_json,
         'failed_count': failed_count,
         'processing_count': processing_count,
         'success_count': success_count,

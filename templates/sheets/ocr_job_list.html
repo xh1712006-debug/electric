@@ -229,7 +229,7 @@
                 <span>Tự động cập nhật không tải lại trang • Vị trí cuộn được giữ nguyên</span>
             </div>
             <div class="flex items-center gap-2">
-                <span>Hiển thị <strong class="text-slate-800" x-text="filteredJobs.length"></strong> / <span x-text="jobs.length"></span> tiến trình</span>
+                <span>Trang <strong class="text-slate-800" x-text="pagination.current_page"></strong>/<span x-text="pagination.total_pages"></span> • <span x-text="pagination.total_items"></span> tiến trình</span>
                 <span x-show="lastUpdatedTime" class="text-slate-400 hidden sm:inline">• Cập nhật: <span x-text="lastUpdatedTime"></span></span>
             </div>
         </div>
@@ -249,7 +249,7 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100 text-sm">
                     <!-- Alpine x-for for Real-time Reactive Rows -->
-                    <template x-for="job in filteredJobs" :key="job.id">
+                    <template x-for="job in jobs" :key="job.id">
                         <tr class="transition-colors duration-200 relative group"
                             :class="{
                                 'bg-blue-50/70 ring-2 ring-blue-400/60 ring-inset': highlightedJobId === job.id,
@@ -301,7 +301,7 @@
                                 </template>
                                 <template x-if="job.device_mode !== 'GPU'">
                                     <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/70 shadow-2xs" title="Chế độ xử lý CPU">
-                                        <i class="fas fa-microchip text-[10px] text-slate-500"></i> CPU
+                                        <i class="fas fa-microchip text-[11px] text-slate-500"></i> CPU
                                     </span>
                                 </template>
                             </td>
@@ -471,7 +471,7 @@
                     </template>
 
                     <!-- Empty State -->
-                    <template x-if="filteredJobs.length === 0">
+                    <template x-if="jobs.length === 0">
                         <tr>
                             <td colspan="6" class="px-6 py-16 text-center">
                                 <div class="flex flex-col items-center justify-center max-w-sm mx-auto">
@@ -489,6 +489,40 @@
                     </template>
                 </tbody>
             </table>
+        </div>
+        
+        <!-- Pagination UI -->
+        <div class="p-4 border-t border-slate-100 bg-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="text-xs text-slate-500 font-medium">
+                Đang xem trang <span class="font-bold text-slate-800" x-text="pagination.current_page"></span> trong tổng số <span class="font-bold text-slate-800" x-text="pagination.total_pages"></span> trang.
+            </div>
+            <div class="flex items-center gap-1.5" x-show="pagination.total_pages > 1">
+                <button type="button" 
+                        @click="goToPage(pagination.current_page - 1)" 
+                        :disabled="!pagination.has_previous"
+                        class="px-3.5 py-2 text-xs font-bold rounded-lg border bg-white text-slate-600 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100"
+                        :class="!pagination.has_previous ? 'border-slate-100' : 'border-slate-200'">
+                    <i class="fas fa-chevron-left mr-1 text-[10px]"></i> Trước
+                </button>
+                
+                <template x-for="page in Array.from({length: pagination.total_pages}, (_, i) => i + 1)">
+                    <button type="button"
+                            x-show="page === 1 || page === pagination.total_pages || Math.abs(page - pagination.current_page) <= 2"
+                            @click="goToPage(page)"
+                            class="w-8 h-8 flex items-center justify-center text-xs font-bold rounded-lg transition-all cursor-pointer"
+                            :class="page === pagination.current_page ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'">
+                        <span x-text="page"></span>
+                    </button>
+                </template>
+                
+                <button type="button" 
+                        @click="goToPage(pagination.current_page + 1)" 
+                        :disabled="!pagination.has_next"
+                        class="px-3.5 py-2 text-xs font-bold rounded-lg border bg-white text-slate-600 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100"
+                        :class="!pagination.has_next ? 'border-slate-100' : 'border-slate-200'">
+                    Sau <i class="fas fa-chevron-right ml-1 text-[10px]"></i>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -582,41 +616,21 @@
             <div class="p-0 overflow-y-auto flex-1 bg-[#18181b] relative">
                 <div x-show="isLoading" class="absolute inset-0 flex items-center justify-center bg-[#18181b]/80 z-10">
                     <i class="fas fa-circle-notch fa-spin text-3xl text-emerald-500"></i>
-                </div>
-                <pre class="p-5 text-xs font-mono leading-relaxed" x-text="jsonData" style="color: #e4e4e7;"></pre>
-            </div>
-            
-            <div class="p-3.5 border-t border-slate-800 bg-slate-900 flex justify-between items-center shrink-0">
-                <button type="button" @click="copyJson()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition-colors font-semibold text-xs flex items-center gap-1.5 cursor-pointer">
-                    <i class="fas fa-copy"></i>
-                    <span x-text="copiedJson ? 'Đã sao chép!' : 'Sao chép JSON'"></span>
-                </button>
-                <button @click="showModal = false" class="px-5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors font-semibold text-xs cursor-pointer">
-                    Đóng
-                </button>
-            </div>
-        </div>
-    </div>
-
-</div>
-
 <!-- ==================== ALPINE.JS REACTIVE COMPONENT ==================== -->
 <script>
 function ocrProgressManager() {
     return {
-        jobs: {{ jobs_json|safe|default:"[]" }},
+        jobs: {{ jobs_json|safe }},
+        pagination: {{ pagination_json|safe|default:"{current_page:1, total_pages:1, has_next:false, has_previous:false, total_items:0}" }},
         stats: {
             total: {{ total_count|default:0 }},
-            success: {{ success_count|default:0 }},
+            failed: {{ failed_count|default:0 }},
             processing: {{ processing_count|default:0 }},
-            failed: {{ failed_count|default:0 }}
+            success: {{ success_count|default:0 }},
         },
         statusFilter: 'ALL',
         deviceFilter: 'ALL',
         searchQuery: '',
-        showModal: false,
-        showErrorModal: false,
-        isLoading: false,
         isSyncing: false,
         jsonData: '',
         copiedJson: false,
@@ -626,10 +640,24 @@ function ocrProgressManager() {
         highlightedJobId: null,
         lastUpdatedTime: '',
         syncTimer: null,
+        searchTimeout: null,
 
         init() {
             this.updateLastTime();
             try { sessionStorage.removeItem('ocr_progress_scroll'); } catch(e) {}
+
+            // Lắng nghe thay đổi search để gọi API
+            this.$watch('searchQuery', (value) => {
+                clearTimeout(this.searchTimeout);
+                this.searchTimeout = setTimeout(() => {
+                    this.pagination.current_page = 1;
+                    this.fetchLatestData(true);
+                }, 500);
+            });
+            this.$watch('deviceFilter', () => {
+                this.pagination.current_page = 1;
+                this.fetchLatestData(true);
+            });
 
             // 1. Lắng nghe sự kiện WebSocket toàn cục được dispatch từ base.html
             window.addEventListener('ws-message', (e) => {
@@ -641,7 +669,7 @@ function ocrProgressManager() {
                 }
             });
 
-            // 2. Polling ngầm nhẹ nhàng mỗi 5 giây (Background in-place sync) mà hoàn toàn KHÔNG reload trang
+            // 2. Polling ngầm nhẹ nhàng mỗi 5 giây
             this.syncTimer = setInterval(() => {
                 this.fetchLatestData(false);
             }, 5000);
@@ -654,38 +682,16 @@ function ocrProgressManager() {
 
         setStatusFilter(filter) {
             this.statusFilter = filter;
+            this.pagination.current_page = 1;
+            this.fetchLatestData(true);
         },
 
         resetFilters() {
             this.statusFilter = 'ALL';
             this.deviceFilter = 'ALL';
             this.searchQuery = '';
-        },
-
-        get filteredJobs() {
-            return this.jobs.filter(job => {
-                // Filter theo Status
-                if (this.statusFilter === 'SUCCESS' && !(job.status === 'SUCCESS' || job.status === 'SUCCESS_WITH_WARNINGS')) return false;
-                if (this.statusFilter === 'PROCESSING' && !(job.status === 'PROCESSING' || job.status === 'PENDING')) return false;
-                if (this.statusFilter === 'FAILED' && job.status !== 'FAILED') return false;
-
-                // Filter theo Device Mode
-                if (this.deviceFilter === 'CPU' && job.device_mode === 'GPU') return false;
-                if (this.deviceFilter === 'GPU' && job.device_mode !== 'GPU') return false;
-
-                // Filter theo Search Query
-                if (this.searchQuery.trim()) {
-                    const q = this.searchQuery.toLowerCase().trim();
-                    const sheetCode = (job.sheet_code || '').toLowerCase();
-                    const sheetTitle = (job.sheet_title || '').toLowerCase();
-                    const createdBy = (job.created_by || '').toLowerCase();
-                    if (!sheetCode.includes(q) && !sheetTitle.includes(q) && !createdBy.includes(q)) {
-                        return false;
-                    }
-                }
-
-                return true;
-            });
+            this.pagination.current_page = 1;
+            this.fetchLatestData(true);
         },
 
         handleOcrUpdate(payload) {
@@ -701,28 +707,32 @@ function ocrProgressManager() {
 
             const existingIndex = this.jobs.findIndex(j => j.id === incomingJob.id);
             if (existingIndex !== -1) {
-                // Cập nhật in-place từng thuộc tính mà KHÔNG làm thay đổi DOM node gốc
+                // Cập nhật in-place từng thuộc tính
                 for (const key in incomingJob) {
                     if (this.jobs[existingIndex][key] !== incomingJob[key]) {
                         this.jobs[existingIndex][key] = incomingJob[key];
                     }
                 }
+                // Hiệu ứng highlight nhẹ dòng vừa thay đổi
+                this.highlightedJobId = incomingJob.id;
+                setTimeout(() => {
+                    if (this.highlightedJobId === incomingJob.id) {
+                        this.highlightedJobId = null;
+                    }
+                }, 3000);
             } else {
-                // Thêm job mới lên đầu danh sách
-                this.jobs.unshift(incomingJob);
-                if (this.jobs.length > 50) {
-                    this.jobs.pop();
+                // Nếu đang ở trang 1 và không bị vướng bộ lọc khắt khe, tự động tải lại để hiện job mới
+                if (this.pagination.current_page === 1 && this.statusFilter === 'ALL' && this.searchQuery === '') {
+                    this.fetchLatestData(false);
                 }
-                this.stats.total = this.jobs.length;
             }
+        },
 
-            // Hiệu ứng highlight nhẹ dòng vừa thay đổi
-            this.highlightedJobId = incomingJob.id;
-            setTimeout(() => {
-                if (this.highlightedJobId === incomingJob.id) {
-                    this.highlightedJobId = null;
-                }
-            }, 3000);
+        goToPage(page) {
+            if (page >= 1 && page <= this.pagination.total_pages) {
+                this.pagination.current_page = page;
+                this.fetchLatestData(true);
+            }
         },
 
         // Đồng bộ dữ liệu ngầm không reload trang
@@ -731,7 +741,14 @@ function ocrProgressManager() {
             if (showIndicator) this.isSyncing = true;
 
             try {
-                const response = await fetch('/sheets/ocr-progress/?format=json', {
+                const url = new URL(window.location.origin + '/sheets/ocr-progress/');
+                url.searchParams.append('format', 'json');
+                url.searchParams.append('page', this.pagination.current_page);
+                url.searchParams.append('status', this.statusFilter);
+                url.searchParams.append('device_mode', this.deviceFilter);
+                url.searchParams.append('q', this.searchQuery);
+
+                const response = await fetch(url.toString(), {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
                     }
@@ -742,27 +759,19 @@ function ocrProgressManager() {
                     if (data.stats) {
                         this.stats = Object.assign({}, this.stats, data.stats);
                     }
-
-                    // Cập nhật in-place từng job
-                    data.jobs.forEach(incoming => {
-                        const idx = this.jobs.findIndex(j => j.id === incoming.id);
-                        if (idx !== -1) {
-                            for (const key in incoming) {
-                                if (this.jobs[idx][key] !== incoming[key]) {
-                                    this.jobs[idx][key] = incoming[key];
-                                }
-                            }
-                        } else {
-                            this.jobs.unshift(incoming);
-                            if (this.jobs.length > 50) this.jobs.pop();
-                        }
-                    });
+                    if (data.pagination) {
+                        this.pagination = data.pagination;
+                    }
+                    
+                    // Vì là phân trang server-side, mỗi trang/bộ lọc sẽ có 1 list job chính xác,
+                    // nên ghi đè thẳng list job hiện tại.
+                    this.jobs = data.jobs;
                 }
             } catch (e) {
                 console.warn("Background OCR sync error:", e);
             } finally {
                 if (showIndicator) {
-                    setTimeout(() => { this.isSyncing = false; }, 400);
+                    setTimeout(() => { this.isSyncing = false; }, 300);
                 }
             }
         },
@@ -771,9 +780,8 @@ function ocrProgressManager() {
             this.retryingId = jobId;
             try {
                 let formData = new FormData();
-                if (deviceMode) {
-                    formData.append('device_mode', deviceMode);
-                }
+                if (deviceMode) formData.append('device_mode', deviceMode);
+                
                 const response = await fetch(`/sheets/ocr-job/${jobId}/retry/`, {
                     method: 'POST',
                     body: formData,
@@ -784,14 +792,7 @@ function ocrProgressManager() {
                 });
                 const data = await response.json();
                 if (data.status === 'ok') {
-                    const job = this.jobs.find(j => j.id === jobId);
-                    if (job) {
-                        job.status = 'PENDING';
-                        job.stage_text = 'Đang chờ xử lý...';
-                        if (deviceMode) job.device_mode = deviceMode;
-                    }
-                    if (this.stats.failed > 0) this.stats.failed--;
-                    this.stats.processing++;
+                    this.fetchLatestData(true);
                 } else {
                     alert(data.message || 'Không thể trích xuất lại');
                 }
@@ -806,9 +807,8 @@ function ocrProgressManager() {
             this.retryingAll = true;
             try {
                 let formData = new FormData();
-                if (deviceMode) {
-                    formData.append('device_mode', deviceMode);
-                }
+                if (deviceMode) formData.append('device_mode', deviceMode);
+                
                 const response = await fetch(`/sheets/ocr-job/retry-all/`, {
                     method: 'POST',
                     body: formData,
@@ -819,15 +819,7 @@ function ocrProgressManager() {
                 });
                 const data = await response.json();
                 if (data.status === 'ok') {
-                    this.jobs.forEach(j => {
-                        if (j.status === 'FAILED') {
-                            j.status = 'PENDING';
-                            j.stage_text = 'Đang chờ xử lý...';
-                            if (deviceMode) j.device_mode = deviceMode;
-                        }
-                    });
-                    this.stats.processing += this.stats.failed;
-                    this.stats.failed = 0;
+                    this.fetchLatestData(true);
                 }
             } catch (e) {
                 console.error(e);

@@ -252,11 +252,6 @@ def broadcast_ocr_job_update(job=None, job_id=None, stage_text=None):
     else:
         stage_text = cache.get(f"ocr_stage_{job.id}") or ''
 
-    failed_count = OcrJob.objects.filter(status='FAILED').count()
-    processing_count = OcrJob.objects.filter(status__in=['PENDING', 'PROCESSING']).count()
-    success_count = OcrJob.objects.filter(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS']).count()
-    total_count = OcrJob.objects.count()
-
     from django.utils import timezone
     local_created_at = timezone.localtime(job.created_at) if job.created_at else None
 
@@ -279,23 +274,52 @@ def broadcast_ocr_job_update(job=None, job_id=None, stage_text=None):
         'stage_text': stage_text or '',
     }
 
-    event_payload = {
-        'type': 'ocr_event',
-        'event_type': 'ocr_update',
-        'job': job_data,
-        'stats': {
-            'total': min(total_count, 50),
-            'actual_total': total_count,
-            'success': success_count,
-            'processing': processing_count,
-            'failed': failed_count,
-        }
-    }
-
     try:
-        async_to_sync(channel_layer.group_send)("ocr_updates", event_payload)
+        admin_failed = OcrJob.objects.filter(status='FAILED').count()
+        admin_proc = OcrJob.objects.filter(status__in=['PENDING', 'PROCESSING']).count()
+        admin_succ = OcrJob.objects.filter(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS']).count()
+        admin_total = OcrJob.objects.count()
+
+        admin_payload = {
+            'type': 'ocr_event',
+            'event_type': 'ocr_update',
+            'job': job_data,
+            'stats': {
+                'total': min(admin_total, 50),
+                'actual_total': admin_total,
+                'success': admin_succ,
+                'processing': admin_proc,
+                'failed': admin_failed,
+            }
+        }
+        async_to_sync(channel_layer.group_send)("admin_ocr_updates", admin_payload)
     except Exception:
         pass
+
+    if job.sheet and job.sheet.created_by:
+        user = job.sheet.created_by
+        if not user.is_superuser:
+            try:
+                user_failed = OcrJob.objects.filter(sheet__created_by=user, status='FAILED').count()
+                user_proc = OcrJob.objects.filter(sheet__created_by=user, status__in=['PENDING', 'PROCESSING']).count()
+                user_succ = OcrJob.objects.filter(sheet__created_by=user, status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS']).count()
+                user_total = OcrJob.objects.filter(sheet__created_by=user).count()
+
+                user_payload = {
+                    'type': 'ocr_event',
+                    'event_type': 'ocr_update',
+                    'job': job_data,
+                    'stats': {
+                        'total': min(user_total, 50),
+                        'actual_total': user_total,
+                        'success': user_succ,
+                        'processing': user_proc,
+                        'failed': user_failed,
+                    }
+                }
+                async_to_sync(channel_layer.group_send)(f"user_{user.id}", user_payload)
+            except Exception:
+                pass
 
 
 def _notify_page_progress(channel_layer, user_id, sheet_code, page_no, total_pages, stage_label):

@@ -23,17 +23,17 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         # Nếu là admin thì nhận thêm thông báo hệ thống (như autocheck)
         # Dùng sync_to_async để tránh lỗi SynchronousOnlyOperation
         user = self.scope['user']
-        is_admin = await sync_to_async(
-            lambda: user.is_superuser or user.groups.filter(name='ADMIN').exists()
+        is_admin, is_super = await sync_to_async(
+            lambda: (user.is_superuser or user.groups.filter(name='ADMIN').exists(), user.is_superuser)
         )()
         
         if is_admin:
             await self.channel_layer.group_add("autocheck_updates", self.channel_name)
             self.groups_joined.append("autocheck_updates")
 
-        # Thêm vào group ocr_updates để nhận tiến trình bóc tách OCR thời gian thực
-        await self.channel_layer.group_add("ocr_updates", self.channel_name)
-        self.groups_joined.append("ocr_updates")
+        if is_super:
+            await self.channel_layer.group_add("admin_ocr_updates", self.channel_name)
+            self.groups_joined.append("admin_ocr_updates")
 
         await self.accept()
 

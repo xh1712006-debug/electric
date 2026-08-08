@@ -1056,6 +1056,10 @@ def ocr_job_list(request):
         elif not stage_text and job.status in ('SUCCESS', 'SUCCESS_WITH_WARNINGS'):
             stage_text = "Đã hoàn thành 100% ✓"
 
+        from django.utils import timezone
+        
+        local_created_at = timezone.localtime(job.created_at) if job.created_at else None
+        
         jobs_data.append({
             'id': job.id,
             'sheet_id': job.sheet.id if job.sheet else None,
@@ -1067,8 +1071,8 @@ def ocr_job_list(request):
             ),
             'device_mode': getattr(job, 'device_mode', 'CPU') or 'CPU',
             'status': job.status,
-            'created_at_date': job.created_at.strftime('%d/%m/%Y') if job.created_at else '',
-            'created_at_time': job.created_at.strftime('%H:%M:%S') if job.created_at else '',
+            'created_at_date': local_created_at.strftime('%d/%m/%Y') if local_created_at else '',
+            'created_at_time': local_created_at.strftime('%H:%M:%S') if local_created_at else '',
             'error_code': job.error_code or '',
             'error_stage': job.error_stage or '',
             'error_detail': job.error_detail or '',

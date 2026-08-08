@@ -257,6 +257,9 @@ def broadcast_ocr_job_update(job=None, job_id=None, stage_text=None):
     success_count = OcrJob.objects.filter(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS']).count()
     total_count = OcrJob.objects.count()
 
+    from django.utils import timezone
+    local_created_at = timezone.localtime(job.created_at) if job.created_at else None
+
     job_data = {
         'id': job.id,
         'sheet_id': job.sheet.id if job.sheet else None,
@@ -268,8 +271,8 @@ def broadcast_ocr_job_update(job=None, job_id=None, stage_text=None):
         ),
         'device_mode': getattr(job, 'device_mode', 'CPU') or 'CPU',
         'status': job.status,
-        'created_at_date': job.created_at.strftime('%d/%m/%Y') if job.created_at else '',
-        'created_at_time': job.created_at.strftime('%H:%M:%S') if job.created_at else '',
+        'created_at_date': local_created_at.strftime('%d/%m/%Y') if local_created_at else '',
+        'created_at_time': local_created_at.strftime('%H:%M:%S') if local_created_at else '',
         'error_code': job.error_code or '',
         'error_stage': job.error_stage or '',
         'error_detail': job.error_detail or '',

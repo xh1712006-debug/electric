@@ -993,18 +993,23 @@ def ocr_job_list(request):
     from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
     from django.db.models import Q
     
-    # 1. Thống kê tổng quan (Luôn query toàn bộ DB, không phụ thuộc filter)
-    failed_count = OcrJob.objects.filter(status='FAILED').count()
-    processing_count = OcrJob.objects.filter(status__in=['PENDING', 'PROCESSING']).count()
-    success_count = OcrJob.objects.filter(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS']).count()
-    total_count = OcrJob.objects.count()
+    # 0. Xác định phạm vi dữ liệu dựa trên quyền user (chỉ xem phiếu do mình tạo, trừ Admin)
+    base_qs = OcrJob.objects.select_related('sheet', 'sheet__created_by')
+    if not request.user.is_superuser:
+        base_qs = base_qs.filter(sheet__created_by=request.user)
+
+    # 1. Thống kê tổng quan (Luôn query toàn bộ DB trong phạm vi user, không phụ thuộc filter)
+    failed_count = base_qs.filter(status='FAILED').count()
+    processing_count = base_qs.filter(status__in=['PENDING', 'PROCESSING']).count()
+    success_count = base_qs.filter(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS']).count()
+    total_count = base_qs.count()
 
     # 2. Xử lý Filters
     status_filter = request.GET.get('status', 'ALL')
     device_filter = request.GET.get('device_mode', 'ALL')
     search_query = request.GET.get('q', '').strip()
     
-    queryset = OcrJob.objects.select_related('sheet', 'sheet__created_by').order_by('-created_at')
+    queryset = base_qs.order_by('-created_at')
     
     if status_filter == 'SUCCESS':
         queryset = queryset.filter(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS'])

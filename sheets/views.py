@@ -999,10 +999,18 @@ def ocr_job_list(request):
         base_qs = base_qs.filter(sheet__created_by=request.user)
 
     # 1. Thống kê tổng quan (Luôn query toàn bộ DB trong phạm vi user, không phụ thuộc filter)
-    failed_count = base_qs.filter(status='FAILED').count()
-    processing_count = base_qs.filter(status__in=['PENDING', 'PROCESSING']).count()
-    success_count = base_qs.filter(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS']).count()
-    total_count = base_qs.count()
+    # TỐI ƯU: Dùng aggregate để gộp 4 lệnh đếm thành 1 câu query duy nhất
+    from django.db.models import Count, Q
+    stats = base_qs.aggregate(
+        failed_count=Count('id', filter=Q(status='FAILED')),
+        processing_count=Count('id', filter=Q(status__in=['PENDING', 'PROCESSING'])),
+        success_count=Count('id', filter=Q(status__in=['SUCCESS', 'SUCCESS_WITH_WARNINGS'])),
+        total_count=Count('id')
+    )
+    failed_count = stats['failed_count']
+    processing_count = stats['processing_count']
+    success_count = stats['success_count']
+    total_count = stats['total_count']
 
     # 2. Xử lý Filters
     status_filter = request.GET.get('status', 'ALL')
@@ -1045,9 +1053,14 @@ def ocr_job_list(request):
         page_number = paginator.num_pages
 
     # 4. Chuyển đổi dữ liệu trang hiện tại sang danh sách dict
+    # TỐI ƯU: Gộp 15 lệnh gọi Redis (cache.get) lẻ tẻ thành 1 lệnh cache.get_many duy nhất
+    job_ids = [job.id for job in page_obj]
+    cache_keys = [f"ocr_stage_{jid}" for jid in job_ids]
+    stages_from_cache = cache.get_many(cache_keys)
+
     jobs_data = []
     for job in page_obj:
-        stage_text = cache.get(f"ocr_stage_{job.id}") or ''
+        stage_text = stages_from_cache.get(f"ocr_stage_{job.id}") or ''
         if not stage_text and job.status == 'PROCESSING':
             if cache.get(f"ocr_header_done_{job.id}"):
                 stage_text = "Đã xong Trang 1 & 2 ✓ — Đang bóc tách bảng thông số (Trang 3+)..."

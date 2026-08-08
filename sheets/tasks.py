@@ -328,119 +328,120 @@ def _pipeline_header_worker(job_ids, user_id=None, device_mode='CPU'):
     channel_layer = get_channel_layer()
 
     for job_id in job_ids:
-        # ── Xóa cache cũ từ lần chạy trước (phòng flag stale gây lỗi) ─────────────
-        cache.delete(f"ocr_header_done_{job_id}")
-        cache.delete(f"ocr_header_failed_{job_id}")
-        cache.delete(f"ocr_header_data_{job_id}")
-
-        connection.close()
-        try:
-            job = OcrJob.objects.select_related('sheet', 'sheet__created_by').get(id=job_id)
-        except OcrJob.DoesNotExist:
-            cache.set(f"ocr_header_done_{job_id}", True, timeout=86400)
-            cache.set(f"ocr_header_failed_{job_id}", True, timeout=86400)
-            continue
-
-        # ── Lấy đường dẫn file PDF ────────────────────────────────────────────
-        input_pdf = None
-        if job.sheet and job.sheet.scan_file:
+        with _pipeline1_lock:
+            # ── Xóa cache cũ từ lần chạy trước (phòng flag stale gây lỗi) ─────────────
+            cache.delete(f"ocr_header_done_{job_id}")
+            cache.delete(f"ocr_header_failed_{job_id}")
+            cache.delete(f"ocr_header_data_{job_id}")
+    
+            connection.close()
             try:
-                input_pdf = job.sheet.scan_file.path
-            except Exception:
-                input_pdf = str(job.sheet.scan_file)
-
-        if not input_pdf or not os.path.exists(input_pdf):
-            job.status = 'FAILED'
-            job.error_detail = 'Không tìm thấy file scan PDF đính kèm.'
-            job.save(update_fields=['status', 'error_detail'])
-            broadcast_ocr_job_update(job=job, stage_text='Thiếu file scan PDF')
-            cache.set(f"ocr_header_failed_{job_id}", True, timeout=86400)
-            cache.set(f"ocr_header_done_{job_id}", True, timeout=86400)
-            continue
-
-        job.status = 'PROCESSING'
-        job.sheet.status = 'DRAFT'
-        job.sheet.save(update_fields=['status'])
-        job.save(update_fields=['status'])
-        broadcast_ocr_job_update(job=job, stage_text='Đang bóc tách Trang 1/2 (Thông tin chung)...')
-
-        sheet_code = job.sheet.sheet_code or f"Job#{job_id}"
-
-        # ── Thông báo bắt đầu Pipeline 1 ─────────────────────────────────────
-        # Đã tắt thông báo popup
-
-        # ── Định nghĩa callback cập nhật tiến trình trang ─────────────────────
-        def _page_cb(page_no, total_pages, _msg, _chl=channel_layer, _uid=user_id,
-                     _sc=sheet_code, _jb=job):
-            _notify_page_progress(_chl, _uid, _sc, page_no, total_pages,
-                                   f"Trang {page_no}/{total_pages} (Thông tin chung)")
-            broadcast_ocr_job_update(job=_jb, stage_text=f"Đang bóc tách Trang {page_no}/{total_pages} (Thông tin chung)...")
-
-        # ── Gọi OCR CLI cho stage=header (Trang 1 & 2 theo thứ tự) ───────────
-        ret_code, data, stderr = _run_ocr_cli(
-            input_pdf, output_root, job.correlation_id,
-            stage="header", device_mode=device_mode,
-            ws_callback=_page_cb,
-        )
-
-        if ret_code != 0 or not data or data.get('status') not in ('success', 'success_with_warnings'):
-            job.status = 'FAILED'
-            err_msg = (
-                (data.get('error', {}).get('message') if data and 'error' in data else None)
-                or stderr or f"Lỗi OCR Header (Exit Code {ret_code})"
+                job = OcrJob.objects.select_related('sheet', 'sheet__created_by').get(id=job_id)
+            except OcrJob.DoesNotExist:
+                cache.set(f"ocr_header_done_{job_id}", True, timeout=86400)
+                cache.set(f"ocr_header_failed_{job_id}", True, timeout=86400)
+                continue
+    
+            # ── Lấy đường dẫn file PDF ────────────────────────────────────────────
+            input_pdf = None
+            if job.sheet and job.sheet.scan_file:
+                try:
+                    input_pdf = job.sheet.scan_file.path
+                except Exception:
+                    input_pdf = str(job.sheet.scan_file)
+    
+            if not input_pdf or not os.path.exists(input_pdf):
+                job.status = 'FAILED'
+                job.error_detail = 'Không tìm thấy file scan PDF đính kèm.'
+                job.save(update_fields=['status', 'error_detail'])
+                broadcast_ocr_job_update(job=job, stage_text='Thiếu file scan PDF')
+                cache.set(f"ocr_header_failed_{job_id}", True, timeout=86400)
+                cache.set(f"ocr_header_done_{job_id}", True, timeout=86400)
+                continue
+    
+            job.status = 'PROCESSING'
+            job.sheet.status = 'DRAFT'
+            job.sheet.save(update_fields=['status'])
+            job.save(update_fields=['status'])
+            broadcast_ocr_job_update(job=job, stage_text='Đang bóc tách Trang 1/2 (Thông tin chung)...')
+    
+            sheet_code = job.sheet.sheet_code or f"Job#{job_id}"
+    
+            # ── Thông báo bắt đầu Pipeline 1 ─────────────────────────────────────
+            # Đã tắt thông báo popup
+    
+            # ── Định nghĩa callback cập nhật tiến trình trang ─────────────────────
+            def _page_cb(page_no, total_pages, _msg, _chl=channel_layer, _uid=user_id,
+                         _sc=sheet_code, _jb=job):
+                _notify_page_progress(_chl, _uid, _sc, page_no, total_pages,
+                                       f"Trang {page_no}/{total_pages} (Thông tin chung)")
+                broadcast_ocr_job_update(job=_jb, stage_text=f"Đang bóc tách Trang {page_no}/{total_pages} (Thông tin chung)...")
+    
+            # ── Gọi OCR CLI cho stage=header (Trang 1 & 2 theo thứ tự) ───────────
+            ret_code, data, stderr = _run_ocr_cli(
+                input_pdf, output_root, job.correlation_id,
+                stage="header", device_mode=device_mode,
+                ws_callback=_page_cb,
             )
-            job.error_detail = err_msg
-            job.save(update_fields=['status', 'error_detail'])
-            broadcast_ocr_job_update(job=job, stage_text='Lỗi bóc tách Trang 1 & 2')
-            cache.set(f"ocr_header_failed_{job_id}", True, timeout=86400)
+    
+            if ret_code != 0 or not data or data.get('status') not in ('success', 'success_with_warnings'):
+                job.status = 'FAILED'
+                err_msg = (
+                    (data.get('error', {}).get('message') if data and 'error' in data else None)
+                    or stderr or f"Lỗi OCR Header (Exit Code {ret_code})"
+                )
+                job.error_detail = err_msg
+                job.save(update_fields=['status', 'error_detail'])
+                broadcast_ocr_job_update(job=job, stage_text='Lỗi bóc tách Trang 1 & 2')
+                cache.set(f"ocr_header_failed_{job_id}", True, timeout=86400)
+                cache.set(f"ocr_header_done_{job_id}", True, timeout=86400)
+    
+                _safe_send_ws(channel_layer, user_id, {
+                    "type": "send_notification",
+                    "title": "Lỗi bóc tách Trang 1 & 2",
+                    "message": f"Không thể trích xuất thông tin chung của phiếu {sheet_code}: {err_msg[:150]}",
+                    "level": "error",
+                })
+                _safe_send_ws(channel_layer, user_id, {"type": "bulk_progress", "event_type": "update_badges"})
+                continue
+    
+            # ── Cập nhật thông tin phiếu từ kết quả Trang 1 ──────────────────────
+            business = data.get('business', {})
+            page1 = business.get('page1_fields', {})
+    
+            if 'ticket_number' in page1 and page1['ticket_number'].get('value'):
+                ocr_sheet_code = page1['ticket_number']['value']
+                if not SettingSheet.objects.filter(sheet_code=ocr_sheet_code).exclude(pk=job.sheet.pk).exists():
+                    job.sheet.sheet_code = ocr_sheet_code
+                    job.sheet.title = f"Phiếu {job.sheet.sheet_code}"
+                else:
+                    job.sheet.title = f"Phiếu {ocr_sheet_code} (Bản phụ)"
+                sheet_code = job.sheet.sheet_code
+    
+            if 'station' in page1 and page1['station'].get('value'):
+                station_name_ocr = page1['station']['value']
+                st = Station.objects.filter(station_name__icontains=station_name_ocr).first()
+                if st:
+                    job.sheet.station = st
+    
+            if 'relay_name' in page1 and page1['relay_name'].get('value'):
+                relay_name_ocr = page1['relay_name']['value']
+                rl = Relay.objects.filter(relay_name__icontains=relay_name_ocr).first()
+                if not rl:
+                    rl = Relay.objects.filter(relay_code__icontains=relay_name_ocr).first()
+                if rl:
+                    job.sheet.relay = rl
+                    if rl.bay and not job.sheet.station:
+                        job.sheet.station = rl.bay.station
+    
+            job.sheet.status = 'ISSUED'   # Chuyển sang Chờ rà soát ngay sau Trang 1 & 2
+            job.sheet.save()
+            cache.set(f"ocr_header_data_{job_id}", data, timeout=86400)
             cache.set(f"ocr_header_done_{job_id}", True, timeout=86400)
-
-            _safe_send_ws(channel_layer, user_id, {
-                "type": "send_notification",
-                "title": "Lỗi bóc tách Trang 1 & 2",
-                "message": f"Không thể trích xuất thông tin chung của phiếu {sheet_code}: {err_msg[:150]}",
-                "level": "error",
-            })
+    
+            # ── Thông báo Pipeline 1 hoàn tất, Pipeline 2 được giải phóng ─────────
+            broadcast_ocr_job_update(job=job, stage_text='Hoàn thành thông tin chung, đang chờ bóc tách bảng thông số...')
             _safe_send_ws(channel_layer, user_id, {"type": "bulk_progress", "event_type": "update_badges"})
-            continue
-
-        # ── Cập nhật thông tin phiếu từ kết quả Trang 1 ──────────────────────
-        business = data.get('business', {})
-        page1 = business.get('page1_fields', {})
-
-        if 'ticket_number' in page1 and page1['ticket_number'].get('value'):
-            ocr_sheet_code = page1['ticket_number']['value']
-            if not SettingSheet.objects.filter(sheet_code=ocr_sheet_code).exclude(pk=job.sheet.pk).exists():
-                job.sheet.sheet_code = ocr_sheet_code
-                job.sheet.title = f"Phiếu {job.sheet.sheet_code}"
-            else:
-                job.sheet.title = f"Phiếu {ocr_sheet_code} (Bản phụ)"
-            sheet_code = job.sheet.sheet_code
-
-        if 'station' in page1 and page1['station'].get('value'):
-            station_name_ocr = page1['station']['value']
-            st = Station.objects.filter(station_name__icontains=station_name_ocr).first()
-            if st:
-                job.sheet.station = st
-
-        if 'relay_name' in page1 and page1['relay_name'].get('value'):
-            relay_name_ocr = page1['relay_name']['value']
-            rl = Relay.objects.filter(relay_name__icontains=relay_name_ocr).first()
-            if not rl:
-                rl = Relay.objects.filter(relay_code__icontains=relay_name_ocr).first()
-            if rl:
-                job.sheet.relay = rl
-                if rl.bay and not job.sheet.station:
-                    job.sheet.station = rl.bay.station
-
-        job.sheet.status = 'ISSUED'   # Chuyển sang Chờ rà soát ngay sau Trang 1 & 2
-        job.sheet.save()
-        cache.set(f"ocr_header_data_{job_id}", data, timeout=86400)
-        cache.set(f"ocr_header_done_{job_id}", True, timeout=86400)
-
-        # ── Thông báo Pipeline 1 hoàn tất, Pipeline 2 được giải phóng ─────────
-        broadcast_ocr_job_update(job=job, stage_text='Hoàn thành thông tin chung, đang chờ bóc tách bảng thông số...')
-        _safe_send_ws(channel_layer, user_id, {"type": "bulk_progress", "event_type": "update_badges"})
 
 
 def _pipeline_details_worker(job_ids, user_id=None, device_mode='CPU'):

@@ -305,9 +305,15 @@ def _notify_page_progress(channel_layer, user_id, sheet_code, page_no, total_pag
 
 import threading
 
-# Lock toàn cục để đảm bảo chỉ có tối đa 1 tiến trình Pipeline 1 và 1 tiến trình Pipeline 2 chạy cùng lúc (chống OOM)
-_pipeline1_lock = threading.Lock()
-_pipeline2_lock = threading.Lock()
+import os
+
+# Cho phép cấu hình số luồng chạy song song cho từng công đoạn qua biến môi trường (mặc định 1)
+# BoundedSemaphore cho phép cấu hình linh hoạt thay vì Lock (chỉ 1)
+PIPELINE1_CONCURRENCY = int(os.environ.get('PIPELINE1_CONCURRENCY', 1))
+PIPELINE2_CONCURRENCY = int(os.environ.get('PIPELINE2_CONCURRENCY', 2))
+
+_pipeline1_lock = threading.BoundedSemaphore(PIPELINE1_CONCURRENCY)
+_pipeline2_lock = threading.BoundedSemaphore(PIPELINE2_CONCURRENCY)
 
 def _pipeline_header_worker(job_ids, user_id=None, device_mode='CPU'):
     """

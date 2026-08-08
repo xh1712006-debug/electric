@@ -88,6 +88,9 @@ services:
       - DB_HOST=db
       - DB_PORT=5440
       - REDIS_URL=redis://redis:6379/1
+      # Cấu hình số luồng chạy song song cho OCR
+      - PIPELINE1_CONCURRENCY=1 # Số luồng bóc tách Trang 1,2 (Khuyên dùng: 1)
+      - PIPELINE2_CONCURRENCY=2 # Số luồng bóc tách Trang 3+ (Khuyên dùng: 1 hoặc 2)
 
   cloudflared:
     image: cloudflare/cloudflared:latest
